@@ -4,20 +4,15 @@ import os
 from copy import copy
 import numpy as np
 
-
 import skimage.io as io
-from skimage.color import rgb2grey
 import skimage.util as u
 
+from skimage.color import rgb2grey
 from skimage.filters import threshold_minimum
-
 from skimage.transform import hough_circle, hough_circle_peaks
 from skimage.feature import canny
-
 from skimage.morphology import binary_closing
 from skimage import measure
-
-# from scipy.ndimage.morphology import binary_closing
 
 """
 method is
@@ -115,7 +110,7 @@ def crop_image(arr, cx_, cy_, radius_, border_=200):
 
 
 def clean_spot_binary(arr, kx=10, ky=10):
-    return binary_closing(arr, structure=np.ones((kx, ky)))
+    return binary_closing(arr, selem=np.ones((kx, ky)))
 
 
 def generate_props(arr, intensity_image_=None):

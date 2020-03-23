@@ -3,11 +3,7 @@
 """
 Here we will call the methods from the ETL folders
 
-todo: include CLI capabilities with flags
-
-"""
-
-"""
+============================
 txt_parser workflow:
 --------------------
 1) xml_to_dict the xml file
@@ -38,6 +34,44 @@ xlsx report generation workflow:
         - "ID-array" from 2
         - "props-array" from 12
         - "well" from "read_to_grey" from 4
-15) *repeat 13-14* calling next image and well name
+15) "populate main replictes" :
+        - workbook from 13
+        - "props-array" from 12
+        - "antigen-array" from 3
+        - "well" from "read_to_grey" from 4
+16) (populate well-tab)
+17) (populate well-replicate-tab)
+
+18) *repeat 14-17* using next image and well name
+19) save .xlsx
+==============================
+
+==============================
+FULL WORKFLOW
+
+cli
+---
+- input folder
+- output folder
+
+extract
+-------
+A) search folder for all images, all .xmls to list
+B) xlsx_report.create_base_template() step 13
+
+C) txt_parse workflow above to create ID-array, antigen-array
+D) image_parser workflow above to loop 4 (read_to_grey)
+    within loop:
+    E) image_parser steps 5-12
+
+    transform
+    ---------
+    F) (ANY "transform" methods that will further analyze the data from E)
+        (this is set aside as a place to make diagnosis calls and for downstream calculations using spot properties)
+
+    load
+    ----
+    G) xlsx_report generation workflow steps 14-17
 
 """
+
