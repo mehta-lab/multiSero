@@ -1,6 +1,7 @@
 import numpy as np
 from skimage.morphology import disk, ball, binary_opening, binary_erosion
 
+
 def get_unimodal_threshold(input_image):
     """Determines optimal unimodal threshold
 
