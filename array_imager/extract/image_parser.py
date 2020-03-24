@@ -13,6 +13,7 @@ from skimage.transform import hough_circle, hough_circle_peaks
 from skimage.feature import canny
 from skimage.morphology import binary_closing
 from skimage import measure
+import re
 
 from .img_processing import get_unimodal_threshold, create_unimodal_mask
 
@@ -42,9 +43,11 @@ def read_to_grey(path_):
     """
 
     images = [file for file in os.listdir(path_) if '.png' in file or '.tif' in file or '.jpg' in file]
+    # remove any images that are not images of wells.
 
+    wellimages = [file for file in images if re.match(r'[A-P][0-9]{1,2}', file)]
     # sort by letter, then by number (with '10' coming AFTER '9')
-    images.sort(key=lambda x: (x[0], int(x[1:-4])))
+    wellimages.sort(key=lambda x: (x[0], int(x[1:-4])))
 
     for image_base_path in images:
         image_path = path_+os.sep+image_base_path

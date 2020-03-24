@@ -176,7 +176,7 @@ def workflow(input_folder_, output_folder_):
 
 if __name__ == "__main__":
 
-    path = "/Users/bryant.chhun/PycharmProjects/array-imager/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera"
+    path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
 
     input = ['-i', path, '-o', path]
 
