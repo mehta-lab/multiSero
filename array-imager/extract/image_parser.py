@@ -14,6 +14,8 @@ from skimage.feature import canny
 from skimage.morphology import binary_closing
 from skimage import measure
 
+from .img_processing import get_unimodal_threshold, create_unimodal_mask
+
 """
 method is
 1) read_to_grey(supplied images)
@@ -47,7 +49,7 @@ def read_to_grey(path_):
         yield i, os.path.basename(image_path)
 
 
-def thresh_and_binarize(image_):
+def thresh_and_binarize(image_, method='bimodal'):
     """
     receives greyscale np.ndarray image
         inverts the intensities
@@ -55,16 +57,24 @@ def thresh_and_binarize(image_):
         converts the image into binary about that threshold
 
     :param image_: np.ndarray
+    :param method: str
+        'bimodal' or 'unimodal'
     :return: binary threshold_min on this image
     """
     inv = u.invert(image_)
-    thresh = threshold_minimum(inv)
+    if method == 'bimodal':
+        thresh = threshold_minimum(inv)
 
-    binary = copy(inv)
-    binary[inv < thresh] = 0
-    binary[inv >= thresh] = 1
+        binary = copy(inv)
+        binary[inv < thresh] = 0
+        binary[inv >= thresh] = 1
 
-    return binary
+        return binary
+    elif method == 'unimodal':
+        thresh = get_unimodal_threshold(inv)
+
+        binary = create_unimodal_mask(inv, str_elem_size=3)
+        return binary
 
 
 def find_well_border(binary_):
@@ -189,6 +199,12 @@ def generate_props_dict(props_, rows, cols, min_area=100, img_x_max=2048, img_y_
                              "duplicate spots found in one position\n")
 
     return cent_map
+
+
+def generate_region_array(props_):
+    # props contains bounding box info
+    # this will be useful to fill in NONE array values that have extremely low signal
+    pass
 
 
 def assign_props_to_array(arr, cent_map_):

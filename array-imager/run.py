@@ -39,8 +39,8 @@ xlsx report generation workflow:
         - "props-array" from 12
         - "antigen-array" from 3
         - "well" from "read_to_grey" from 4
-16) (populate well-tab)
-17) (populate well-replicate-tab)
+16) (populate well-tab) (in progress)
+17) (populate well-replicate-tab) (in progress)
 
 18) *repeat 14-17* using next image and well name
 19) save .xlsx
