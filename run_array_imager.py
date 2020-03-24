@@ -150,7 +150,11 @@ def workflow(input_folder_, output_folder_):
         # find center of spots from crop
         binary = thresh_and_binarize(im_crop, method='rosin')
         props = generate_props(binary, intensity_image_=im_crop)
+
+        # apply some filters on the region props
         props = filter_props(props, attribute="area", condition="greater_than", condition_value=300)
+        props = filter_props(props, attribute="eccentricity", condition="less_than", condition_value=0.5)
+
         centroid_map = generate_props_dict(props,
                                            params['rows'],
                                            params['columns'],
