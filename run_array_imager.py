@@ -82,6 +82,7 @@ from array_imager.load.xlsx_report import *
 
 import time
 from datetime import datetime
+import skimage.io as io
 
 
 def main(argv):
@@ -135,6 +136,11 @@ def workflow(input_folder_, output_folder_):
 
     xlsx_workbook = create_base_template()
 
+    # save a sub path for this processing run
+    run_path = output_folder_ + os.sep + f'run_{datetime.now().hour}_{datetime.now().minute}_{datetime.now().second}'
+    if not os.path.isdir(run_path):
+        os.mkdir(run_path)
+
     # ================
     # loop over images => good place for multiproc?  careful with columns in report
     # ================
@@ -145,14 +151,14 @@ def workflow(input_folder_, output_folder_):
         # finding center of well and cropping
         binary = thresh_and_binarize(image, method='bimodal')
         cx, cy, r = find_well_border(binary)
-        im_crop = crop_image(image, cx, cy, r, border_=200)
+        im_crop = crop_image(image, cx, cy, r, border_=150)
 
         # find center of spots from crop
         binary = thresh_and_binarize(im_crop, method='rosin')
         props = generate_props(binary, intensity_image_=im_crop)
 
         # apply some filters on the region props
-        props = filter_props(props, attribute="area", condition="greater_than", condition_value=300)
+        props = filter_props(props, attribute="area", condition="greater_than", condition_value=200)
         props = filter_props(props, attribute="eccentricity", condition="less_than", condition_value=0.5)
 
         centroid_map = generate_props_dict(props,
@@ -168,7 +174,26 @@ def workflow(input_folder_, output_folder_):
         stop = time.time()
         print(f"\ttime to process={stop-start}")
 
-    xlsx_workbook.save(output_folder_ + os.sep +
+        # SAVE FOR DEBUGGING
+        well_path = run_path+os.sep+image_name[:-4]
+        os.mkdir(well_path)
+        #   save cropped image and the binary
+        io.imsave(well_path+os.sep+image_name[:-4]+"_crop.png", (255*im_crop).astype('uint8'))
+        io.imsave(well_path + os.sep + image_name[:-4] + "_crop_binary.png", (255*binary).astype('uint8'))
+        #   save spots
+        for row in range(props_array.shape[0]):
+            for col in range(props_array.shape[1]):
+                cell = spot_ids[row][col]
+                prop = props_array[row][col]
+                if prop is not None:
+                    io.imsave(well_path + os.sep + image_name[:-4] + f"_spot_{cell}.png",
+                              (255*prop.intensity_image).astype('uint8'))
+                else:
+                    io.imsave(well_path + os.sep + image_name[:-4] + f"_spot_{cell}.png",
+                              255*np.ones((32, 32), dtype='uint8'))
+
+    # SAVE COMPLETED WORKBOOK
+    xlsx_workbook.save(run_path + os.sep +
                        f'testrun_{datetime.now().year}_'
                        f'{datetime.now().month}{datetime.now().day}_'
                        f'{datetime.now().hour}{datetime.now().minute}.xlsx')
@@ -176,9 +201,8 @@ def workflow(input_folder_, output_folder_):
 
 if __name__ == "__main__":
 
-    path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
-
+    path = '/Users/bryant.chhun/PycharmProjects/array-imager/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
     input = ['-i', path, '-o', path]
+    main(input)
 
     # main(sys.argv[1:])
-    main(input)
