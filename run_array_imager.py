@@ -74,22 +74,50 @@ D) image_parser workflow above to loop 4 (read_to_grey)
     G) xlsx_report generation workflow steps 14-17
 
 """
-import argparse
+import sys, getopt
 
 from array_imager.extract.image_parser import *
 from array_imager.extract.txt_parser import *
 from array_imager.load.xlsx_report import *
 
 import time
+from datetime import datetime
 
 
-def main():
-    path = "/Users/bryant.chhun/PycharmProjects/array-imager/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera"
-    xml = [f for f in os.listdir(path) if '.xml' in f]
+def main(argv):
+    inputfolder = ''
+    outputfolder = ''
+    try:
+        opts, args = getopt.getopt(argv, "hi:o:", ["ifile=", "ofile="])
+    except getopt.GetoptError:
+        print('run_array_imager.py -i <inputfolder> -o <outputfolder>')
+        sys.exit(2)
+
+    for opt, arg in opts:
+        if opt == '-h':
+            print('run_array_imager.py -i <inputfolder> -o <outputfolder>')
+            sys.exit()
+        elif opt in ("-i", "--ifile"):
+            inputfolder = arg
+        elif opt in ("-o", "--ofile"):
+            outputfolder = arg
+
+    if not os.path.isdir(inputfolder):
+        raise ValueError("input folder is not a folder or not supplied")
+
+    if not os.path.isdir(outputfolder):
+        raise ValueError("output folder is not a folder or not supplied")
+
+    workflow(inputfolder, outputfolder)
+
+
+def workflow(input_folder_, output_folder_):
+
+    xml = [f for f in os.listdir(input_folder_) if '.xml' in f]
     if len(xml) > 1:
         raise IOError("more than one .xml file found, aborting")
 
-    xml_path = path+os.sep+xml[0]
+    xml_path = input_folder_+os.sep+xml[0]
 
     # parsing .xml
     fiduc, spots, repl, params = create_xml_dict(xml_path)
@@ -107,9 +135,13 @@ def main():
 
     xlsx_workbook = create_base_template()
 
-    start = time.time()
+    # ================
+    # loop over images => good place for multiproc?  careful with columns in report
+    # ================
     for image, image_name in read_to_grey(path):
+        start = time.time()
         print(image_name)
+
         # finding center of well and cropping
         binary = thresh_and_binarize(image, method='bimodal')
         cx, cy, r = find_well_border(binary)
@@ -118,7 +150,9 @@ def main():
         # find center of spots from crop
         binary = thresh_and_binarize(im_crop, method='rosin')
         props = generate_props(binary, intensity_image_=im_crop)
-        centroid_map = generate_props_dict(props, params['rows'],
+        props = filter_props(props, attribute="area", condition="greater_than", condition_value=300)
+        centroid_map = generate_props_dict(props,
+                                           params['rows'],
                                            params['columns'],
                                            min_area=100)
         props_array = assign_props_to_array(props_array, centroid_map)
@@ -130,13 +164,17 @@ def main():
         stop = time.time()
         print(f"\ttime to process={stop-start}")
 
-    xlsx_workbook.save(path+os.sep+'testrun.xlsx')
+    xlsx_workbook.save(output_folder_ + os.sep +
+                       f'testrun_{datetime.now().year}_'
+                       f'{datetime.now().month}{datetime.now().day}_'
+                       f'{datetime.now().hour}{datetime.now().minute}.xlsx')
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--input_folder", type=str, help='path to folder containing images and .xml')
-    parser.add_argument("--output_folder", type=str, help='path to output folder for intermediate images and report')
-    args = parser.parse_args()
 
-    main()
+    path = "/Users/bryant.chhun/PycharmProjects/array-imager/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera"
+
+    input = ['-i', path, '-o', path]
+
+    # main(sys.argv[1:])
+    main(input)

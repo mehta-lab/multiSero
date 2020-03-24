@@ -58,10 +58,13 @@ def populate_main_tab(wb_, spot_id_array_, props_array_, well):
     ws = wb_['main spot report']
 
     # find the next empty column
-    maxc = 0
-    for c in ws.iter_cols(3, None, 7, 7):
-        maxc = c[0].column
-    current_coln = maxc
+    current_coln = 2
+    for c in ws.iter_cols(0, 500, 7, 7):
+        if c[0].value is not None:
+            continue
+        else:
+            current_coln = c[0].column
+            break
     print(f"\tcolumn for well {well} = {current_coln}")
 
     # add well to worksheet
@@ -91,7 +94,6 @@ def populate_main_tab(wb_, spot_id_array_, props_array_, well):
                 # column is "current column" defined above
                 pos = get_column_letter(current_coln)+pos_num
 
-
                 # here we assign mean_intensity but it should be median, background corrected?
                 if props_array_[row, col] is None:
                     continue
@@ -109,10 +111,14 @@ def populate_main_replicates(wb_, props_array_, antigen_array_, well):
     ws = wb_['Replicates']
 
     # find the next empty column
-    maxc = 0
-    for c in ws.iter_cols(3, None, 2, 2):
-        maxc = c[0].column
-    current_coln = maxc
+    current_coln = 2
+    for c in ws.iter_cols(0, 500, 7, 7):
+        if c[0].value is not None:
+            continue
+        else:
+            current_coln = c[0].column
+            break
+    print(f"\tcolumn for well {well} = {current_coln}")
 
     # add well to worksheet
     ws[get_column_letter(current_coln) + str(2)].value = well
@@ -121,13 +127,9 @@ def populate_main_replicates(wb_, props_array_, antigen_array_, well):
     # populate replicate:  Column A --> we do this every well, inefficient
     #   map_anti_cell is dict of "antigen" : "Cell Position (A1, A2, ...)"
     map_anti_cell = dict()
-    antigen_array_flat = [s for s in antigen_array_.flatten() if s != '' and s is not None]
+    antigen_array_flat = sorted(list(set([s for s in antigen_array_.flatten() if s != '' and s is not None])))
     num_spots = len(antigen_array_flat)
     for r in range(6, 6 + num_spots):
-
-        # there are duplicate antigens in the array, must check
-        if antigen_array_flat[r-6] not in map_anti_cell.keys():
-            continue
 
         _ = ws.cell(column=1, row=r, value=antigen_array_flat[r - 6])
         map_anti_cell[antigen_array_flat[r - 6]] = ['A' + str(r)]
@@ -148,11 +150,11 @@ def populate_main_replicates(wb_, props_array_, antigen_array_, well):
     for antigen, cell in map_anti_cell.items():
         val = [prop.mean_intensity for prop in map_anti_prop[antigen] if prop is not None and prop != '']
 
-        pos_letter_idx = column_index_from_string(map_anti_cell[antigen][0][0]) + current_coln
-        pos_num = map_anti_cell[antigen][0][1]
-        pos = get_column_letter(pos_letter_idx)+pos_num
+        # pos_letter_idx = column_index_from_string(map_anti_cell[antigen][0][0]) + current_coln
+        cell_num = cell[0][1:]
+        cell = get_column_letter(current_coln)+cell_num
 
-        ws[pos].value = round(np.mean(val), 3)
+        ws[cell].value = round(np.mean(val), 3)
 
     return wb_
 

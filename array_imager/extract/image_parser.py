@@ -46,7 +46,7 @@ def read_to_grey(path_):
     # sort by letter, then by number (with '10' coming AFTER '9')
     images.sort(key=lambda x: (x[0], int(x[1:-4])))
 
-    for image_base_path in images[0:1]:
+    for image_base_path in images:
         image_path = path_+os.sep+image_base_path
         im = io.imread(image_path)
         i = rgb2grey(im)
@@ -137,11 +137,38 @@ def generate_props(arr, intensity_image_=None):
         binary version of cropped image
     :param intensity_image_: np.ndarray
         intensity image corresponding to this binary
-    :return:
+    :return: list
+        of skimage region-props object
     """
     labels = measure.label(arr)
     props = measure.regionprops(labels, intensity_image=intensity_image_)
     return props
+
+
+def filter_props(props_, attribute, condition, condition_value):
+    """
+
+    :param props_: RegionProps
+    :param attribute: str
+        a regionprop attribute
+        https://scikit-image.org/docs/dev/api/skimage.measure.html#regionprops
+    :param condition: str
+        one of "greater_than", "equals", "less_than"
+    :param condition_value: int, float
+        the value to evaluate around
+    :return:
+    """
+
+    if condition == 'greater_than':
+        out = [p for p in props_ if getattr(p, attribute) > condition_value]
+    elif condition == 'equals':
+        out = [p for p in props_ if getattr(p, attribute) == condition_value]
+    elif condition == 'less_than':
+        out = [p for p in props_ if getattr(p, attribute) < condition_value]
+    else:
+        out = props_
+
+    return out
 
 
 def generate_props_dict(props_, rows, cols, min_area=100, img_x_max=2048, img_y_max=2048):
