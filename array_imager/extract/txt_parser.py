@@ -57,15 +57,19 @@ def create_xml_dict(path_):
     return fiduc, spots, repl, params
 
 
-def create_array(rows_, cols_):
+def create_array(rows_, cols_, dtype='U100'):
     """
     creates an empty numpy array whose elements are long strings
-    :param rows_: provided by params
-    :param cols_: provided by params
+    :param rows_: int
+        provided by params
+    :param cols_: int
+        provided by params
+    :param dtype: str
+        type of element in this np array
     :return: np.ndarray
     """
 
-    xml_numpy_array = np.empty(shape=(rows_, cols_), dtype=np.dtype('U100'))
+    xml_numpy_array = np.empty(shape=(rows_, cols_), dtype=np.dtype(dtype))
 
     return xml_numpy_array
 
@@ -126,6 +130,27 @@ def populate_array_spots_type(arr, spots, fiduc):
     return arr
 
 
+def populate_array_fiduc(arr, fiduc):
+    """
+    assigns only fiducials to the positions of the array
+    :param arr: np.ndarray
+        target array
+    :param fiduc: dict
+        output of "create_xml_dict"
+    :return: np.ndarray
+        modified target array
+    """
+
+    for f in fiduc:
+        r = int(f['@row'])
+        c = int(f['@col'])
+        v = f['@spot_type']
+
+        arr[r, c] = v
+
+    return arr
+
+
 def populate_array_antigen(arr, id_arr_, repl):
     """
     populates an array with the antigen
@@ -133,8 +158,8 @@ def populate_array_antigen(arr, id_arr_, repl):
 
     :param arr: np.ndarray
         numpy array generated from "create_array"
-    :param id_arr_: dict
-        dict from "create_xml_dict"
+    :param id_arr_: np.ndarray
+        array from populate_array_id
     :param repl: dict
         dict from "create_xml_dict"
     :return: np.ndarray

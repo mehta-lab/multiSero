@@ -59,9 +59,10 @@ def populate_main_tab(wb_, spot_id_array_, props_array_, well):
 
     # find the next empty column
     maxc = 0
-    for c in ws.iter_cols(2, None, 7, 7):
+    for c in ws.iter_cols(3, None, 7, 7):
         maxc = c[0].column
-    current_coln = maxc+1
+    current_coln = maxc
+    print(f"\tcolumn for well {well} = {current_coln}")
 
     # add well to worksheet
     ws[get_column_letter(current_coln)+str(7)].value = well
@@ -70,7 +71,7 @@ def populate_main_tab(wb_, spot_id_array_, props_array_, well):
     # populating main report Column A --> we do this every well, inefficient
     #   map_spot_cell is dict of "spot-Id" : "Cell position (A1, A2...)"
     map_spot_cell = dict()
-    spot_id_array_flat = spot_id_array_.flatten()
+    spot_id_array_flat = [s for s in spot_id_array_.flatten() if s != '' and s is not None]
     num_spots = len(spot_id_array_flat)
     for r in range(11, 11 + num_spots):
         _ = ws.cell(column=1, row=r, value=spot_id_array_flat[r-11])
@@ -84,16 +85,22 @@ def populate_main_tab(wb_, spot_id_array_, props_array_, well):
             # get cell corresponding to spot_id, use it to fill next value in xlsx
 
             if spot_id_array_[row, col] in map_spot_cell:
-                pos_letter_idx = column_index_from_string(map_spot_cell[spot_id_array_[row, col]][0]) + current_coln
-                pos_num = map_spot_cell[spot_id_array_[row, col]][1]
+                # pos_letter_idx = column_index_from_string(map_spot_cell[spot_id_array_[row, col]][0]) + current_coln
+                pos_num = map_spot_cell[spot_id_array_[row, col]][1:]
                 # pos should INCREMENT column (letter) and keep row (number) the same
-                pos = get_column_letter(pos_letter_idx)+pos_num
+                # column is "current column" defined above
+                pos = get_column_letter(current_coln)+pos_num
+
 
                 # here we assign mean_intensity but it should be median, background corrected?
-                ws[pos].value = props_array_[row, col].mean_intensity
+                if props_array_[row, col] is None:
+                    continue
+                else:
+                    ws[pos].value = props_array_[row, col].mean_intensity
+                    print(f"\tassigning cell {pos} value from (row, col) = {row, col}")
 
-            else:
-                raise AttributeError("unable to find cell ID in xlsx columns")
+            # else:
+                # raise AttributeError("unable to find cell ID in xlsx columns")
 
     return wb_
 
@@ -103,9 +110,9 @@ def populate_main_replicates(wb_, props_array_, antigen_array_, well):
 
     # find the next empty column
     maxc = 0
-    for c in ws.iter_cols(2, None, 2, 2):
+    for c in ws.iter_cols(3, None, 2, 2):
         maxc = c[0].column
-    current_coln = maxc + 1
+    current_coln = maxc
 
     # add well to worksheet
     ws[get_column_letter(current_coln) + str(2)].value = well
@@ -114,12 +121,12 @@ def populate_main_replicates(wb_, props_array_, antigen_array_, well):
     # populate replicate:  Column A --> we do this every well, inefficient
     #   map_anti_cell is dict of "antigen" : "Cell Position (A1, A2, ...)"
     map_anti_cell = dict()
-    antigen_array_flat = antigen_array_.flatten()
+    antigen_array_flat = [s for s in antigen_array_.flatten() if s != '' and s is not None]
     num_spots = len(antigen_array_flat)
     for r in range(6, 6 + num_spots):
 
         # there are duplicate antigens in the array, must check
-        if antigen_array_flat[r-6] in map_anti_cell.keys():
+        if antigen_array_flat[r-6] not in map_anti_cell.keys():
             continue
 
         _ = ws.cell(column=1, row=r, value=antigen_array_flat[r - 6])
@@ -138,11 +145,11 @@ def populate_main_replicates(wb_, props_array_, antigen_array_, well):
 
     # iterate through all antigens in Column A
     #   calculate (mean?) value and assign to Well Column
-    for antigen, cell in map_anti_cell:
-        val = [prop.mean_intensity for prop in map_anti_prop[antigen]]
+    for antigen, cell in map_anti_cell.items():
+        val = [prop.mean_intensity for prop in map_anti_prop[antigen] if prop is not None and prop != '']
 
-        pos_letter_idx = column_index_from_string(map_anti_cell[antigen][0]) + current_coln
-        pos_num = map_anti_cell[antigen][1]
+        pos_letter_idx = column_index_from_string(map_anti_cell[antigen][0][0]) + current_coln
+        pos_num = map_anti_cell[antigen][0][1]
         pos = get_column_letter(pos_letter_idx)+pos_num
 
         ws[pos].value = round(np.mean(val), 3)

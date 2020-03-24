@@ -41,15 +41,19 @@ def read_to_grey(path_):
     :return: next image as greyscale np.ndarray, filename
     """
 
-    images = [file for file in os.listdir(path_) if '.png' in file]
+    images = [file for file in os.listdir(path_) if '.png' in file or '.tif' in file or '.jpg' in file]
 
-    for image_path in images:
+    # sort by letter, then by number (with '10' coming AFTER '9')
+    images.sort(key=lambda x: (x[0], int(x[1:-4])))
+
+    for image_base_path in images[0:1]:
+        image_path = path_+os.sep+image_base_path
         im = io.imread(image_path)
         i = rgb2grey(im)
         yield i, os.path.basename(image_path)
 
 
-def thresh_and_binarize(image_, method='bimodal'):
+def thresh_and_binarize(image_, method='rosin'):
     """
     receives greyscale np.ndarray image
         inverts the intensities
@@ -70,7 +74,7 @@ def thresh_and_binarize(image_, method='bimodal'):
         binary[inv >= thresh] = 1
 
         return binary
-    elif method == 'unimodal':
+    elif method == 'rosin':
         thresh = get_unimodal_threshold(inv)
 
         binary = create_unimodal_mask(inv, str_elem_size=3)
@@ -129,8 +133,10 @@ def generate_props(arr, intensity_image_=None):
         first generates labels for the cleaned (binary_closing) binary image
         then generates regionprops on the remaining
 
-    :param arr:
-    :param intensity_image_:
+    :param arr: np.ndarray
+        binary version of cropped image
+    :param intensity_image_: np.ndarray
+        intensity image corresponding to this binary
     :return:
     """
     labels = measure.label(arr)
