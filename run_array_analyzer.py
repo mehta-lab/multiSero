@@ -90,12 +90,12 @@ def main(argv):
     outputfolder = ''
     debug = False
     try:
-        opts, args = getopt.getopt(argv, "hio:d:", ["ifile=", "ofile=", "debug="])
+        options, remainder = getopt.getopt(argv, "hi:o:d:", ["help","ifile=", "ofile=", "debug="])
     except getopt.GetoptError:
         print('run_array_analyzer.py -i <inputfolder> -o <outputfolder>')
         sys.exit(2)
 
-    for opt, arg in opts:
+    for opt, arg in options:
         if opt == '-h':
             print('run_array_analyzer.py -i <inputfolder> -o <outputfolder>')
             sys.exit()
@@ -216,8 +216,9 @@ def workflow(input_folder_, output_folder_, debug=False):
 
 if __name__ == "__main__":
 
-    path = '/Users/bryant.chhun/PycharmProjects/array-imager/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
-    input = ['-i', path, '-o', path]
+    #path = '/Users/bryant.chhun/PycharmProjects/array-imager/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
+    path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
+    input = ['-i', path, '-o' , path]
     main(input)
 
     # main(sys.argv[1:])
