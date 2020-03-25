@@ -90,7 +90,7 @@ def main(argv):
     outputfolder = ''
     debug = False
     try:
-        opts, args = getopt.getopt(argv, "hio:d:", ["ifile=", "ofile=", "debug="])
+        opts, args = getopt.getopt(argv, "hdi:o:", ["ifile=", "ofile=", "debug"])
     except getopt.GetoptError:
         print('run_array_imager.py -i <inputfolder> -o <outputfolder>')
         sys.exit(2)
@@ -161,15 +161,18 @@ def workflow(input_folder_, output_folder_, debug=False):
         # alternative method: use ivan's adaptive threshold approach
 
         # TODO: Syuan-Ming implement background correction by surface fit
-        spot_background=generate_spot_background(spotmask)
+        spot_background = generate_spot_background(spotmask)
 
         props = generate_props(spotmask, intensity_image_=im_crop)
         bgprops = generate_props(spot_background, intensity_image_=im_crop)
 
-        props = filter_props(props, bgprops, attribute="area", condition="greater_than", condition_value=200)
-        props = filter_props(props, attribute="eccentricity", condition="less_than", condition_value=0.5)
-
         # TODO: Filter bgprops by the same criteria as props.
+        # apply filters to the region props lists
+        props = filter_props(props, attribute="area", condition="greater_than", condition_value=200)
+        props = filter_props(props, attribute="eccentricity", condition="less_than", condition_value=0.5)
+        bgprops = filter_props(bgprops, attribute="area", condition="greater_than", condition_value=200)
+        bgprops = filter_props(bgprops, attribute="eccentricity", condition="less_than", condition_value=0.5)
+
         centroid_map = generate_props_dict(props,
                                            params['rows'],
                                            params['columns'],
@@ -189,7 +192,7 @@ def workflow(input_folder_, output_folder_, debug=False):
             os.mkdir(well_path)
             #   save cropped image and the binary
             io.imsave(well_path+os.sep+image_name[:-4]+"_crop.png", (255*im_crop).astype('uint8'))
-            io.imsave(well_path + os.sep + image_name[:-4] + "_crop_binary.png", (255*binary).astype('uint8'))
+            io.imsave(well_path + os.sep + image_name[:-4] + "_crop_binary.png", (255*spotmask).astype('uint8'))
 
             #   save spots
             for row in range(props_array.shape[0]):
@@ -217,7 +220,7 @@ def workflow(input_folder_, output_folder_, debug=False):
 if __name__ == "__main__":
 
     path = '/Users/bryant.chhun/PycharmProjects/array-imager/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
-    input = ['-i', path, '-o', path]
-    main(input)
+    flags = ['-i', path, '-o', path, '-d']
+    main(flags)
 
     # main(sys.argv[1:])

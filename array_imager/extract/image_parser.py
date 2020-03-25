@@ -71,15 +71,13 @@ def thresh_and_binarize(image_, method='rosin'):
     inv = u.invert(image_)
     if method == 'bimodal':
         thresh = threshold_minimum(inv)
-
-        spots = copy(inv)
-        spots[inv < thresh] = 0
-        spots[inv >= thresh] = 1
+        inv = inv > thresh
+        spots = inv.astype(int)
 
     elif method == 'rosin':
         thresh = get_unimodal_threshold(inv)
-
         spots = create_unimodal_mask(inv, str_elem_size=3)
+
     else:
         raise ModuleNotFoundError("not a supported method for thresh_and_binarize")
 
@@ -125,7 +123,7 @@ def find_well_border(image, method='otsu'):
     else:
         cx, cy, radii = None, None, None
 
-    return cx, cy, radii
+    return int(cx), int(cy), int(radii)
 
 
 def crop_image(arr, cx_, cy_, radius_, border_=200):
@@ -141,8 +139,8 @@ def crop_image(arr, cx_, cy_, radius_, border_=200):
     """
 
     crop = arr[
-           cy_ - (radius_ - border_): cy_ + (radius_ - border_),
-           cx_ - (radius_ - border_): cx_ + (radius_ - border_)
+           cx_ - (radius_ - border_): cx_ + (radius_ - border_),
+           cy_ - (radius_ - border_): cy_ + (radius_ - border_)
            ]
 
     return crop
@@ -152,7 +150,7 @@ def clean_spot_binary(arr, kx=10, ky=10):
     return binary_closing(arr, selem=np.ones((kx, ky)))
 
 
-def generate_spot_background(spotmask,distance=3,annulus=5):
+def generate_spot_background(spotmask, distance=3, annulus=5):
     """
     
     compute an annulus around each spot to estimate background.
