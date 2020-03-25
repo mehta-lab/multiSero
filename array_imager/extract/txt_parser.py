@@ -2,6 +2,7 @@
 
 import numpy as np
 import xmltodict
+from xml.parsers.expat import ExpatError
 
 """
 The below code should parse the .xml
@@ -30,6 +31,7 @@ def create_xml_dict(path_):
 
     with open(path_) as fd:
         doc = xmltodict.parse(fd.read())
+
 
     # layout of array
     layout = doc['configuration']['well_configurations']['configuration']['array']['layout']

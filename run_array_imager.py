@@ -149,11 +149,11 @@ def workflow(input_folder_, output_folder_):
 
         # find center of spots from crop
         spotmask = thresh_and_binarize(im_crop, method='rosin')
-        spot_background=generate_spot_background(spotmask)
+        # spot_background = get_spot_background(spotmask)
         props = generate_props(spotmask, intensity_image_=im_crop)
-        bgprops = generate_props(spot_background, intensity_image_=im_crop)
+        # bgprops = generate_props(spot_background, intensity_image_=im_crop)
 
-        props = filter_props(props, bgprops, attribute="area", condition="greater_than", condition_value=300)
+        props = filter_props(props, attribute="area", condition="greater_than", condition_value=300)
         props = filter_props(props, attribute="eccentricity", condition="less_than", condition_value=0.5)
 
         # TODO: Filter bgprops by the same criteria as props.
@@ -177,8 +177,8 @@ def workflow(input_folder_, output_folder_):
 
 
 if __name__ == "__main__":
-    input_path = 'C:\GoogleDrive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
-    output_path = 'C:\GoogleDrive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera/test_output'
+    input_path = r'C:\Google Drive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
+    output_path = r'C:\Google Drive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera/test_output'
     # path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
 
     input = ['-i', input_path, '-o', output_path]
