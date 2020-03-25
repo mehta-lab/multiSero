@@ -76,9 +76,9 @@ D) image_parser workflow above to loop 4 (read_to_grey)
 """
 import sys, getopt
 
-from array_imager.extract.image_parser import *
-from array_imager.extract.txt_parser import *
-from array_imager.load.xlsx_report import *
+from array_analyzer.extract.image_parser import *
+from array_analyzer.extract.txt_parser import *
+from array_analyzer.load.xlsx_report import *
 
 import time
 from datetime import datetime
@@ -92,12 +92,12 @@ def main(argv):
     try:
         opts, args = getopt.getopt(argv, "hio:d:", ["ifile=", "ofile=", "debug="])
     except getopt.GetoptError:
-        print('run_array_imager.py -i <inputfolder> -o <outputfolder>')
+        print('run_array_analyzer.py -i <inputfolder> -o <outputfolder>')
         sys.exit(2)
 
     for opt, arg in opts:
         if opt == '-h':
-            print('run_array_imager.py -i <inputfolder> -o <outputfolder>')
+            print('run_array_analyzer.py -i <inputfolder> -o <outputfolder>')
             sys.exit()
         elif opt in ("-i", "--ifile"):
             inputfolder = arg
