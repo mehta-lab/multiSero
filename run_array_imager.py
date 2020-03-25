@@ -106,7 +106,7 @@ def main(argv):
         raise ValueError("input folder is not a folder or not supplied")
 
     if not os.path.isdir(outputfolder):
-        raise ValueError("output folder is not a folder or not supplied")
+        os.makedirs(outputfolder)
 
     workflow(inputfolder, outputfolder)
 
@@ -138,7 +138,7 @@ def workflow(input_folder_, output_folder_):
     # ================
     # loop over images => good place for multiproc?  careful with columns in report
     # ================
-    for image, image_name in read_to_grey(path):
+    for image, image_name in read_to_grey(input_path):
         start = time.time()
         print(image_name)
 
@@ -175,10 +175,11 @@ def workflow(input_folder_, output_folder_):
 
 
 if __name__ == "__main__":
+    input_path = 'C:\GoogleDrive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
+    output_path = 'C:\GoogleDrive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera/test_output'
+    # path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
 
-    path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
-
-    input = ['-i', path, '-o', path]
+    input = ['-i', input_path, '-o', output_path]
 
     # main(sys.argv[1:])
     main(input)
