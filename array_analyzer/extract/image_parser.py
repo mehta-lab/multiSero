@@ -3,6 +3,7 @@
 import os
 from copy import copy
 import numpy as np
+import re
 
 import skimage.io as io
 import skimage.util as u
@@ -13,9 +14,8 @@ from skimage.transform import hough_circle, hough_circle_peaks
 from skimage.feature import canny
 from skimage.morphology import binary_closing, binary_dilation, selem
 from skimage import measure
-import re
 
-from .img_processing import get_unimodal_threshold, create_unimodal_mask
+from .img_processing import get_unimodal_threshold, create_unimodal_mask, create_otsu_mask
 
 """
 method is
@@ -44,12 +44,11 @@ def read_to_grey(path_):
 
     images = [file for file in os.listdir(path_) if '.png' in file or '.tif' in file or '.jpg' in file]
     # remove any images that are not images of wells.
-
     wellimages = [file for file in images if re.match(r'[A-P][0-9]{1,2}', file)]
     # sort by letter, then by number (with '10' coming AFTER '9')
     wellimages.sort(key=lambda x: (x[0], int(x[1:-4])))
 
-    for image_base_path in images:
+    for image_base_path in wellimages:
         image_path = path_+os.sep+image_base_path
         im = io.imread(image_path)
         i = rgb2grey(im)
@@ -80,11 +79,13 @@ def thresh_and_binarize(image_, method='rosin'):
         thresh = get_unimodal_threshold(inv)
 
         spots = create_unimodal_mask(inv, str_elem_size=3)
+    else:
+        raise ModuleNotFoundError("not a supported method for thresh_and_binarize")
 
     return spots
 
 
-def find_well_border(binary_):
+def find_well_border(image, method='otsu'):
     """
     finds the border of the well to motivate future cropping around spots
         hough_radii are potential radii of the well in pixels
@@ -93,17 +94,37 @@ def find_well_border(binary_):
         fit hough circle
         find the peak of the SINGULAR hough circle
 
-    :param binary_: binarized image
+    :param image: np.ndarray
+        raw image, not inverted
+    :param method: str
+        'otsu' or 'hough'
     :return: center x, center y, radius of the one hough circle
     """
+    if method == 'otsu':
+        well_mask = create_otsu_mask(image, str_elem_size=10)
+        # plt.imshow(well_mask, cmap='gray')
 
-    hough_radii = [300, 400, 500, 600]
+        labels = measure.label(well_mask)
+        props = measure.regionprops(labels)
 
-    edges = canny(binary_, sigma=3)
-    hough_res = hough_circle(edges, hough_radii)
-    aaccums, cx, cy, radii = hough_circle_peaks(hough_res, hough_radii, total_num_peaks=1)
+        # let's assume ONE circle for now (take only props[0])
+        cx, cy = props[0].centroid
+        radii = int(props[0].minor_axis_length / 2 / np.sqrt(2))
 
-    return cx[0], cy[0], radii[0]
+    elif method == 'hough':
+        hough_radii = [300, 400, 500, 600]
+
+        binary_ = thresh_and_binarize(image, method='bimodal')
+
+        edges = canny(binary_, sigma=3)
+        hough_res = hough_circle(edges, hough_radii)
+        aaccums, cx, cy, radii = hough_circle_peaks(hough_res, hough_radii, total_num_peaks=1)
+        cx, cy = cx[0], cy[0]
+        radii = radii[0]
+    else:
+        cx, cy, radii = None, None, None
+
+    return cx, cy, radii
 
 
 def crop_image(arr, cx_, cy_, radius_, border_=200):
@@ -117,7 +138,8 @@ def crop_image(arr, cx_, cy_, radius_, border_=200):
     :param border_:
     :return:
     """
-
+    cx_=int(np.rint(cx_))
+    cy_=int(np.rint(cy_))
     crop = arr[
            cy_ - (radius_ - border_): cy_ + (radius_ - border_),
            cx_ - (radius_ - border_): cx_ + (radius_ - border_)
@@ -128,6 +150,7 @@ def crop_image(arr, cx_, cy_, radius_, border_=200):
 
 def clean_spot_binary(arr, kx=10, ky=10):
     return binary_closing(arr, selem=np.ones((kx, ky)))
+
 
 def generate_spot_background(spotmask,distance=3,annulus=5):
     """
@@ -153,6 +176,7 @@ def generate_spot_background(spotmask,distance=3,annulus=5):
     spot_background=np.bitwise_xor(inner,outer)
 
     return spot_background
+
 
 def generate_props(mask, intensity_image_=None):
     """
