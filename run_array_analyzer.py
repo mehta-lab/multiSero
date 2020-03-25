@@ -164,17 +164,19 @@ def workflow(input_folder_, output_folder_, debug=False):
         spot_background=generate_spot_background(spotmask)
 
         props = generate_props(spotmask, intensity_image_=im_crop)
-        bgprops = generate_props(spot_background, intensity_image_=im_crop)
 
-        props = filter_props(props, bgprops, attribute="area", condition="greater_than", condition_value=200)
+        props = filter_props(props, attribute="area", condition="greater_than", condition_value=200)
         props = filter_props(props, attribute="eccentricity", condition="less_than", condition_value=0.5)
 
-        # TODO: Filter bgprops by the same criteria as props.
+       # TODO: Syuan-Ming to implement extraction of background on the pixels using filtered property list.
+
         centroid_map = generate_props_dict(props,
                                            params['rows'],
                                            params['columns'],
                                            min_area=100)
         props_array = assign_props_to_array(props_array, centroid_map)
+
+       # TODO: compute spot and background intensities, and then show them on a plate like graphic (visualize_elisa_spots).
 
         # xlsx report generation
         xlsx_workbook = populate_main_tab(xlsx_workbook, spot_ids, props_array, image_name[:-4])

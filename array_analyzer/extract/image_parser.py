@@ -44,12 +44,11 @@ def read_to_grey(path_):
 
     images = [file for file in os.listdir(path_) if '.png' in file or '.tif' in file or '.jpg' in file]
     # remove any images that are not images of wells.
-
     wellimages = [file for file in images if re.match(r'[A-P][0-9]{1,2}', file)]
     # sort by letter, then by number (with '10' coming AFTER '9')
     wellimages.sort(key=lambda x: (x[0], int(x[1:-4])))
 
-    for image_base_path in images:
+    for image_base_path in wellimages:
         image_path = path_+os.sep+image_base_path
         im = io.imread(image_path)
         i = rgb2grey(im)
@@ -139,7 +138,8 @@ def crop_image(arr, cx_, cy_, radius_, border_=200):
     :param border_:
     :return:
     """
-
+    cx_=int(np.rint(cx_))
+    cy_=int(np.rint(cy_))
     crop = arr[
            cy_ - (radius_ - border_): cy_ + (radius_ - border_),
            cx_ - (radius_ - border_): cx_ + (radius_ - border_)
