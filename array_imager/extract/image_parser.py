@@ -3,6 +3,7 @@
 import os
 from copy import copy
 import numpy as np
+import re
 
 import skimage.io as io
 import skimage.util as u
@@ -13,9 +14,8 @@ from skimage.transform import hough_circle, hough_circle_peaks
 from skimage.feature import canny
 from skimage.morphology import binary_closing
 from skimage import measure
-import re
 
-from .img_processing import get_unimodal_threshold, create_unimodal_mask
+from .img_processing import get_unimodal_threshold, create_unimodal_mask, create_otsu_mask
 
 """
 method is
@@ -84,7 +84,7 @@ def thresh_and_binarize(image_, method='rosin'):
         return binary
 
 
-def find_well_border(binary_):
+def find_well_border(image, method='otsu'):
     """
     finds the border of the well to motivate future cropping around spots
         hough_radii are potential radii of the well in pixels
@@ -93,17 +93,37 @@ def find_well_border(binary_):
         fit hough circle
         find the peak of the SINGULAR hough circle
 
-    :param binary_: binarized image
+    :param image: np.ndarray
+        raw image, not inverted
+    :param method: str
+        'otsu' or 'hough'
     :return: center x, center y, radius of the one hough circle
     """
+    if method == 'otsu':
+        well_mask = create_otsu_mask(image, str_elem_size=10)
+        # plt.imshow(well_mask, cmap='gray')
 
-    hough_radii = [300, 400, 500, 600]
+        labels = measure.label(well_mask)
+        props = measure.regionprops(labels)
 
-    edges = canny(binary_, sigma=3)
-    hough_res = hough_circle(edges, hough_radii)
-    aaccums, cx, cy, radii = hough_circle_peaks(hough_res, hough_radii, total_num_peaks=1)
+        # let's assume ONE circle for now (take only props[0])
+        cx, cy = props[0].centroid
+        radii = int(props[0].minor_axis_length / 2 / np.sqrt(2))
 
-    return cx[0], cy[0], radii[0]
+    elif method == 'hough':
+        hough_radii = [300, 400, 500, 600]
+
+        binary_ = thresh_and_binarize(image, method='bimodal')
+
+        edges = canny(binary_, sigma=3)
+        hough_res = hough_circle(edges, hough_radii)
+        aaccums, cx, cy, radii = hough_circle_peaks(hough_res, hough_radii, total_num_peaks=1)
+        cx, cy = cx[0], cy[0]
+        radii = radii[0]
+    else:
+        cx, cy, radii = None, None, None
+
+    return cx, cy, radii
 
 
 def crop_image(arr, cx_, cy_, radius_, border_=200):

@@ -88,8 +88,9 @@ import skimage.io as io
 def main(argv):
     inputfolder = ''
     outputfolder = ''
+    debug = False
     try:
-        opts, args = getopt.getopt(argv, "hi:o:", ["ifile=", "ofile="])
+        opts, args = getopt.getopt(argv, "hio:d:", ["ifile=", "ofile=", "debug="])
     except getopt.GetoptError:
         print('run_array_imager.py -i <inputfolder> -o <outputfolder>')
         sys.exit(2)
@@ -102,6 +103,9 @@ def main(argv):
             inputfolder = arg
         elif opt in ("-o", "--ofile"):
             outputfolder = arg
+        elif opt in ("-d", "--debug"):
+            print('debug mode on, saving well and spot images')
+            debug = True
 
     if not os.path.isdir(inputfolder):
         raise ValueError("input folder is not a folder or not supplied")
@@ -109,10 +113,10 @@ def main(argv):
     if not os.path.isdir(outputfolder):
         raise ValueError("output folder is not a folder or not supplied")
 
-    workflow(inputfolder, outputfolder)
+    workflow(inputfolder, outputfolder, debug=debug)
 
 
-def workflow(input_folder_, output_folder_):
+def workflow(input_folder_, output_folder_, debug=False):
 
     xml = [f for f in os.listdir(input_folder_) if '.xml' in f]
     if len(xml) > 1:
@@ -149,12 +153,13 @@ def workflow(input_folder_, output_folder_):
         print(image_name)
 
         # finding center of well and cropping
-        binary = thresh_and_binarize(image, method='bimodal')
-        cx, cy, r = find_well_border(binary)
+        cx, cy, r = find_well_border(image, method='otsu')
         im_crop = crop_image(image, cx, cy, r, border_=150)
 
-        # find center of spots from crop
+        # find center of spots from crop using rosin
         binary = thresh_and_binarize(im_crop, method='rosin')
+        # alternative method: use ivan's adaptive threshold approach
+
         props = generate_props(binary, intensity_image_=im_crop)
 
         # apply some filters on the region props
@@ -175,26 +180,28 @@ def workflow(input_folder_, output_folder_):
         print(f"\ttime to process={stop-start}")
 
         # SAVE FOR DEBUGGING
-        well_path = run_path+os.sep+image_name[:-4]
-        os.mkdir(well_path)
-        #   save cropped image and the binary
-        io.imsave(well_path+os.sep+image_name[:-4]+"_crop.png", (255*im_crop).astype('uint8'))
-        io.imsave(well_path + os.sep + image_name[:-4] + "_crop_binary.png", (255*binary).astype('uint8'))
-        #   save spots
-        for row in range(props_array.shape[0]):
-            for col in range(props_array.shape[1]):
+        if debug:
+            well_path = run_path+os.sep+image_name[:-4]
+            os.mkdir(well_path)
+            #   save cropped image and the binary
+            io.imsave(well_path+os.sep+image_name[:-4]+"_crop.png", (255*im_crop).astype('uint8'))
+            io.imsave(well_path + os.sep + image_name[:-4] + "_crop_binary.png", (255*binary).astype('uint8'))
 
-                cell = spot_ids[row][col]
-                if cell == '':
-                    continue
+            #   save spots
+            for row in range(props_array.shape[0]):
+                for col in range(props_array.shape[1]):
 
-                prop = props_array[row][col]
-                if prop is not None:
-                    io.imsave(well_path + os.sep + image_name[:-4] + f"_spot_{cell}.png",
-                              (255*prop.intensity_image).astype('uint8'))
-                else:
-                    io.imsave(well_path + os.sep + image_name[:-4] + f"_spot_{cell}.png",
-                              (255*np.ones((32, 32)).astype('uint8')))
+                    cell = spot_ids[row][col]
+                    if cell == '':
+                        continue
+
+                    prop = props_array[row][col]
+                    if prop is not None:
+                        io.imsave(well_path + os.sep + image_name[:-4] + f"_spot_{cell}.png",
+                                  (255*prop.intensity_image).astype('uint8'))
+                    else:
+                        io.imsave(well_path + os.sep + image_name[:-4] + f"_spot_{cell}.png",
+                                  (255*np.ones((32, 32)).astype('uint8')))
 
     # SAVE COMPLETED WORKBOOK
     xlsx_workbook.save(run_path + os.sep +
