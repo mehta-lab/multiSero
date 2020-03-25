@@ -2,9 +2,9 @@
 analysis of ELISA serological data 
 
 
-## array_imager
+## array_analyzer
 
-the script "run_array_imager.py" can be run from command line if you comment out
+the script "run_array_analyzer.py" can be run from command line if you comment out
 
 ```python
     path = '/Users/bryant.chhun/PycharmProjects/array-imager/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
