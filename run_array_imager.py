@@ -144,7 +144,7 @@ def workflow(input_folder_, output_folder_):
     # ================
     # loop over images => good place for multiproc?  careful with columns in report
     # ================
-    for image, image_name in read_to_grey(path):
+    for image, image_name in read_to_grey(input_folder_):
         start = time.time()
         print(image_name)
 
@@ -183,14 +183,18 @@ def workflow(input_folder_, output_folder_):
         #   save spots
         for row in range(props_array.shape[0]):
             for col in range(props_array.shape[1]):
+
                 cell = spot_ids[row][col]
+                if cell == '':
+                    continue
+
                 prop = props_array[row][col]
                 if prop is not None:
                     io.imsave(well_path + os.sep + image_name[:-4] + f"_spot_{cell}.png",
                               (255*prop.intensity_image).astype('uint8'))
                 else:
                     io.imsave(well_path + os.sep + image_name[:-4] + f"_spot_{cell}.png",
-                              255*np.ones((32, 32), dtype='uint8'))
+                              (255*np.ones((32, 32)).astype('uint8')))
 
     # SAVE COMPLETED WORKBOOK
     xlsx_workbook.save(run_path + os.sep +
