@@ -80,6 +80,8 @@ def thresh_and_binarize(image_, method='rosin'):
         thresh = get_unimodal_threshold(inv)
 
         spots = create_unimodal_mask(inv, str_elem_size=3)
+    else:
+        raise ModuleNotFoundError("not a supported method for thresh_and_binarize")
 
     return spots
 
@@ -149,6 +151,7 @@ def crop_image(arr, cx_, cy_, radius_, border_=200):
 def clean_spot_binary(arr, kx=10, ky=10):
     return binary_closing(arr, selem=np.ones((kx, ky)))
 
+
 def generate_spot_background(spotmask,distance=3,annulus=5):
     """
     
@@ -173,6 +176,7 @@ def generate_spot_background(spotmask,distance=3,annulus=5):
     spot_background=np.bitwise_xor(inner,outer)
 
     return spot_background
+
 
 def generate_props(mask, intensity_image_=None):
     """
