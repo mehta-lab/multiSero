@@ -12,7 +12,7 @@ from skimage.color import rgb2grey
 from skimage.filters import threshold_minimum
 from skimage.transform import hough_circle, hough_circle_peaks
 from skimage.feature import canny
-from skimage.morphology import binary_closing
+from skimage.morphology import binary_closing, binary_dilation, selem
 from skimage import measure
 
 from .img_processing import get_unimodal_threshold, create_unimodal_mask, create_otsu_mask
@@ -66,22 +66,24 @@ def thresh_and_binarize(image_, method='rosin'):
     :param image_: np.ndarray
     :param method: str
         'bimodal' or 'unimodal'
-    :return: binary threshold_min on this image
+    :return: spots threshold_min on this image
     """
     inv = u.invert(image_)
     if method == 'bimodal':
         thresh = threshold_minimum(inv)
 
-        binary = copy(inv)
-        binary[inv < thresh] = 0
-        binary[inv >= thresh] = 1
+        spots = copy(inv)
+        spots[inv < thresh] = 0
+        spots[inv >= thresh] = 1
 
-        return binary
     elif method == 'rosin':
         thresh = get_unimodal_threshold(inv)
 
-        binary = create_unimodal_mask(inv, str_elem_size=3)
-        return binary
+        spots = create_unimodal_mask(inv, str_elem_size=3)
+    else:
+        raise ModuleNotFoundError("not a supported method for thresh_and_binarize")
+
+    return spots
 
 
 def find_well_border(image, method='otsu'):
@@ -150,20 +152,46 @@ def clean_spot_binary(arr, kx=10, ky=10):
     return binary_closing(arr, selem=np.ones((kx, ky)))
 
 
-def generate_props(arr, intensity_image_=None):
+def generate_spot_background(spotmask,distance=3,annulus=5):
+    """
+    
+    compute an annulus around each spot to estimate background.
+    
+    Parameters
+    ----------
+    spotmask : binary mask of spots
+    distance : distance from the edge of segmented spot.
+    annulus : width of the annulus
+
+    Returns
+    -------
+    spotbackgroundmask: binary mask of annuli around spots.
+    
+    TODO: 'comets' should be ignored, and this approach may not be robust to it.
+    """
+    se_inner=selem.disk(distance,dtype=bool)
+    se_outer=selem.disk(distance+annulus,dtype=bool)
+    inner=binary_dilation(spotmask,se_inner)
+    outer=binary_dilation(spotmask,se_outer)
+    spot_background=np.bitwise_xor(inner,outer)
+
+    return spot_background
+
+
+def generate_props(mask, intensity_image_=None):
     """
     converts binarized image into a list of region-properties using scikit-image
         first generates labels for the cleaned (binary_closing) binary image
         then generates regionprops on the remaining
 
-    :param arr: np.ndarray
+    :param mask: np.ndarray
         binary version of cropped image
     :param intensity_image_: np.ndarray
         intensity image corresponding to this binary
     :return: list
         of skimage region-props object
     """
-    labels = measure.label(arr)
+    labels = measure.label(mask)
     props = measure.regionprops(labels, intensity_image=intensity_image_)
     return props
 
@@ -183,15 +211,15 @@ def filter_props(props_, attribute, condition, condition_value):
     """
 
     if condition == 'greater_than':
-        out = [p for p in props_ if getattr(p, attribute) > condition_value]
+        props = [p for p in props_ if getattr(p, attribute) > condition_value]
     elif condition == 'equals':
-        out = [p for p in props_ if getattr(p, attribute) == condition_value]
+        props = [p for p in props_ if getattr(p, attribute) == condition_value]
     elif condition == 'less_than':
-        out = [p for p in props_ if getattr(p, attribute) < condition_value]
+        props = [p for p in props_ if getattr(p, attribute) < condition_value]
     else:
-        out = props_
+        props = props_
 
-    return out
+    return props
 
 
 def generate_props_dict(props_, rows, cols, min_area=100, img_x_max=2048, img_y_max=2048):
