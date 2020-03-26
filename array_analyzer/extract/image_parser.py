@@ -216,6 +216,8 @@ def filter_props(props_, attribute, condition, condition_value):
         props = [p for p in props_ if getattr(p, attribute) == condition_value]
     elif condition == 'less_than':
         props = [p for p in props_ if getattr(p, attribute) < condition_value]
+    elif condition == 'is_in':
+        props = [p for p in props_ if getattr(p, attribute) in condition_value]
     else:
         props = props_
 
