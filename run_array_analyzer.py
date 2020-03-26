@@ -83,7 +83,8 @@ from array_analyzer.extract.img_processing import *
 
 import time
 from datetime import datetime
-import skimage.io as io
+import skimage as si
+import matplotlib.pyplot as plt
 
 
 def main(argv):
@@ -132,6 +133,8 @@ def workflow(input_folder_, output_folder_, debug=False):
     spot_ids = create_array(params['rows'], params['columns'])
     antigen_array = create_array(params['rows'], params['columns'])
     props_array = create_array(params['rows'], params['columns'], dtype=object)
+    bgprops_array = create_array(params['rows'], params['columns'], dtype=object)
+
 
     # adding .xml info to these arrays
     spot_ids = populate_array_id(spot_ids, spots)
@@ -153,28 +156,52 @@ def workflow(input_folder_, output_folder_, debug=False):
         start = time.time()
         print(image_name)
 
+
         # finding center of well and cropping
         cx, cy, r = find_well_border(image, method='otsu')
-        im_crop = crop_image(image, cx, cy, r, border_=150)
+        im_crop = crop_image(image, cx, cy, r, border_=50)
+
+        im_crop_inv=si.util.invert(im_crop)
 
         # find center of spots from crop
-        spot_mask = thresh_and_binarize(im_crop, method='rosin')
+        spot_mask = thresh_and_binarize(im_crop_inv, method='rosin')
         # alternative method: use ivan's adaptive threshold approach
 
-        background = get_background(im_crop, fit_order=2)
-        props = generate_props(spot_mask, intensity_image_=im_crop)
+        background = get_background(im_crop_inv, fit_order=4)
+        props = generate_props(spot_mask, intensity_image_=im_crop_inv)
         bg_props = generate_props(spot_mask, intensity_image_=background)
 
-        props = filter_props(props, attribute="area", condition="greater_than", condition_value=200)
-        props = filter_props(props, attribute="eccentricity", condition="less_than", condition_value=0.5)
+        props = select_props(props, attribute="area", condition="greater_than", condition_value=100)
+        props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.9)
         spot_labels = [p.label for p in props]
-        bg_props = filter_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
+        bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
 
-        centroid_map = generate_props_dict(props,
+        props_by_loc = generate_props_dict(props,
                                            params['rows'],
                                            params['columns'],
                                            min_area=100)
-        props_array = assign_props_to_array(props_array, centroid_map)
+
+        # This call to generate_props_dict is excessive.
+        # Both props and bgprops can be assigned locations in previous call.
+        bgprops_by_loc  = generate_props_dict(bg_props,
+                                           params['rows'],
+                                           params['columns'],
+                                           min_area=100)
+        if debug:
+            plt.imshow(im_crop_inv)
+            for r in np.arange(params['rows']):
+                for c in np.arange(params['columns']):
+                    ceny, cenx = props_by_loc[(r,c)].centroid
+                    cenybg, cenxbg = bgprops_by_loc[(r,c)].centroid
+                    plt.plot(cenx,ceny,'w+')
+                    plt.plot(cenxbg,cenybg,'wx')
+                    plt.text(cenx,ceny-5,'(' + str(r) + ',' + str(c) + ')', va='bottom', ha='center', color='w')
+            plt.show()
+
+
+
+        props_array = assign_props_to_array(props_array, props_by_loc)
+        bgprops_array = assign_props_to_array(bgprops_array, bgprops_by_loc)
 
        # TODO: compute spot and background intensities, and then show them on a plate like graphic (visualize_elisa_spots).
 
@@ -190,8 +217,8 @@ def workflow(input_folder_, output_folder_, debug=False):
             well_path = run_path+os.sep+image_name[:-4]
             os.mkdir(well_path)
             #   save cropped image and the binary
-            io.imsave(well_path+os.sep+image_name[:-4]+"_crop.png", (255*im_crop).astype('uint8'))
-            io.imsave(well_path + os.sep + image_name[:-4] + "_crop_binary.png", (255 * spot_mask).astype('uint8'))
+            si.io.imsave(well_path+os.sep+image_name[:-4]+"_crop.png", (255*im_crop).astype('uint8'))
+            si.io.imsave(well_path + os.sep + image_name[:-4] + "_crop_binary.png", (255 * spot_mask).astype('uint8'))
 
             #   save spots
             for row in range(props_array.shape[0]):
@@ -203,10 +230,10 @@ def workflow(input_folder_, output_folder_, debug=False):
 
                     prop = props_array[row][col]
                     if prop is not None:
-                        io.imsave(well_path + os.sep + image_name[:-4] + f"_spot_{cell}.png",
+                        si.io.imsave(well_path + os.sep + image_name[:-4] + f"_spot_{cell}.png",
                                   (255*prop.intensity_image).astype('uint8'))
                     else:
-                        io.imsave(well_path + os.sep + image_name[:-4] + f"_spot_{cell}.png",
+                        si.io.imsave(well_path + os.sep + image_name[:-4] + f"_spot_{cell}.png",
                                   (255*np.ones((32, 32)).astype('uint8')))
 
     # SAVE COMPLETED WORKBOOK

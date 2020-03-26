@@ -67,18 +67,17 @@ def thresh_and_binarize(image_, method='rosin'):
         'bimodal' or 'unimodal'
     :return: spots threshold_min on this image
     """
-    inv = u.invert(image_)
     if method == 'bimodal':
-        thresh = threshold_minimum(inv)
+        thresh = threshold_minimum(image_)
 
-        spots = copy(inv)
-        spots[inv < thresh] = 0
-        spots[inv >= thresh] = 1
+        spots = copy(image_)
+        spots[image_ < thresh] = 0
+        spots[image_ >= thresh] = 1
 
     elif method == 'rosin':
-        thresh = get_unimodal_threshold(inv)
+        thresh = get_unimodal_threshold(image_)
 
-        spots = create_unimodal_mask(inv, str_elem_size=3)
+        spots = create_unimodal_mask(image_, str_elem_size=5)
     else:
         raise ModuleNotFoundError("not a supported method for thresh_and_binarize")
 
@@ -108,7 +107,7 @@ def find_well_border(image, method='otsu'):
         props = measure.regionprops(labels)
 
         # let's assume ONE circle for now (take only props[0])
-        cx, cy = props[0].centroid
+        cy, cx = props[0].centroid # notice that the coordinate order is different from hough.
         radii = int(props[0].minor_axis_length / 2 / np.sqrt(2))
 
     elif method == 'hough':
@@ -196,7 +195,7 @@ def generate_props(mask, intensity_image_=None):
     return props
 
 
-def filter_props(props_, attribute, condition, condition_value):
+def select_props(props_, attribute, condition, condition_value):
     """
 
     :param props_: RegionProps
