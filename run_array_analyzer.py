@@ -76,9 +76,9 @@ D) image_parser workflow above to loop 4 (read_to_grey)
 """
 import sys, getopt
 
-from array_imager.extract.image_parser import *
-from array_imager.extract.txt_parser import *
-from array_imager.load.xlsx_report import *
+from array_analyzer.extract.image_parser import *
+from array_analyzer.extract.txt_parser import *
+from array_analyzer.load.xlsx_report import *
 
 import time
 from datetime import datetime
@@ -92,12 +92,12 @@ def main(argv):
     try:
         opts, args = getopt.getopt(argv, "hdi:o:", ["ifile=", "ofile=", "debug"])
     except getopt.GetoptError:
-        print('run_array_imager.py -i <inputfolder> -o <outputfolder>')
+        print('run_array_analyzer.py -i <inputfolder> -o <outputfolder>')
         sys.exit(2)
 
     for opt, arg in opts:
         if opt == '-h':
-            print('run_array_imager.py -i <inputfolder> -o <outputfolder>')
+            print('run_array_analyzer.py -i <inputfolder> -o <outputfolder>')
             sys.exit()
         elif opt in ("-i", "--ifile"):
             inputfolder = arg
@@ -134,8 +134,6 @@ def workflow(input_folder_, output_folder_, debug=False):
 
     # adding .xml info to these arrays
     spot_ids = populate_array_id(spot_ids, spots)
-    # spot_ids = populate_array_fiduc(spot_ids, fiduc)
-
     antigen_array = populate_array_antigen(antigen_array, spot_ids, repl)
 
     xlsx_workbook = create_base_template()
@@ -154,11 +152,16 @@ def workflow(input_folder_, output_folder_, debug=False):
 
         # finding center of well and cropping
         cx, cy, r = find_well_border(image, method='otsu')
-        im_crop = crop_image(image, cx, cy, r, border_=150)
+        im_crop = crop_image(image, cx, cy, r, border_=50)
 
-        # find center of spots from crop
+        # ===================
+        # Spot detection
+        # ====================
+        # rosin
         spotmask = thresh_and_binarize(im_crop, method='rosin')
+
         # alternative method: use ivan's adaptive threshold approach
+        # spotmask = ivan_adaptive_threshold(im_crop)
 
         # TODO: Syuan-Ming implement background correction by surface fit
         spot_background = generate_spot_background(spotmask)
@@ -166,7 +169,6 @@ def workflow(input_folder_, output_folder_, debug=False):
         props = generate_props(spotmask, intensity_image_=im_crop)
         bgprops = generate_props(spot_background, intensity_image_=im_crop)
 
-        # TODO: Filter bgprops by the same criteria as props.
         # apply filters to the region props lists
         props = filter_props(props, attribute="area", condition="greater_than", condition_value=200)
         props = filter_props(props, attribute="eccentricity", condition="less_than", condition_value=0.5)
@@ -178,6 +180,8 @@ def workflow(input_folder_, output_folder_, debug=False):
                                            params['columns'],
                                            min_area=100)
         props_array = assign_props_to_array(props_array, centroid_map)
+
+        # todo: further calculations using bgprops, props here
 
         # xlsx report generation
         xlsx_workbook = populate_main_tab(xlsx_workbook, spot_ids, props_array, image_name[:-4])
@@ -204,10 +208,10 @@ def workflow(input_folder_, output_folder_, debug=False):
 
                     prop = props_array[row][col]
                     if prop is not None:
-                        io.imsave(well_path + os.sep + image_name[:-4] + f"_spot_{cell}.png",
+                        io.imsave(well_path + os.sep + image_name[:-4] + f"_{cell}.png",
                                   (255*prop.intensity_image).astype('uint8'))
                     else:
-                        io.imsave(well_path + os.sep + image_name[:-4] + f"_spot_{cell}.png",
+                        io.imsave(well_path + os.sep + image_name[:-4] + f"_{cell}.png",
                                   (255*np.ones((32, 32)).astype('uint8')))
 
     # SAVE COMPLETED WORKBOOK

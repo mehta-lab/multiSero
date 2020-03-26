@@ -1,7 +1,6 @@
 # bchhun, {2020-03-22}
 
 import os
-from copy import copy
 import numpy as np
 import re
 
@@ -9,13 +8,13 @@ import skimage.io as io
 import skimage.util as u
 
 from skimage.color import rgb2grey
-from skimage.filters import threshold_minimum
+from skimage.filters import threshold_minimum, median, gaussian, threshold_local
 from skimage.transform import hough_circle, hough_circle_peaks
 from skimage.feature import canny
-from skimage.morphology import binary_closing, binary_dilation, selem
+from skimage.morphology import binary_closing, binary_dilation, selem, disk, binary_opening
 from skimage import measure
 
-from .img_processing import get_unimodal_threshold, create_unimodal_mask, create_otsu_mask
+from .img_processing import create_unimodal_mask, create_otsu_mask
 
 """
 method is
@@ -74,13 +73,37 @@ def thresh_and_binarize(image_, method='rosin'):
         spots = inv.astype(int)
 
     elif method == 'rosin':
-        thresh = get_unimodal_threshold(inv)
         spots = create_unimodal_mask(inv, str_elem_size=3)
 
     else:
         raise ModuleNotFoundError("not a supported method for thresh_and_binarize")
 
     return spots
+
+
+def ivan_adaptive_threshold(image_):
+
+    im_inv_crop = u.invert(image_)
+
+    # median
+    region = np.ones((10, 10))
+    im1_filt = median(im_inv_crop, selem=region)
+
+    # gaussian
+    im1_filt = gaussian(im1_filt, sigma=10)
+
+    # adaptive
+    block = 15
+    offset = -0.05
+    method = 'gaussian'
+    thr = threshold_local(im1_filt, block, method, offset)
+
+    # binary
+    im1_bw = im_inv_crop > thr
+    str_elem = disk(5)
+    im1_bw = binary_opening(im1_bw, selem=str_elem)
+
+    return im1_bw
 
 
 def find_well_border(image, method='otsu'):
@@ -136,8 +159,8 @@ def crop_image(arr, cx_, cy_, radius_, border_=200):
     :param border_:
     :return:
     """
-    cx_=int(np.rint(cx_))
-    cy_=int(np.rint(cy_))
+    cx_ = int(np.rint(cx_))
+    cy_ = int(np.rint(cy_))
     crop = arr[
            cx_ - (radius_ - border_): cx_ + (radius_ - border_),
            cy_ - (radius_ - border_): cy_ + (radius_ - border_)
@@ -167,11 +190,11 @@ def generate_spot_background(spotmask, distance=3, annulus=5):
     
     TODO: 'comets' should be ignored, and this approach may not be robust to it.
     """
-    se_inner=selem.disk(distance,dtype=bool)
-    se_outer=selem.disk(distance+annulus,dtype=bool)
-    inner=binary_dilation(spotmask,se_inner)
-    outer=binary_dilation(spotmask,se_outer)
-    spot_background=np.bitwise_xor(inner,outer)
+    se_inner = selem.disk(distance, dtype=bool)
+    se_outer = selem.disk(distance+annulus, dtype=bool)
+    inner = binary_dilation(spotmask, se_inner)
+    outer = binary_dilation(spotmask, se_outer)
+    spot_background = np.bitwise_xor(inner, outer)
 
     return spot_background
 
