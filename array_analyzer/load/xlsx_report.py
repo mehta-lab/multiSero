@@ -65,7 +65,7 @@ def populate_main_tab(wb_, spot_id_array_, props_array_, well):
         else:
             current_coln = c[0].column
             break
-    print(f"\tcolumn for well {well} = {current_coln}")
+    print(f"\tcolumn for MainTab well {well} = {current_coln}")
 
     # add well to worksheet
     ws[get_column_letter(current_coln)+str(7)].value = well
@@ -99,7 +99,7 @@ def populate_main_tab(wb_, spot_id_array_, props_array_, well):
                     continue
                 else:
                     ws[pos].value = props_array_[row, col].mean_intensity
-                    print(f"\tassigning cell {pos} value from (row, col) = {row, col}")
+                    # print(f"\tassigning cell {pos} value from (row, col) = {row, col}")
 
             # else:
                 # raise AttributeError("unable to find cell ID in xlsx columns")
@@ -118,7 +118,7 @@ def populate_main_replicates(wb_, props_array_, antigen_array_, well):
         else:
             current_coln = c[0].column
             break
-    print(f"\tcolumn for well {well} = {current_coln}")
+    print(f"\tcolumn for Replicate Tab well {well} = {current_coln}")
 
     # add well to worksheet
     ws[get_column_letter(current_coln) + str(2)].value = well
