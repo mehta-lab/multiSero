@@ -79,6 +79,7 @@ import sys, getopt
 from array_analyzer.extract.image_parser import *
 from array_analyzer.extract.txt_parser import *
 from array_analyzer.load.xlsx_report import *
+from array_analyzer.extract.img_processing import *
 
 import time
 from datetime import datetime
@@ -90,7 +91,7 @@ def main(argv):
     outputfolder = ''
     debug = False
     try:
-        options, remainder = getopt.getopt(argv, "hi:o:d:", ["help","ifile=", "ofile=", "debug="])
+        options, remainder = getopt.getopt(argv, "hi:o:d", ["help","ifile=", "ofile=", "debug="])
     except getopt.GetoptError:
         print('run_array_analyzer.py -i <inputfolder> -o <outputfolder>')
         sys.exit(2)
@@ -157,19 +158,17 @@ def workflow(input_folder_, output_folder_, debug=False):
         im_crop = crop_image(image, cx, cy, r, border_=150)
 
         # find center of spots from crop
-        spotmask = thresh_and_binarize(im_crop, method='rosin')
+        spot_mask = thresh_and_binarize(im_crop, method='rosin')
         # alternative method: use ivan's adaptive threshold approach
 
-        # TODO: Syuan-Ming implement background correction by surface fit
-        spot_background=generate_spot_background(spotmask)
-        # spot_background = get_spot_background(spotmask)
-        props = generate_props(spotmask, intensity_image_=im_crop)
-        # bgprops = generate_props(spot_background, intensity_image_=im_crop)
+        background = get_background(im_crop, fit_order=2)
+        props = generate_props(spot_mask, intensity_image_=im_crop)
+        bg_props = generate_props(spot_mask, intensity_image_=background)
 
         props = filter_props(props, attribute="area", condition="greater_than", condition_value=200)
         props = filter_props(props, attribute="eccentricity", condition="less_than", condition_value=0.5)
-
-       # TODO: Syuan-Ming to implement extraction of background on the pixels using filtered property list.
+        spot_labels = [p.label for p in props]
+        bg_props = filter_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
 
         centroid_map = generate_props_dict(props,
                                            params['rows'],
@@ -192,7 +191,7 @@ def workflow(input_folder_, output_folder_, debug=False):
             os.mkdir(well_path)
             #   save cropped image and the binary
             io.imsave(well_path+os.sep+image_name[:-4]+"_crop.png", (255*im_crop).astype('uint8'))
-            io.imsave(well_path + os.sep + image_name[:-4] + "_crop_binary.png", (255*binary).astype('uint8'))
+            io.imsave(well_path + os.sep + image_name[:-4] + "_crop_binary.png", (255 * spot_mask).astype('uint8'))
 
             #   save spots
             for row in range(props_array.shape[0]):
@@ -218,14 +217,13 @@ def workflow(input_folder_, output_folder_, debug=False):
 
 
 if __name__ == "__main__":
-    input_path = r'C:\Google Drive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
-    output_path = r'C:\Google Drive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera/test_output'
-    # path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
+    input_path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
+    output_path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera/test_output'
 
     #path = '/Users/bryant.chhun/PycharmProjects/array-imager/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
     # path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
 
-    input = ['-i', input_path, '-o', output_path]
+    input = ['-i', input_path, '-o', output_path, '-d']
 
     # main(sys.argv[1:])
     main(input)
