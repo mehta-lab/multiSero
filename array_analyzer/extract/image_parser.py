@@ -106,7 +106,7 @@ def ivan_adaptive_threshold(image_):
     return im1_bw
 
 
-def find_well_border(image, method='otsu'):
+def find_well_center(image, method='otsu'):
     """
     finds the border of the well to motivate future cropping around spots
         hough_radii are potential radii of the well in pixels
@@ -327,3 +327,44 @@ def assign_props_to_array(arr, cent_map_):
         arr[key[0], key[1]] = value
 
     return arr
+
+
+def assign_region(target_, props_, source_array_=None):
+    """
+    put underlying intensity image from props_ into the target_ array
+    assumes props_ image exists and will fit into target_
+
+    :param target_:
+    :param props_:
+    :return:
+    """
+
+    min_row, min_col, max_row, max_col = props_.bbox
+    if source_array_ is None:
+        target_[min_row:max_row, min_col:max_col] = props_.intensity_image
+    else:
+        target_[min_row:max_row, min_col:max_col] = source_array_[min_row:max_row, min_col:max_col]
+
+    return target_
+
+
+def create_composite_spots(target_array_, region_props_array_, source_array_=None):
+    """
+    insert all intensity images for each region prop in "region_props_array_" into the "target_array_"
+
+    :param target_array_:
+    :param region_props_array_:
+    :return:
+    """
+    for row in range(region_props_array_.shape[0]):
+        for col in range(region_props_array_.shape[1]):
+            props = region_props_array_[row, col]
+            if props is not None:
+                if source_array_ is None:
+                    # print(f"\t shape = {props.intensity_image.shape}")
+                    target_array_ = assign_region(target_array_, props)
+                else:
+                    target_array_ = assign_region(target_array_, props, source_array_)
+    return target_array_
+
+

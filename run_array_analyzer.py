@@ -151,7 +151,7 @@ def workflow(input_folder_, output_folder_, debug=False):
         print(image_name)
 
         # finding center of well and cropping
-        cx, cy, r = find_well_border(image, method='otsu')
+        cx, cy, r = find_well_center(image, method='otsu')
         im_crop = crop_image(image, cx, cy, r, border_=50)
 
         # ===================
@@ -161,6 +161,7 @@ def workflow(input_folder_, output_folder_, debug=False):
         spotmask = thresh_and_binarize(im_crop, method='rosin')
 
         # alternative method: use ivan's adaptive threshold approach
+        #  *** I found this includes too much signal and ends up confusing spot assignment later ***
         # spotmask = ivan_adaptive_threshold(im_crop)
 
         # TODO: Syuan-Ming implement background correction by surface fit
@@ -214,6 +215,12 @@ def workflow(input_folder_, output_folder_, debug=False):
                         io.imsave(well_path + os.sep + image_name[:-4] + f"_{cell}.png",
                                   (255*np.ones((32, 32)).astype('uint8')))
 
+            # pad some
+            t = np.mean(im_crop)*np.ones(shape=(spotmask.shape[0]+64, spotmask.shape[1]+64))
+            t = create_composite_spots(t, props_array, im_crop)
+            io.imsave(well_path + os.sep + image_name[:-4] + f"_composite_spots.png",
+                      (255 * t).astype('uint8'))
+
     # SAVE COMPLETED WORKBOOK
     xlsx_workbook.save(run_path + os.sep +
                        f'testrun_{datetime.now().year}_'
@@ -228,3 +235,6 @@ if __name__ == "__main__":
     main(flags)
 
     # main(sys.argv[1:])
+
+# todo: create array of bbox regions
+# todo: work on workbook summary report
