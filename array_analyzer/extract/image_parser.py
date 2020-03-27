@@ -16,7 +16,7 @@ from skimage.morphology import binary_closing, binary_dilation, selem, disk, bin
 from scipy.ndimage import binary_fill_holes
 from skimage import measure
 
-from .img_processing import get_unimodal_threshold, create_unimodal_mask, create_otsu_mask
+from .img_processing import  create_unimodal_mask
 
 """
 method is
@@ -74,7 +74,7 @@ def thresh_and_binarize(image_, method='rosin', invert=True):
         spots[image_ >= thresh] = 1
 
     elif method == 'otsu':
-        thresh = threshold_otsu(inv, nbins=512)
+        thresh = threshold_otsu(image_, nbins=512)
 
         spots = copy(image_)
         spots[image_ < thresh] = 0
@@ -319,3 +319,39 @@ def assign_props_to_array(arr, cent_map_):
         arr[key[0], key[1]] = value
 
     return arr
+
+def compute_od(props_array,bgprops_array):
+    """
+    
+    Parameters
+    ----------
+    props_array: object: 
+     2D array of regionprops objects at the spots over data.
+    bgprops_array: object: 
+     2D array of regionprops objects at the spots over background.
+
+    Returns
+    -------
+    od_norm
+    i_spot
+    i_bg
+    """
+    assert props_array.shape == bgprops_array.shape, 'regionprops arrays representing sample and background are not the same.'
+    rows=props_array.shape[0]
+    cols=props_array.shape[1]
+    i_spot=np.empty((rows,cols))
+    i_bg=np.empty((rows,cols))
+    od_norm=np.empty((rows,cols))
+
+    i_spot[:]=np.NaN
+    i_bg[:]=np.NaN
+    od_norm[:]=np.NaN
+
+    for r in np.arange(rows):
+        for c in np.arange(cols):
+            if props_array[r,c] is not None:
+                i_spot[r,c]=props_array[r,c].mean_intensity
+                i_bg[r,c]=bgprops_array[r,c].mean_intensity
+    od_norm=i_bg/i_spot
+
+    return od_norm, i_spot, i_bg
