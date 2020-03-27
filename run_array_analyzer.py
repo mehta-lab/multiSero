@@ -165,14 +165,13 @@ def workflow(input_folder_, output_folder_, debug=False):
 
         # find center of spots from crop
         spot_mask = thresh_and_binarize(im_crop_inv, method='rosin')
-        # alternative method: use ivan's adaptive threshold approach
 
         background = get_background(im_crop_inv, fit_order=4)
         props = generate_props(spot_mask, intensity_image_=im_crop_inv)
         bg_props = generate_props(spot_mask, intensity_image_=background)
 
         props = select_props(props, attribute="area", condition="greater_than", condition_value=100)
-        props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.9)
+        props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.85)
         spot_labels = [p.label for p in props]
         bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
 
@@ -196,6 +195,7 @@ def workflow(input_folder_, output_folder_, debug=False):
                     plt.plot(cenx,ceny,'w+')
                     plt.plot(cenxbg,cenybg,'wx')
                     plt.text(cenx,ceny-5,'(' + str(r) + ',' + str(c) + ')', va='bottom', ha='center', color='w')
+                    plt.text(0,0,image_name)
             plt.show()
 
 

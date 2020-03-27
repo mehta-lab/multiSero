@@ -75,9 +75,7 @@ def thresh_and_binarize(image_, method='rosin'):
         spots[image_ >= thresh] = 1
 
     elif method == 'rosin':
-        thresh = get_unimodal_threshold(image_)
-
-        spots = create_unimodal_mask(image_, str_elem_size=5)
+        spots = create_unimodal_mask(image_, str_elem_size=3)
     else:
         raise ModuleNotFoundError("not a supported method for thresh_and_binarize")
 
