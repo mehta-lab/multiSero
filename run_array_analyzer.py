@@ -213,9 +213,7 @@ def workflow(input_folder_, output_folder_, debug=False):
             well_path = os.path.join(run_path)
             os.makedirs(well_path, exist_ok=True)
             output_name = os.path.join(well_path, image_name[:-4])
-            im_bg_overlay = np.stack([im_crop,
-                                     background,
-                                     background], axis=2)
+            im_bg_overlay = np.stack([background,im_crop,background], axis=2)
 
             #   save cropped image and the binary
             io.imsave(output_name + "_crop.png",
@@ -244,9 +242,10 @@ def workflow(input_folder_, output_folder_, debug=False):
                         spot_text='(' + str(r) + ',' + str(c) + ')'
                         plt.text(cenx,ceny-5,spot_text, va='bottom', ha='center', color='w')
                         plt.text(0,0,image_name[:-4]+',spot count='+str(len(props_by_loc)))
-            plt.show()
+            figcentroid=plt.gcf()
             centroids_file=output_name+'_overlayCentroids.png'
-            plt.savefig(centroids_file)
+            figcentroid.savefig(centroids_file)
+            plt.show()
 
             #   save spots
             # for row in range(props_array.shape[0]):
