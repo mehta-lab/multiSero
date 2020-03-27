@@ -132,8 +132,7 @@ def workflow(input_folder_, output_folder_, debug=False):
     # creating our arrays
     spot_ids = create_array(params['rows'], params['columns'])
     antigen_array = create_array(params['rows'], params['columns'])
-    props_array = create_array(params['rows'], params['columns'], dtype=object)
-    bgprops_array = create_array(params['rows'], params['columns'], dtype=object)
+
 
 
     # adding .xml info to these arrays
@@ -171,6 +170,8 @@ def workflow(input_folder_, output_folder_, debug=False):
         image, image_name = read_to_grey(input_folder_,well)
         start = time.time()
         print(image_name)
+        props_array = create_array(params['rows'], params['columns'], dtype=object)
+        bgprops_array = create_array(params['rows'], params['columns'], dtype=object)
 
 
         # finding center of well and cropping
