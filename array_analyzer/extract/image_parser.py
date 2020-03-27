@@ -67,12 +67,13 @@ def thresh_and_binarize(image_, method='rosin'):
         'bimodal' or 'unimodal'
     :return: spots threshold_min on this image
     """
+    inv = u.invert(image_)
     if method == 'bimodal':
-        thresh = threshold_minimum(image_)
+        thresh = threshold_minimum(inv)
 
-        spots = copy(image_)
-        spots[image_ < thresh] = 0
-        spots[image_ >= thresh] = 1
+        spots = copy(inv)
+        spots[inv < thresh] = 0
+        spots[inv >= thresh] = 1
 
     elif method == 'rosin':
         spots = create_unimodal_mask(image_, str_elem_size=3)
@@ -121,7 +122,7 @@ def find_well_border(image, method='otsu'):
     else:
         cx, cy, radii = None, None, None
 
-    return cx, cy, radii
+    return cx, cy, radii, well_mask
 
 
 def crop_image(arr, cx_, cy_, radius_, border_=200):
