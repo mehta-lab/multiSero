@@ -108,7 +108,7 @@ def find_well_border(image, method='otsu'):
         props = measure.regionprops(labels)
 
         # let's assume ONE circle for now (take only props[0])
-        cx, cy = props[0].centroid
+        cy, cx = props[0].centroid
         radii = int(props[0].minor_axis_length / 2 / np.sqrt(2))
 
     elif method == 'hough':
@@ -124,7 +124,7 @@ def find_well_border(image, method='otsu'):
     else:
         cx, cy, radii = None, None, None
 
-    return cx, cy, radii
+    return cx, cy, radii, well_mask
 
 
 def crop_image(arr, cx_, cy_, radius_, border_=200):

@@ -154,8 +154,8 @@ def workflow(input_folder_, output_folder_, debug=False):
         print(image_name)
 
         # finding center of well and cropping
-        cx, cy, r = find_well_border(image, method='otsu')
-        im_crop = crop_image(image, cx, cy, r, border_=150)
+        cx, cy, r, well_mask = find_well_border(image, method='otsu')
+        im_crop = crop_image(image, cx, cy, r, border_=0)
 
         # find center of spots from crop
         spot_mask = thresh_and_binarize(im_crop, method='rosin')
@@ -187,27 +187,38 @@ def workflow(input_folder_, output_folder_, debug=False):
 
         # SAVE FOR DEBUGGING
         if debug:
-            well_path = run_path+os.sep+image_name[:-4]
-            os.mkdir(well_path)
+            well_path = os.path.join(run_path)
+            os.makedirs(well_path, exist_ok=True)
+            output_name = os.path.join(well_path, image_name[:-4])
+            im_bg_overlay = np.stack([im_crop,
+                                     background,
+                                     background], axis=2)
+
             #   save cropped image and the binary
-            io.imsave(well_path+os.sep+image_name[:-4]+"_crop.png", (255*im_crop).astype('uint8'))
-            io.imsave(well_path + os.sep + image_name[:-4] + "_crop_binary.png", (255 * spot_mask).astype('uint8'))
+            io.imsave(output_name + "_crop.png",
+                      (255*im_crop).astype('uint8'))
+            io.imsave(output_name + "_crop_binary.png",
+                      (255 * spot_mask).astype('uint8'))
+            io.imsave(output_name + "_well_mask.png",
+                      (255 * well_mask).astype('uint8'))
+            io.imsave(output_name + "_crop_bg_overlay.png",
+                      (255 * im_bg_overlay).astype('uint8'))
 
             #   save spots
-            for row in range(props_array.shape[0]):
-                for col in range(props_array.shape[1]):
-
-                    cell = spot_ids[row][col]
-                    if cell == '':
-                        continue
-
-                    prop = props_array[row][col]
-                    if prop is not None:
-                        io.imsave(well_path + os.sep + image_name[:-4] + f"_spot_{cell}.png",
-                                  (255*prop.intensity_image).astype('uint8'))
-                    else:
-                        io.imsave(well_path + os.sep + image_name[:-4] + f"_spot_{cell}.png",
-                                  (255*np.ones((32, 32)).astype('uint8')))
+            # for row in range(props_array.shape[0]):
+            #     for col in range(props_array.shape[1]):
+            #
+            #         cell = spot_ids[row][col]
+            #         if cell == '':
+            #             continue
+            #
+            #         prop = props_array[row][col]
+            #         if prop is not None:
+            #             io.imsave(well_path + os.sep + image_name[:-4] + f"_spot_{cell}.png",
+            #                       (255*prop.intensity_image).astype('uint8'))
+            #         else:
+            #             io.imsave(well_path + os.sep + image_name[:-4] + f"_spot_{cell}.png",
+            #                       (255*np.ones((32, 32)).astype('uint8')))
 
     # SAVE COMPLETED WORKBOOK
     xlsx_workbook.save(run_path + os.sep +
