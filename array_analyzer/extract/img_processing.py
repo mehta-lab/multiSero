@@ -121,6 +121,6 @@ def create_otsu_mask(input_image, str_elem_size=3, thr=None):
     return mask
 
 def get_background(img, fit_order):
-    bg_estimator = BackgroundEstimator2D()
+    bg_estimator = BackgroundEstimator2D(block_size=128)
     background = bg_estimator.get_background(img, order=fit_order, normalize=False)
     return background
