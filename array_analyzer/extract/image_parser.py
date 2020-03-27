@@ -1,6 +1,7 @@
 # bchhun, {2020-03-22}
 
 import os
+from copy import copy
 import numpy as np
 import re
 
@@ -9,12 +10,16 @@ import skimage.util as u
 
 from skimage.color import rgb2grey
 from skimage.filters import threshold_minimum, median, gaussian, threshold_local
+from skimage.filters import threshold_minimum, threshold_otsu
 from skimage.transform import hough_circle, hough_circle_peaks
 from skimage.feature import canny
 from skimage.morphology import binary_closing, binary_dilation, selem, disk, binary_opening
+from skimage.morphology import binary_closing, binary_dilation, selem, disk, binary_opening
+from scipy.ndimage import binary_fill_holes
 from skimage import measure
 
 from .img_processing import create_unimodal_mask, create_otsu_mask
+from .img_processing import  create_unimodal_mask
 
 """
 method is
@@ -33,28 +38,22 @@ method is
 """
 
 
-def read_to_grey(path_):
+def read_to_grey(path_, wellimage_):
     """
     a generator that receives file path and returns the next rgb image as greyscale and its name
 
     :param path_: path to folder with all images
+    :param wellimage_: name of the file with image of the well.
     :return: next image as greyscale np.ndarray, filename
     """
 
-    images = [file for file in os.listdir(path_) if '.png' in file or '.tif' in file or '.jpg' in file]
-    # remove any images that are not images of wells.
-    wellimages = [file for file in images if re.match(r'[A-P][0-9]{1,2}', file)]
-    # sort by letter, then by number (with '10' coming AFTER '9')
-    wellimages.sort(key=lambda x: (x[0], int(x[1:-4])))
-
-    for image_base_path in wellimages:
-        image_path = path_+os.sep+image_base_path
-        im = io.imread(image_path)
-        i = rgb2grey(im)
-        yield i, os.path.basename(image_path)
+    image_path = path_+os.sep+wellimage_
+    im = io.imread(image_path)
+    i = rgb2grey(im)
+    return i, os.path.basename(image_path)
 
 
-def thresh_and_binarize(image_, method='rosin'):
+def thresh_and_binarize(image_, method='rosin', invert=True):
     """
     receives greyscale np.ndarray image
         inverts the intensities
@@ -66,47 +65,33 @@ def thresh_and_binarize(image_, method='rosin'):
         'bimodal' or 'unimodal'
     :return: spots threshold_min on this image
     """
-    inv = u.invert(image_)
+
+    if invert:
+        image_ = u.invert(image_)
+
     if method == 'bimodal':
-        thresh = threshold_minimum(inv)
-        inv = inv > thresh
-        spots = inv.astype(int)
+        thresh = threshold_minimum(image_, nbins=512)
+
+        spots = copy(image_)
+        spots[image_ < thresh] = 0
+        spots[image_ >= thresh] = 1
+
+    elif method == 'otsu':
+        thresh = threshold_otsu(image_, nbins=512)
+
+        spots = copy(image_)
+        spots[image_ < thresh] = 0
+        spots[image_ >= thresh] = 1
 
     elif method == 'rosin':
-        spots = create_unimodal_mask(inv, str_elem_size=3)
-
+        spots = create_unimodal_mask(image_, str_elem_size=3)
     else:
         raise ModuleNotFoundError("not a supported method for thresh_and_binarize")
 
     return spots
 
 
-def adaptive_threshold(image_):
-
-    im_inv_crop = u.invert(image_)
-
-    # median
-    region = np.ones((10, 10))
-    im1_filt = median(im_inv_crop, selem=region)
-
-    # gaussian
-    im1_filt = gaussian(im1_filt, sigma=10)
-
-    # adaptive
-    block = 15
-    offset = -0.05
-    method = 'gaussian'
-    thr = threshold_local(im1_filt, block, method, offset)
-
-    # binary
-    im1_bw = im_inv_crop > thr
-    str_elem = disk(5)
-    im1_bw = binary_opening(im1_bw, selem=str_elem)
-
-    return im1_bw
-
-
-def find_well_center(image, method='otsu'):
+def find_well_border(image, segmethod='bimodal', detmethod='region'):
     """
     finds the border of the well to motivate future cropping around spots
         hough_radii are potential radii of the well in pixels
@@ -121,23 +106,31 @@ def find_well_center(image, method='otsu'):
         'otsu' or 'hough'
     :return: center x, center y, radius of the one hough circle
     """
-    if method == 'otsu':
-        well_mask = create_otsu_mask(image, str_elem_size=10)
-        # plt.imshow(well_mask, cmap='gray')
+    segmented_img = thresh_and_binarize(image, method=segmethod, invert=True)
+    well_mask = segmented_img == 0
+    # Now remove small objects.
+    str_elem_size=10
+    str_elem = disk(str_elem_size)
+    well_mask = binary_opening(well_mask, str_elem)
+    well_mask = binary_fill_holes(well_mask)
 
+
+    if detmethod == 'region':
         labels = measure.label(well_mask)
         props = measure.regionprops(labels)
 
         # let's assume ONE circle for now (take only props[0])
-        cy, cx = props[0].centroid
-        radii = int(props[0].minor_axis_length / 2 / np.sqrt(2))
+        cy, cx = props[0].centroid # notice that the coordinate order is different from hough.
+        radii = int((props[0].minor_axis_length + props[0].major_axis_length)/ 4 / np.sqrt(2))
+        # Otsu threshold fails occasionally and leads to asymmetric region. Averaging both axes makes the segmentation robust.
+        # If above files, try bounding box.
 
-    elif method == 'hough':
+    elif detmethod == 'hough':
         hough_radii = [300, 400, 500, 600]
 
-        binary_ = thresh_and_binarize(image, method='bimodal')
+        well_mask = thresh_and_binarize(image, method='bimodal')
 
-        edges = canny(binary_, sigma=3)
+        edges = canny(well_mask, sigma=3)
         hough_res = hough_circle(edges, hough_radii)
         aaccums, cx, cy, radii = hough_circle_peaks(hough_res, hough_radii, total_num_peaks=1)
         cx, cy = cx[0], cy[0]
@@ -145,7 +138,7 @@ def find_well_center(image, method='otsu'):
     else:
         cx, cy, radii = None, None, None
 
-    return int(cx), int(cy), int(radii)
+    return cx, cy, radii, well_mask
 
 
 def crop_image(arr, cx_, cy_, radius_, border_=200):
@@ -159,11 +152,11 @@ def crop_image(arr, cx_, cy_, radius_, border_=200):
     :param border_:
     :return:
     """
-    cx_ = int(np.rint(cx_))
-    cy_ = int(np.rint(cy_))
+    cx_=int(np.rint(cx_))
+    cy_=int(np.rint(cy_))
     crop = arr[
-           cx_ - (radius_ - border_): cx_ + (radius_ - border_),
-           cy_ - (radius_ - border_): cy_ + (radius_ - border_)
+           cy_ - (radius_ - border_): cy_ + (radius_ - border_),
+           cx_ - (radius_ - border_): cx_ + (radius_ - border_)
            ]
 
     return crop
@@ -217,7 +210,7 @@ def generate_props(mask, intensity_image_=None):
     return props
 
 
-def filter_props(props_, attribute, condition, condition_value):
+def select_props(props_, attribute, condition, condition_value):
     """
 
     :param props_: RegionProps
@@ -237,6 +230,8 @@ def filter_props(props_, attribute, condition, condition_value):
         props = [p for p in props_ if getattr(p, attribute) == condition_value]
     elif condition == 'less_than':
         props = [p for p in props_ if getattr(p, attribute) < condition_value]
+    elif condition == 'is_in':
+        props = [p for p in props_ if getattr(p, attribute) in condition_value]
     else:
         props = props_
 
@@ -298,10 +293,10 @@ def generate_props_dict(props_, rows, cols, min_area=100, img_x_max=2048, img_y_
             chk_list.append((norm_cent_x, norm_cent_y))
             cent_map[(norm_cent_x, norm_cent_y)] = prop
 
-    # if len(chk_list) != len(set(chk_list)):
-    #     print("ERROR, DUPLICATE ENTRIES")
-    #     raise AttributeError("generate props array failed\n"
-    #                          "duplicate spots found in one position\n")
+    if len(chk_list) != len(set(chk_list)):
+        print("ERROR, DUPLICATE ENTRIES")
+        raise AttributeError("generate props array failed\n"
+                             "duplicate spots found in one position\n")
 
     return cent_map
 
@@ -356,3 +351,39 @@ def build_block_array(props_array_, spot_mask_, rows, cols):
             int(center_y - side / 2):int(center_y + side / 2)] = blank
 
     return target*spot_mask_
+
+def compute_od(props_array,bgprops_array):
+    """
+
+    Parameters
+    ----------
+    props_array: object:
+     2D array of regionprops objects at the spots over data.
+    bgprops_array: object:
+     2D array of regionprops objects at the spots over background.
+
+    Returns
+    -------
+    od_norm
+    i_spot
+    i_bg
+    """
+    assert props_array.shape == bgprops_array.shape, 'regionprops arrays representing sample and background are not the same.'
+    rows=props_array.shape[0]
+    cols=props_array.shape[1]
+    i_spot=np.empty((rows,cols))
+    i_bg=np.empty((rows,cols))
+    od_norm=np.empty((rows,cols))
+
+    i_spot[:]=np.NaN
+    i_bg[:]=np.NaN
+    od_norm[:]=np.NaN
+
+    for r in np.arange(rows):
+        for c in np.arange(cols):
+            if props_array[r,c] is not None:
+                i_spot[r,c]=props_array[r,c].mean_intensity
+                i_bg[r,c]=bgprops_array[r,c].mean_intensity
+    od_norm=i_bg/i_spot
+
+    return od_norm, i_spot, i_bg

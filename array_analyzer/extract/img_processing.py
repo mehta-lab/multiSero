@@ -2,7 +2,7 @@ import numpy as np
 from skimage.morphology import disk, ball, binary_opening, binary_erosion
 from skimage.filters import threshold_otsu
 from scipy.ndimage import binary_fill_holes
-
+from .background_estimator import BackgroundEstimator2D
 
 def get_unimodal_threshold(input_image):
     """Determines optimal unimodal threshold
@@ -72,6 +72,7 @@ def create_unimodal_mask(input_image, str_elem_size=3):
     return mask
 
 
+
 def create_otsu_mask(input_image, str_elem_size=3, thr=None):
     """Create a binary mask using morphological operations
 
@@ -95,3 +96,8 @@ def create_otsu_mask(input_image, str_elem_size=3, thr=None):
     thr_image = binary_opening(input_image > thr, str_elem)
     mask = binary_fill_holes(thr_image)
     return mask
+
+def get_background(img, fit_order):
+    bg_estimator = BackgroundEstimator2D(block_size=128)
+    background = bg_estimator.get_background(img, order=fit_order, normalize=False)
+    return background

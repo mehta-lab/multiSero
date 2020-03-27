@@ -2,6 +2,8 @@
 
 import numpy as np
 import xmltodict
+from xml.parsers.expat import ExpatError
+import xml.etree.ElementTree as ET
 
 """
 The below code should parse the .xml
@@ -27,9 +29,15 @@ def create_xml_dict(path_):
     :param path_: str
     :return: dict, dict, dict, dict
     """
-
-    with open(path_) as fd:
-        doc = xmltodict.parse(fd.read())
+    try:
+        with open(path_) as fd:
+            doc = xmltodict.parse(fd.read())
+    except ExpatError:
+        tree = ET.parse(path_)
+        xml_data = tree.getroot()
+        # here you can change the encoding type to be able to set it to the one you need
+        xmlstr = ET.tostring(xml_data, encoding='utf-8', method='xml')
+        doc = xmltodict.parse(xmlstr)
 
     # layout of array
     layout = doc['configuration']['well_configurations']['configuration']['array']['layout']
