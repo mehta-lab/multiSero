@@ -9,10 +9,11 @@ import skimage.io as io
 import skimage.util as u
 
 from skimage.color import rgb2grey
-from skimage.filters import threshold_minimum
+from skimage.filters import threshold_minimum, threshold_otsu
 from skimage.transform import hough_circle, hough_circle_peaks
 from skimage.feature import canny
-from skimage.morphology import binary_closing, binary_dilation, selem
+from skimage.morphology import binary_closing, binary_dilation, selem, disk, binary_opening
+from scipy.ndimage import binary_fill_holes
 from skimage import measure
 
 from .img_processing import get_unimodal_threshold, create_unimodal_mask, create_otsu_mask
@@ -34,28 +35,22 @@ method is
 """
 
 
-def read_to_grey(path_):
+def read_to_grey(path_, wellimage_):
     """
     a generator that receives file path and returns the next rgb image as greyscale and its name
 
     :param path_: path to folder with all images
+    :param wellimage_: name of the file with image of the well.
     :return: next image as greyscale np.ndarray, filename
     """
 
-    images = [file for file in os.listdir(path_) if '.png' in file or '.tif' in file or '.jpg' in file]
-    # remove any images that are not images of wells.
-    wellimages = [file for file in images if re.match(r'[A-P][0-9]{1,2}', file)]
-    # sort by letter, then by number (with '10' coming AFTER '9')
-    wellimages.sort(key=lambda x: (x[0], int(x[1:-4])))
-
-    for image_base_path in wellimages:
-        image_path = path_+os.sep+image_base_path
-        im = io.imread(image_path)
-        i = rgb2grey(im)
-        yield i, os.path.basename(image_path)
+    image_path = path_+os.sep+wellimage_
+    im = io.imread(image_path)
+    i = rgb2grey(im)
+    return i, os.path.basename(image_path)
 
 
-def thresh_and_binarize(image_, method='rosin'):
+def thresh_and_binarize(image_, method='rosin', invert=True):
     """
     receives greyscale np.ndarray image
         inverts the intensities
@@ -67,25 +62,33 @@ def thresh_and_binarize(image_, method='rosin'):
         'bimodal' or 'unimodal'
     :return: spots threshold_min on this image
     """
-    inv = u.invert(image_)
-    if method == 'bimodal':
-        thresh = threshold_minimum(inv)
 
-        spots = copy(inv)
-        spots[inv < thresh] = 0
-        spots[inv >= thresh] = 1
+    if invert:
+        image_ = u.invert(image_)
+
+    if method == 'bimodal':
+        thresh = threshold_minimum(image_, nbins=512)
+
+        spots = copy(image_)
+        spots[image_ < thresh] = 0
+        spots[image_ >= thresh] = 1
+
+    elif method == 'otsu':
+        thresh = threshold_otsu(inv, nbins=512)
+
+        spots = copy(image_)
+        spots[image_ < thresh] = 0
+        spots[image_ >= thresh] = 1
 
     elif method == 'rosin':
-        thresh = get_unimodal_threshold(inv)
-
-        spots = create_unimodal_mask(inv, str_elem_size=3)
+        spots = create_unimodal_mask(image_, str_elem_size=3)
     else:
         raise ModuleNotFoundError("not a supported method for thresh_and_binarize")
 
     return spots
 
 
-def find_well_border(image, method='otsu'):
+def find_well_border(image, segmethod='bimodal', detmethod='region'):
     """
     finds the border of the well to motivate future cropping around spots
         hough_radii are potential radii of the well in pixels
@@ -100,23 +103,31 @@ def find_well_border(image, method='otsu'):
         'otsu' or 'hough'
     :return: center x, center y, radius of the one hough circle
     """
-    if method == 'otsu':
-        well_mask = create_otsu_mask(image, str_elem_size=10)
-        # plt.imshow(well_mask, cmap='gray')
+    segmented_img = thresh_and_binarize(image, method=segmethod, invert=True)
+    well_mask = segmented_img == 0
+    # Now remove small objects.
+    str_elem_size=10
+    str_elem = disk(str_elem_size)
+    well_mask = binary_opening(well_mask, str_elem)
+    well_mask = binary_fill_holes(well_mask)
 
+
+    if detmethod == 'region':
         labels = measure.label(well_mask)
         props = measure.regionprops(labels)
 
         # let's assume ONE circle for now (take only props[0])
-        cy, cx = props[0].centroid
-        radii = int(props[0].minor_axis_length / 2 / np.sqrt(2))
+        cy, cx = props[0].centroid # notice that the coordinate order is different from hough.
+        radii = int((props[0].minor_axis_length + props[0].major_axis_length)/ 4 / np.sqrt(2))
+        # Otsu threshold fails occasionally and leads to asymmetric region. Averaging both axes makes the segmentation robust.
+        # If above files, try bounding box.
 
-    elif method == 'hough':
+    elif detmethod == 'hough':
         hough_radii = [300, 400, 500, 600]
 
-        binary_ = thresh_and_binarize(image, method='bimodal')
+        well_mask = thresh_and_binarize(image, method='bimodal')
 
-        edges = canny(binary_, sigma=3)
+        edges = canny(well_mask, sigma=3)
         hough_res = hough_circle(edges, hough_radii)
         aaccums, cx, cy, radii = hough_circle_peaks(hough_res, hough_radii, total_num_peaks=1)
         cx, cy = cx[0], cy[0]
@@ -196,7 +207,7 @@ def generate_props(mask, intensity_image_=None):
     return props
 
 
-def filter_props(props_, attribute, condition, condition_value):
+def select_props(props_, attribute, condition, condition_value):
     """
 
     :param props_: RegionProps
