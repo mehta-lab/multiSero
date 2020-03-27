@@ -85,7 +85,7 @@ import time
 from datetime import datetime
 import skimage.io as io
 import matplotlib.pyplot as plt
-
+import pandas as pd
 
 def main(argv):
     inputfolder = ''
@@ -144,8 +144,15 @@ def workflow(input_folder_, output_folder_, debug=False):
 
     xlsx_workbook = create_base_template()
 
+
     # save a sub path for this processing run
     run_path = output_folder_ + os.sep + f'run_{datetime.now().hour}_{datetime.now().minute}_{datetime.now().second}'
+
+    # Write an excel file that can be read into jupyter notebook with minimal parsing.
+    xlwriterOD = pd.ExcelWriter(os.path.join(run_path, 'ODs.xlsx'))
+    pdantigen = pd.DataFrame(antigen_array)
+    pdantigen.to_excel(xlwriterOD, sheet_name='antigens')
+
     if not os.path.isdir(run_path):
         os.mkdir(run_path)
 
@@ -158,6 +165,7 @@ def workflow(input_folder_, output_folder_, debug=False):
     # sort by letter, then by number (with '10' coming AFTER '9')
     wellimages.sort(key=lambda x: (x[0], int(x[1:-4])))
     #TODO: select wells based to analyze based on user input (Bryant)
+    #wellimages=['A1.png','A2.png']
 
     for well in wellimages:
         image, image_name = read_to_grey(input_folder_,well)
@@ -199,6 +207,12 @@ def workflow(input_folder_, output_folder_, debug=False):
         bgprops_array = assign_props_to_array(bgprops_array, bgprops_by_loc)
 
        # TODO: compute spot and background intensities, and then show them on a plate like graphic (visualize_elisa_spots).
+        od_well,i_well,bg_well=compute_od(props_array,bgprops_array)
+
+        pd_OD = pd.DataFrame(od_well)
+        pd_OD.to_excel(xlwriterOD, sheet_name=image_name[:-4])
+
+        # Add a sheet to excel file for this well.
 
         # xlsx report generation
         xlsx_workbook = populate_main_tab(xlsx_workbook, spot_ids, props_array, image_name[:-4])
@@ -243,9 +257,33 @@ def workflow(input_folder_, output_folder_, debug=False):
                         plt.text(cenx,ceny-5,spot_text, va='bottom', ha='center', color='w')
                         plt.text(0,0,image_name[:-4]+',spot count='+str(len(props_by_loc)))
             figcentroid=plt.gcf()
-            centroids_file=output_name+'_overlayCentroids.png'
-            figcentroid.savefig(centroids_file)
+            centroids_debug=output_name+'_overlayCentroids.png'
+            figcentroid.savefig(centroids_debug)
             plt.show()
+
+            plt.figure(figsize=(6,1.5))
+            plt.subplot(131)
+            plt.imshow(i_well,cmap='gray')
+            plt.colorbar()
+            plt.title('intensity')
+
+            plt.subplot(132)
+            plt.imshow(bg_well, cmap='gray')
+            plt.colorbar()
+            plt.title('background')
+
+            plt.subplot(133)
+            plt.imshow(od_well, cmap='gray')
+            plt.colorbar()
+            plt.title('OD')
+
+            figOD = plt.gcf()
+            od_debug = output_name + '_od.png'
+            figOD.savefig(od_debug)
+            plt.show()
+
+
+
 
             #   save spots
             # for row in range(props_array.shape[0]):
@@ -269,10 +307,11 @@ def workflow(input_folder_, output_folder_, debug=False):
                        f'{datetime.now().month}{datetime.now().day}_'
                        f'{datetime.now().hour}{datetime.now().minute}.xlsx')
 
+    xlwriterOD.close()
 
 if __name__ == "__main__":
     input_path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
-    output_path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera/test_output'
+    output_path = '/Users/shalin.mehta/Documents/images_local/2020-01-15_plate4_AEP_Feb3_6mousesera/'
 
     #path = '/Users/bryant.chhun/PycharmProjects/array-imager/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
     # path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
