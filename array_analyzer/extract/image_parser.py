@@ -81,7 +81,7 @@ def thresh_and_binarize(image_, method='rosin'):
     return spots
 
 
-def ivan_adaptive_threshold(image_):
+def adaptive_threshold(image_):
 
     im_inv_crop = u.invert(image_)
 
@@ -129,7 +129,7 @@ def find_well_center(image, method='otsu'):
         props = measure.regionprops(labels)
 
         # let's assume ONE circle for now (take only props[0])
-        cx, cy = props[0].centroid
+        cy, cx = props[0].centroid
         radii = int(props[0].minor_axis_length / 2 / np.sqrt(2))
 
     elif method == 'hough':
@@ -298,18 +298,12 @@ def generate_props_dict(props_, rows, cols, min_area=100, img_x_max=2048, img_y_
             chk_list.append((norm_cent_x, norm_cent_y))
             cent_map[(norm_cent_x, norm_cent_y)] = prop
 
-    if len(chk_list) != len(set(chk_list)):
-        print("ERROR, DUPLICATE ENTRIES")
-        raise AttributeError("generate props array failed\n"
-                             "duplicate spots found in one position\n")
+    # if len(chk_list) != len(set(chk_list)):
+    #     print("ERROR, DUPLICATE ENTRIES")
+    #     raise AttributeError("generate props array failed\n"
+    #                          "duplicate spots found in one position\n")
 
     return cent_map
-
-
-def generate_region_array(props_):
-    # props contains bounding box info
-    # this will be useful to fill in NONE array values that have extremely low signal
-    pass
 
 
 def assign_props_to_array(arr, cent_map_):
@@ -329,42 +323,36 @@ def assign_props_to_array(arr, cent_map_):
     return arr
 
 
-def assign_region(target_, props_, source_array_=None):
-    """
-    put underlying intensity image from props_ into the target_ array
-    assumes props_ image exists and will fit into target_
+def build_block_array(props_array_, spot_mask_, rows, cols):
+    fiduc_1 = props_array_[0][0]
+    fiduc_2 = props_array_[0][7]
+    fiduc_3 = props_array_[5][0]
+    fiduc_4 = props_array_[5][7]
 
-    :param target_:
-    :param props_:
-    :return:
-    """
+    x_min = (fiduc_1.centroid[0] + fiduc_2.centroid[0]) / 2
+    y_min = (fiduc_1.centroid[1] + fiduc_3.centroid[1]) / 2
 
-    min_row, min_col, max_row, max_col = props_.bbox
-    if source_array_ is None:
-        target_[min_row:max_row, min_col:max_col] = props_.intensity_image
-    else:
-        target_[min_row:max_row, min_col:max_col] = source_array_[min_row:max_row, min_col:max_col]
+    x_max = (fiduc_3.centroid[0] + fiduc_4.centroid[0]) / 2
+    y_max = (fiduc_2.centroid[1] + fiduc_4.centroid[1]) / 2
 
-    return target_
+    space_x = (x_max - x_min) / (rows-1)
+    space_y = (y_max - y_min) / (cols-1)
 
+    # find the average bbox size
+    bbox_area = [a.bbox_area for a in list(props_array_.flatten()) if a is not None]
+    area = np.mean(bbox_area)
+    side = int(np.sqrt(area))
 
-def create_composite_spots(target_array_, region_props_array_, source_array_=None):
-    """
-    insert all intensity images for each region prop in "region_props_array_" into the "target_array_"
+    blank = np.ones((side, side))
+    target = np.zeros(spot_mask_.shape)
 
-    :param target_array_:
-    :param region_props_array_:
-    :return:
-    """
-    for row in range(region_props_array_.shape[0]):
-        for col in range(region_props_array_.shape[1]):
-            props = region_props_array_[row, col]
-            if props is not None:
-                if source_array_ is None:
-                    # print(f"\t shape = {props.intensity_image.shape}")
-                    target_array_ = assign_region(target_array_, props)
-                else:
-                    target_array_ = assign_region(target_array_, props, source_array_)
-    return target_array_
+    # center position of the origin
+    origin = (fiduc_1.centroid[0], fiduc_1.centroid[1])
+    for row in range(rows):
+        for col in range(cols):
+            center_x = origin[0] + row * space_x
+            center_y = origin[1] + col * space_y
+            target[int(center_x - side / 2): int(center_x + side / 2),
+            int(center_y - side / 2):int(center_y + side / 2)] = blank
 
-
+    return target*spot_mask_

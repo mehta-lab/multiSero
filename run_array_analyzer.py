@@ -79,9 +79,11 @@ import sys, getopt
 from array_analyzer.extract.image_parser import *
 from array_analyzer.extract.txt_parser import *
 from array_analyzer.load.xlsx_report import *
+from array_analyzer.load.debug_images import *
 
 import time
 from datetime import datetime
+import skimage as si
 import skimage.io as io
 
 
@@ -152,7 +154,7 @@ def workflow(input_folder_, output_folder_, debug=False):
 
         # finding center of well and cropping
         cx, cy, r = find_well_center(image, method='otsu')
-        im_crop = crop_image(image, cx, cy, r, border_=50)
+        im_crop = crop_image(image, cx, cy, r, border_=0)
 
         # ===================
         # Spot detection
@@ -160,9 +162,9 @@ def workflow(input_folder_, output_folder_, debug=False):
         # rosin
         spotmask = thresh_and_binarize(im_crop, method='rosin')
 
-        # alternative method: use ivan's adaptive threshold approach
+        # alternative method: use adaptive threshold pipeline
         #  *** I found this includes too much signal and ends up confusing spot assignment later ***
-        # spotmask = ivan_adaptive_threshold(im_crop)
+        # spotmask = adaptive_threshold(im_crop)
 
         # TODO: Syuan-Ming implement background correction by surface fit
         spot_background = generate_spot_background(spotmask)
@@ -173,6 +175,11 @@ def workflow(input_folder_, output_folder_, debug=False):
         # apply filters to the region props lists
         props = filter_props(props, attribute="area", condition="greater_than", condition_value=200)
         props = filter_props(props, attribute="eccentricity", condition="less_than", condition_value=0.5)
+
+        # insert some grid generation
+        # function that takes bounds and outputs binary grid mask
+        # feed this mask into labels, then region props
+
         bgprops = filter_props(bgprops, attribute="area", condition="greater_than", condition_value=200)
         bgprops = filter_props(bgprops, attribute="eccentricity", condition="less_than", condition_value=0.5)
 
@@ -181,6 +188,15 @@ def workflow(input_folder_, output_folder_, debug=False):
                                            params['columns'],
                                            min_area=100)
         props_array = assign_props_to_array(props_array, centroid_map)
+
+        # use the props_array to find boundaries, fit a new periodic grid to the image
+        fitted_spotmask = build_block_array(props_array, spotmask, 6, 8)
+        props_fit = generate_props(fitted_spotmask, intensity_image_=im_crop)
+        props_fit_map = generate_props_dict(props_fit,
+                                            params['rows'],
+                                            params['columns'],
+                                            min_area=0)
+        props_array_fit = assign_props_to_array(props_array, props_fit_map)
 
         # todo: further calculations using bgprops, props here
 
@@ -195,31 +211,30 @@ def workflow(input_folder_, output_folder_, debug=False):
         if debug:
             well_path = run_path+os.sep+image_name[:-4]
             os.mkdir(well_path)
+
             #   save cropped image and the binary
-            io.imsave(well_path+os.sep+image_name[:-4]+"_crop.png", (255*im_crop).astype('uint8'))
-            io.imsave(well_path + os.sep + image_name[:-4] + "_crop_binary.png", (255*spotmask).astype('uint8'))
+            si.io.imsave(well_path+os.sep+image_name[:-4]+"_crop.png", (255*im_crop).astype('uint8'))
+            si.io.imsave(well_path + os.sep + image_name[:-4] + "_crop_binary.png", (255*spotmask).astype('uint8'))
+            si.io.imsave(well_path + os.sep + image_name[:-4] + "_crop_binary_filt.png", (255 * fitted_spotmask).astype('uint8'))
+
 
             #   save spots
-            for row in range(props_array.shape[0]):
-                for col in range(props_array.shape[1]):
+            save_all_wells(props_array, spot_ids, well_path, image_name[:-4])
 
-                    cell = spot_ids[row][col]
-                    if cell == '':
-                        continue
+            #   save a composite of all spots, where spots are from source or from region prop
+            save_composite_spots(im_crop, props_array_fit, well_path, image_name[:-4], from_source=True)
+            save_composite_spots(im_crop, props_array_fit, well_path, image_name[:-4], from_source=False)
 
-                    prop = props_array[row][col]
-                    if prop is not None:
-                        io.imsave(well_path + os.sep + image_name[:-4] + f"_{cell}.png",
-                                  (255*prop.intensity_image).astype('uint8'))
-                    else:
-                        io.imsave(well_path + os.sep + image_name[:-4] + f"_{cell}.png",
-                                  (255*np.ones((32, 32)).astype('uint8')))
-
-            # pad some
-            t = np.mean(im_crop)*np.ones(shape=(spotmask.shape[0]+64, spotmask.shape[1]+64))
-            t = create_composite_spots(t, props_array, im_crop)
-            io.imsave(well_path + os.sep + image_name[:-4] + f"_composite_spots.png",
-                      (255 * t).astype('uint8'))
+            #
+            # t = np.mean(im_crop)*np.ones(shape=(spotmask.shape[0]+64, spotmask.shape[1]+64))
+            # t = create_composite_spots(t, props_array, im_crop)
+            # si.io.imsave(well_path + os.sep + image_name[:-4] + f"_composite_spots_img.png",
+            #           (255 * t).astype('uint8'))
+            #
+            # t = np.mean(im_crop)*np.ones(shape=(spotmask.shape[0]+64, spotmask.shape[1]+64))
+            # t = create_composite_spots(t, props_array)
+            # si.io.imsave(well_path + os.sep + image_name[:-4] + f"_composite_spots_prop.png",
+            #           (255 * t).astype('uint8'))
 
     # SAVE COMPLETED WORKBOOK
     xlsx_workbook.save(run_path + os.sep +
@@ -236,5 +251,11 @@ if __name__ == "__main__":
 
     # main(sys.argv[1:])
 
-# todo: create array of bbox regions
-# todo: work on workbook summary report
+# todo:
+#   consider new workflow
+#   - get spot binary
+#   - get spot labels, get spot region props
+#   - using spot region props, filter and determine boundaries (average of bounding boxes or fixed bounding box for now)
+#   - create binary mask containing multiple square regions - use fiducials to orient spacing, bounds
+#   - create sub-binary mask that is the intersection of "spot binary" and "region binary"
+#   - do region props on this sub-binary mask - then feed through rest of pipeline
