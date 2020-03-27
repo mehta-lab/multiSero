@@ -157,6 +157,7 @@ def workflow(input_folder_, output_folder_, debug=False):
     wellimages = [file for file in images if re.match(r'[A-P][0-9]{1,2}', file)]
     # sort by letter, then by number (with '10' coming AFTER '9')
     wellimages.sort(key=lambda x: (x[0], int(x[1:-4])))
+    #TODO: select wells based to analyze based on user input (Bryant)
 
     for well in wellimages:
         image, image_name = read_to_grey(input_folder_,well)
@@ -165,12 +166,12 @@ def workflow(input_folder_, output_folder_, debug=False):
 
 
         # finding center of well and cropping
-        cx, cy, r, well_mask = find_well_border(image, method='otsu')
+        cx, cy, r, well_mask = find_well_border(image, detmethod='region', segmethod='bimodal')
         im_crop = crop_image(image, cx, cy, r, border_=0)
 
         # find center of spots from crop
         spot_mask = thresh_and_binarize(im_crop, method='rosin')
-        # alternative method: use ivan's adaptive threshold approach
+        # TODO: Fit a grid to identify spots (Bryant, Syuan-Ming)
 
         background = get_background(im_crop, fit_order=2)
         props = generate_props(spot_mask, intensity_image_=im_crop)
