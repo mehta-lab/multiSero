@@ -34,25 +34,19 @@ method is
 """
 
 
-def read_to_grey(path_):
+def read_to_grey(path_, wellimage_):
     """
     a generator that receives file path and returns the next rgb image as greyscale and its name
 
     :param path_: path to folder with all images
+    :param wellimage_: name of the file with image of the well.
     :return: next image as greyscale np.ndarray, filename
     """
 
-    images = [file for file in os.listdir(path_) if '.png' in file or '.tif' in file or '.jpg' in file]
-    # remove any images that are not images of wells.
-    wellimages = [file for file in images if re.match(r'[A-P][0-9]{1,2}', file)]
-    # sort by letter, then by number (with '10' coming AFTER '9')
-    wellimages.sort(key=lambda x: (x[0], int(x[1:-4])))
-
-    for image_base_path in wellimages:
-        image_path = path_+os.sep+image_base_path
-        im = io.imread(image_path)
-        i = rgb2grey(im)
-        yield i, os.path.basename(image_path)
+    image_path = path_+os.sep+wellimage_
+    im = io.imread(image_path)
+    i = rgb2grey(im)
+    return i, os.path.basename(image_path)
 
 
 def thresh_and_binarize(image_, method='rosin'):
@@ -76,7 +70,7 @@ def thresh_and_binarize(image_, method='rosin'):
         spots[inv >= thresh] = 1
 
     elif method == 'rosin':
-        spots = create_unimodal_mask(image_, str_elem_size=3)
+        spots = create_unimodal_mask(inv, str_elem_size=3)
     else:
         raise ModuleNotFoundError("not a supported method for thresh_and_binarize")
 
@@ -107,7 +101,9 @@ def find_well_border(image, method='otsu'):
 
         # let's assume ONE circle for now (take only props[0])
         cy, cx = props[0].centroid # notice that the coordinate order is different from hough.
-        radii = int(props[0].minor_axis_length / 2 / np.sqrt(2))
+        radii = int((props[0].minor_axis_length + props[0].major_axis_length)/ 4 / np.sqrt(2))
+        # Otsu threshold fails occasionally and leads to asymmetric region. Averaging both axes makes the segmentation robust.
+        # If above files, try bounding box.
 
     elif method == 'hough':
         hough_radii = [300, 400, 500, 600]

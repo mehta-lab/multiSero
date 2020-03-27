@@ -152,7 +152,14 @@ def workflow(input_folder_, output_folder_, debug=False):
     # ================
     # loop over images => good place for multiproc?  careful with columns in report
     # ================
-    for image, image_name in read_to_grey(input_folder_):
+    images = [file for file in os.listdir(input_folder_) if '.png' in file or '.tif' in file or '.jpg' in file]
+    # remove any images that are not images of wells.
+    wellimages = [file for file in images if re.match(r'[A-P][0-9]{1,2}', file)]
+    # sort by letter, then by number (with '10' coming AFTER '9')
+    wellimages.sort(key=lambda x: (x[0], int(x[1:-4])))
+
+    for well in wellimages:
+        image, image_name = read_to_grey(input_folder_,well)
         start = time.time()
         print(image_name)
 
@@ -185,18 +192,6 @@ def workflow(input_folder_, output_folder_, debug=False):
                                            params['rows'],
                                            params['columns'],
                                            min_area=100)
-        if debug:
-            plt.imshow(im_crop_inv)
-            for r in np.arange(params['rows']):
-                for c in np.arange(params['columns']):
-                    ceny, cenx = props_by_loc[(r,c)].centroid
-                    cenybg, cenxbg = bgprops_by_loc[(r,c)].centroid
-                    plt.plot(cenx,ceny,'w+')
-                    plt.plot(cenxbg,cenybg,'wx')
-                    plt.text(cenx,ceny-5,'(' + str(r) + ',' + str(c) + ')', va='bottom', ha='center', color='w')
-                    plt.text(0,0,image_name)
-            plt.show()
-
 
 
         props_array = assign_props_to_array(props_array, props_by_loc)
@@ -207,6 +202,7 @@ def workflow(input_folder_, output_folder_, debug=False):
         # xlsx report generation
         xlsx_workbook = populate_main_tab(xlsx_workbook, spot_ids, props_array, image_name[:-4])
         xlsx_workbook = populate_main_replicates(xlsx_workbook, props_array, antigen_array, image_name[:-4])
+
 
         stop = time.time()
         print(f"\ttime to process={stop-start}")
@@ -229,6 +225,27 @@ def workflow(input_folder_, output_folder_, debug=False):
                       (255 * well_mask).astype('uint8'))
             io.imsave(output_name + "_crop_bg_overlay.png",
                       (255 * im_bg_overlay).astype('uint8'))
+
+            # This plot shows which spots have been assigned what index.
+            plt.imshow(im_crop)
+            plt.colorbar()
+            for r in np.arange(params['rows']):
+                for c in np.arange(params['columns']):
+                    try:
+                        ceny, cenx = props_by_loc[(r,c)].centroid
+                    except:
+                        spot_text = '(' + str(r) + ',' + str(c) + ')'
+                        print(spot_text+ 'not found')
+                    else:
+                        cenybg, cenxbg = bgprops_by_loc[(r,c)].centroid
+                        plt.plot(cenx,ceny,'w+')
+                        plt.plot(cenxbg,cenybg,'wx')
+                        spot_text='(' + str(r) + ',' + str(c) + ')'
+                        plt.text(cenx,ceny-5,spot_text, va='bottom', ha='center', color='w')
+                        plt.text(0,0,image_name[:-4]+',spot count='+str(len(props_by_loc)))
+            plt.show()
+            centroids_file=output_name+'_overlayCentroids.png'
+            plt.savefig(centroids_file)
 
             #   save spots
             # for row in range(props_array.shape[0]):
