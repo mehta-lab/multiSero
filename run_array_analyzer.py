@@ -216,8 +216,8 @@ def workflow(input_folder_, output_folder_, debug=False):
         # Add a sheet to excel file for this well.
 
         # xlsx report generation
-        xlsx_workbook = populate_main_tab(xlsx_workbook, spot_ids, props_array, image_name[:-4])
-        xlsx_workbook = populate_main_replicates(xlsx_workbook, props_array, antigen_array, image_name[:-4])
+        # xlsx_workbook = populate_main_tab(xlsx_workbook, spot_ids, props_array, image_name[:-4])
+        # xlsx_workbook = populate_main_replicates(xlsx_workbook, props_array, antigen_array, image_name[:-4])
 
 
         stop = time.time()
@@ -303,8 +303,8 @@ def workflow(input_folder_, output_folder_, debug=False):
             #                       (255*np.ones((32, 32)).astype('uint8')))
 
     # SAVE COMPLETED WORKBOOK
-    xlsx_workbook.save(run_path + os.sep +
-                       f'testrun_{datetime.now().year}_'
+    # xlsx_workbook.save(run_path + os.sep +
+    #                   f'testrun_{datetime.now().year}_'
                        f'{datetime.now().month}{datetime.now().day}_'
                        f'{datetime.now().hour}{datetime.now().minute}.xlsx')
 
