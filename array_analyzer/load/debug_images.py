@@ -4,6 +4,7 @@ import skimage as si
 import skimage.io
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def save_all_wells(region_props_array, spot_ids_, output_folder, well_name):
@@ -93,5 +94,48 @@ def save_composite_spots(source_array_, region_props_array_, output_folder, well
                      (255 * t).astype('uint8'))
 
 
+def plot_spot_assignment(od_well, i_well, bg_well,
+                         im_crop, props_by_loc,
+                         bgprops_by_loc, image_name,
+                         output_name, params):
+    plt.imshow(im_crop)
+    plt.colorbar()
+    for r in np.arange(params['rows']):
+        for c in np.arange(params['columns']):
+            try:
+                ceny, cenx = props_by_loc[(r, c)].centroid
+            except:
+                spot_text = '(' + str(r) + ',' + str(c) + ')'
+                print(spot_text + 'not found')
+            else:
+                cenybg, cenxbg = bgprops_by_loc[(r, c)].centroid
+                plt.plot(cenx, ceny, 'w+')
+                plt.plot(cenxbg, cenybg, 'wx')
+                spot_text = '(' + str(r) + ',' + str(c) + ')'
+                plt.text(cenx, ceny - 5, spot_text, va='bottom', ha='center', color='w')
+                plt.text(0, 0, image_name[:-4] + ',spot count=' + str(len(props_by_loc)))
+    figcentroid = plt.gcf()
+    centroids_debug = output_name + '_overlayCentroids.png'
+    figcentroid.savefig(centroids_debug)
+    plt.show()
 
+    plt.figure(figsize=(6, 1.5))
+    plt.subplot(131)
+    plt.imshow(i_well, cmap='gray')
+    plt.colorbar()
+    plt.title('intensity')
 
+    plt.subplot(132)
+    plt.imshow(bg_well, cmap='gray')
+    plt.colorbar()
+    plt.title('background')
+
+    plt.subplot(133)
+    plt.imshow(od_well, cmap='gray')
+    plt.colorbar()
+    plt.title('OD')
+
+    figOD = plt.gcf()
+    od_debug = output_name + '_od.png'
+    figOD.savefig(od_debug)
+    plt.show()

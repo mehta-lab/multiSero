@@ -4,6 +4,7 @@ import os
 from copy import copy
 import numpy as np
 import re
+import math
 
 import skimage.io as io
 import skimage.util as u
@@ -152,8 +153,8 @@ def crop_image(arr, cx_, cy_, radius_, border_=200):
     :param border_:
     :return:
     """
-    cx_=int(np.rint(cx_))
-    cy_=int(np.rint(cy_))
+    cx_ = int(np.rint(cx_))
+    cy_ = int(np.rint(cy_))
     crop = arr[
            cy_ - (radius_ - border_): cy_ + (radius_ - border_),
            cx_ - (radius_ - border_): cx_ + (radius_ - border_)
@@ -238,7 +239,7 @@ def select_props(props_, attribute, condition, condition_value):
     return props
 
 
-def generate_props_dict(props_, rows, cols, min_area=100, img_x_max=2048, img_y_max=2048):
+def generate_props_dict(props_, rows, cols, min_area=100, img_x_max=2048, img_y_max=2048, flag_duplicates=True):
     """
     based on the region props, creates a dictionary of format:
         key = (centroid_x, centroid_y)
@@ -293,10 +294,11 @@ def generate_props_dict(props_, rows, cols, min_area=100, img_x_max=2048, img_y_
             chk_list.append((norm_cent_x, norm_cent_y))
             cent_map[(norm_cent_x, norm_cent_y)] = prop
 
-    if len(chk_list) != len(set(chk_list)):
-        print("ERROR, DUPLICATE ENTRIES")
-        raise AttributeError("generate props array failed\n"
-                             "duplicate spots found in one position\n")
+    if flag_duplicates:
+        if len(chk_list) != len(set(chk_list)):
+            print("ERROR, DUPLICATE ENTRIES")
+            raise AttributeError("generate props array failed\n"
+                                 "duplicate spots found in one position\n")
 
     return cent_map
 
@@ -318,39 +320,88 @@ def assign_props_to_array(arr, cent_map_):
     return arr
 
 
-def build_block_array(props_array_, spot_mask_, rows, cols):
-    fiduc_1 = props_array_[0][0]
-    fiduc_2 = props_array_[0][7]
-    fiduc_3 = props_array_[5][0]
-    fiduc_4 = props_array_[5][7]
+def build_block_array(props_array_, spot_mask_, rows, cols, side, return_type='region'):
+    """
+    Uses the fiducial centroid positions to build a "block array":
+        "block array" is :
+        np.array of shape = (rows, cols)
+        whose elements are np.ones(shape=(side, side))
 
-    x_min = (fiduc_1.centroid[0] + fiduc_2.centroid[0]) / 2
-    y_min = (fiduc_1.centroid[1] + fiduc_3.centroid[1]) / 2
+    todo: there's a danger the "side" or shape of the spot is too large to fit in the crop
+    :param props_array_:
+    :param spot_mask_:
+    :param rows:
+    :param cols:
+    :param side:
+    :param return_type:
+    :return:
+    """
+    # fiducials are averaged to find x-y bounds.
+    #   one or both can be None, if one is None, this is handled
+    #   if two are None, we have to try something else
+    fiduc_1 = props_array_[0][0].centroid if props_array_[0][0] else (0, 0)
+    fiduc_2 = props_array_[0][cols-1].centroid if props_array_[0][cols-1] else (0, 0)
+    fiduc_3 = props_array_[rows-1][0].centroid if props_array_[rows-1][0] else (0, 0)
+    fiduc_4 = props_array_[rows-1][cols-1].centroid if props_array_[rows-1][cols-1] else (0, 0)
 
-    x_max = (fiduc_3.centroid[0] + fiduc_4.centroid[0]) / 2
-    y_max = (fiduc_2.centroid[1] + fiduc_4.centroid[1]) / 2
+    # average if two else use one
+    xln = [fiduc_1[0], fiduc_2[0]]
+    x_min = np.sum(xln) / np.sum(len([v for v in xln if v != 0]))
+
+    yln = [fiduc_1[1], fiduc_3[1]]
+    y_min = np.sum(yln) / np.sum(len([v for v in yln if v != 0]))
+
+    ylm = [fiduc_3[0], fiduc_4[0]]
+    x_max = np.sum(ylm) / np.sum(len([v for v in ylm if v != 0]))
+
+    ylm = [fiduc_2[1], fiduc_4[1]]
+    y_max = np.sum(ylm) / np.sum(len([v for v in ylm if v != 0]))
+
+    # check for NaNs
+    if math.isnan(x_min):
+        x_mins = [p.centroid[0] for p in props_array_[0][:].flatten() if p]
+        x_min = np.average(x_mins)
+    if math.isnan(y_min):
+        y_mins = [p.centroid[1] for p in props_array_[:][0].flatten() if p]
+        y_min = np.average(y_mins)
+    if math.isnan(x_max):
+        x_maxs = [p.centroid[0] for p in props_array_[rows-1][:].flatten() if p]
+        x_max = np.average(x_maxs)
+    if math.isnan(y_max):
+        y_maxs = [p.centroid[1] for p in props_array_[:][cols-1].flatten() if p]
+        y_max = np.average(y_maxs)
 
     space_x = (x_max - x_min) / (rows-1)
     space_y = (y_max - y_min) / (cols-1)
 
-    # find the average bbox size
-    bbox_area = [a.bbox_area for a in list(props_array_.flatten()) if a is not None]
-    area = np.mean(bbox_area)
-    side = int(np.sqrt(area))
-
-    blank = np.ones((side, side))
     target = np.zeros(spot_mask_.shape)
+    print(f"{target.shape}")
+    blank = np.ones((side, side))
 
     # center position of the origin
-    origin = (fiduc_1.centroid[0], fiduc_1.centroid[1])
+    origin = (x_min, y_min)
+    print(origin)
+    print(space_x, space_y)
     for row in range(rows):
         for col in range(cols):
+            print(f"{row, col}")
             center_x = origin[0] + row * space_x
             center_y = origin[1] + col * space_y
-            target[int(center_x - side / 2): int(center_x + side / 2),
-            int(center_y - side / 2):int(center_y + side / 2)] = blank
+            # print(f"\ttarget shape = "
+            #       f"{target[int(center_x - side / 2): int(center_x + side / 2),int(center_y - side / 2):int(center_y + side / 2)].shape}")
+            #
+            # print(f"\ttarget pix pos = {int(center_x - side / 2), int(center_x + side / 2), int(center_y - side / 2), int(center_y + side / 2)}")
 
-    return target*spot_mask_
+            target[
+            int(center_x - side / 2): int(center_x + side / 2),
+            int(center_y - side / 2): int(center_y + side / 2)
+            ] = blank
+
+    if return_type == 'product':
+        return target*spot_mask_
+    elif return_type == 'region':
+        return target
+
 
 def compute_od(props_array,bgprops_array):
     """

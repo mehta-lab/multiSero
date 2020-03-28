@@ -88,6 +88,7 @@ import skimage.io as io
 import matplotlib.pyplot as plt
 import pandas as pd
 
+
 def main(argv):
     inputfolder = ''
     outputfolder = ''
@@ -124,7 +125,6 @@ def workflow(input_folder_, output_folder_, debug=False):
     xml = [f for f in os.listdir(input_folder_) if '.xml' in f]
     if len(xml) > 1:
         raise IOError("more than one .xml file found, aborting")
-
     xml_path = input_folder_+os.sep+xml[0]
 
     # parsing .xml
@@ -134,8 +134,6 @@ def workflow(input_folder_, output_folder_, debug=False):
     spot_ids = create_array(params['rows'], params['columns'])
     antigen_array = create_array(params['rows'], params['columns'])
 
-
-
     # adding .xml info to these arrays
     spot_ids = populate_array_id(spot_ids, spots)
     # spot_ids = populate_array_fiduc(spot_ids, fiduc)
@@ -143,7 +141,6 @@ def workflow(input_folder_, output_folder_, debug=False):
     antigen_array = populate_array_antigen(antigen_array, spot_ids, repl)
 
     xlsx_workbook = create_base_template()
-
 
     # save a sub path for this processing run
     run_path = output_folder_ + os.sep + f'run_{datetime.now().hour}_{datetime.now().minute}_{datetime.now().second}'
@@ -160,20 +157,21 @@ def workflow(input_folder_, output_folder_, debug=False):
     # loop over images => good place for multiproc?  careful with columns in report
     # ================
     images = [file for file in os.listdir(input_folder_) if '.png' in file or '.tif' in file or '.jpg' in file]
+
     # remove any images that are not images of wells.
     wellimages = [file for file in images if re.match(r'[A-P][0-9]{1,2}', file)]
+
     # sort by letter, then by number (with '10' coming AFTER '9')
     wellimages.sort(key=lambda x: (x[0], int(x[1:-4])))
     #TODO: select wells based to analyze based on user input (Bryant)
-    #wellimages=['A1.png','A2.png']
 
+    wellimages = ['A1.png','A12.png']
     for well in wellimages:
         image, image_name = read_to_grey(input_folder_,well)
         start = time.time()
         print(image_name)
         props_array = create_array(params['rows'], params['columns'], dtype=object)
         bgprops_array = create_array(params['rows'], params['columns'], dtype=object)
-
 
         # finding center of well and cropping
         cx, cy, r, well_mask = find_well_border(image, detmethod='region', segmethod='bimodal')
@@ -185,51 +183,72 @@ def workflow(input_folder_, output_folder_, debug=False):
 
         background = get_background(im_crop, fit_order=2)
         props = generate_props(spot_mask, intensity_image_=im_crop)
-        bg_props = generate_props(spot_mask, intensity_image_=background)
+        # bg_props = generate_props(spot_mask, intensity_image_=background)
 
         props = select_props(props, attribute="area", condition="greater_than", condition_value=200)
         props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.5)
-        spot_labels = [p.label for p in props]
-        bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
 
+        # spot_labels = [p.label for p in props]
+        # bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
+
+        # for grid fit, this props dict is used only for finding fiducials
         props_by_loc = generate_props_dict(props,
                                            params['rows'],
                                            params['columns'],
-                                           min_area=100)
+                                           min_area=200,
+                                           flag_duplicates=False)   # assign this flag
 
         # This call to generate_props_dict is excessive.
         # Both props and bgprops can be assigned locations in previous call.
-        bgprops_by_loc  = generate_props_dict(bg_props,
-                                           params['rows'],
-                                           params['columns'],
-                                           min_area=100)
+        # bgprops_by_loc = generate_props_dict(bg_props,
+        #                                      params['rows'],
+        #                                      params['columns'],
+        #                                      min_area=100)
 
+        well_path = os.path.join(run_path)
 
         props_array = assign_props_to_array(props_array, props_by_loc)
+        save_composite_spots(im_crop, props_array, well_path, image_name[:-4]+"_before_blocking", from_source=True)
+
+        # bgprops_array = assign_props_to_array(bgprops_array, bgprops_by_loc)
+
+        # use the props_array to find fiducials, create a new spot_mask "placed" on the array
+        placed_spotmask = build_block_array(props_array, spot_mask, 6, 8, 28, return_type='region')
+
+        output_name = os.path.join(well_path, image_name[:-4])
+        io.imsave(output_name + "placed_spotmask.png",
+                 (255 * placed_spotmask).astype('uint8'))
+
+        props_placed = generate_props(placed_spotmask, intensity_image_=im_crop)
+        bg_props = generate_props(placed_spotmask, intensity_image_=background)
+        spot_labels = [p.label for p in props_placed]
+        bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
+
+        props_placed_by_loc = generate_props_dict(props_placed,
+                                                  params['rows'],
+                                                  params['columns'],
+                                                  min_area=100)
+        bgprops_by_loc = generate_props_dict(bg_props,
+                                             params['rows'],
+                                             params['columns'],
+                                             min_area=100)
+
+        props_array_placed = assign_props_to_array(props_array, props_placed_by_loc)
         bgprops_array = assign_props_to_array(bgprops_array, bgprops_by_loc)
 
-        # use the props_array to find boundaries, fit a new periodic grid to the image
-        fitted_spotmask = build_block_array(props_array, spotmask, 6, 8)
-        props_fit = generate_props(fitted_spotmask, intensity_image_=im_crop)
-        props_fit_map = generate_props_dict(props_fit,
-                                            params['rows'],
-                                            params['columns'],
-                                            min_area=0)
-        props_array_fit = assign_props_to_array(props_array, props_fit_map)
-
         # todo: further calculations using bgprops, props here
-       # TODO: compute spot and background intensities, and then show them on a plate like graphic (visualize_elisa_spots).
-        od_well,i_well,bg_well=compute_od(props_array,bgprops_array)
+        # TODO: compute spot and background intensities,
+        #  and then show them on a plate like graphic (visualize_elisa_spots).
+        # od_well, i_well, bg_well = compute_od(props_array, bgprops_array)
 
-        pd_OD = pd.DataFrame(od_well)
-        pd_OD.to_excel(xlwriterOD, sheet_name=image_name[:-4])
+        # pd_OD = pd.DataFrame(od_well)
+        # pd_OD.to_excel(xlwriterOD, sheet_name=image_name[:-4])
 
         # Add a sheet to excel file for this well.
 
         # xlsx report generation
         xlsx_workbook = populate_main_tab(xlsx_workbook, spot_ids, props_array, image_name[:-4])
         xlsx_workbook = populate_main_replicates(xlsx_workbook, props_array, antigen_array, image_name[:-4])
-
 
         stop = time.time()
         print(f"\ttime to process={stop-start}")
@@ -239,7 +258,7 @@ def workflow(input_folder_, output_folder_, debug=False):
             well_path = os.path.join(run_path)
             os.makedirs(well_path, exist_ok=True)
             output_name = os.path.join(well_path, image_name[:-4])
-            im_bg_overlay = np.stack([background,im_crop,background], axis=2)
+            im_bg_overlay = np.stack([background, im_crop, background], axis=2)
 
             #   save cropped image and the binary
             io.imsave(output_name + "_crop.png",
@@ -252,68 +271,16 @@ def workflow(input_folder_, output_folder_, debug=False):
                       (255 * im_bg_overlay).astype('uint8'))
 
             # This plot shows which spots have been assigned what index.
-            plt.imshow(im_crop)
-            plt.colorbar()
-            for r in np.arange(params['rows']):
-                for c in np.arange(params['columns']):
-                    try:
-                        ceny, cenx = props_by_loc[(r,c)].centroid
-                    except:
-                        spot_text = '(' + str(r) + ',' + str(c) + ')'
-                        print(spot_text+ 'not found')
-                    else:
-                        cenybg, cenxbg = bgprops_by_loc[(r,c)].centroid
-                        plt.plot(cenx,ceny,'w+')
-                        plt.plot(cenxbg,cenybg,'wx')
-                        spot_text='(' + str(r) + ',' + str(c) + ')'
-                        plt.text(cenx,ceny-5,spot_text, va='bottom', ha='center', color='w')
-                        plt.text(0,0,image_name[:-4]+',spot count='+str(len(props_by_loc)))
-            figcentroid=plt.gcf()
-            centroids_debug=output_name+'_overlayCentroids.png'
-            figcentroid.savefig(centroids_debug)
-            plt.show()
-
-            plt.figure(figsize=(6,1.5))
-            plt.subplot(131)
-            plt.imshow(i_well,cmap='gray')
-            plt.colorbar()
-            plt.title('intensity')
-
-            plt.subplot(132)
-            plt.imshow(bg_well, cmap='gray')
-            plt.colorbar()
-            plt.title('background')
-
-            plt.subplot(133)
-            plt.imshow(od_well, cmap='gray')
-            plt.colorbar()
-            plt.title('OD')
-
-            figOD = plt.gcf()
-            od_debug = output_name + '_od.png'
-            figOD.savefig(od_debug)
-            plt.show()
-
-
-
+            # plot_spot_assignment(od_well, i_well, bg_well,
+            #                      im_crop, props_by_loc, bgprops_by_loc,
+            #                      image_name, output_name, params)
 
             #   save spots
             save_all_wells(props_array, spot_ids, well_path, image_name[:-4])
 
             #   save a composite of all spots, where spots are from source or from region prop
-            save_composite_spots(im_crop, props_array_fit, well_path, image_name[:-4], from_source=True)
-            save_composite_spots(im_crop, props_array_fit, well_path, image_name[:-4], from_source=False)
-
-            #
-            # t = np.mean(im_crop)*np.ones(shape=(spotmask.shape[0]+64, spotmask.shape[1]+64))
-            # t = create_composite_spots(t, props_array, im_crop)
-            # si.io.imsave(well_path + os.sep + image_name[:-4] + f"_composite_spots_img.png",
-            #           (255 * t).astype('uint8'))
-            #
-            # t = np.mean(im_crop)*np.ones(shape=(spotmask.shape[0]+64, spotmask.shape[1]+64))
-            # t = create_composite_spots(t, props_array)
-            # si.io.imsave(well_path + os.sep + image_name[:-4] + f"_composite_spots_prop.png",
-            #           (255 * t).astype('uint8'))
+            save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=True)
+            save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=False)
 
     # SAVE COMPLETED WORKBOOK
     xlsx_workbook.save(run_path + os.sep +
@@ -323,21 +290,16 @@ def workflow(input_folder_, output_folder_, debug=False):
 
     xlwriterOD.close()
 
-if __name__ == "__main__":
-    input_path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
-    output_path = '/Users/shalin.mehta/Documents/images_local/2020-01-15_plate4_AEP_Feb3_6mousesera/'
 
-    path = '/Users/bryant.chhun/PycharmProjects/array-imager/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
-    flags = ['-i', path, '-o', path, '-d']
+if __name__ == "__main__":
+    input_path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/' \
+                 'images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
+    # output_path = '/Users/shalin.mehta/Documents/images_local/2020-01-15_plate4_AEP_Feb3_6mousesera/'
+
+    output_path = '/Users/bryant.chhun/Desktop/Data/array-imager/' \
+                  'Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
+
+    flags = ['-i', input_path, '-o', output_path, '-d']
     main(flags)
 
     # main(sys.argv[1:])
-
-# todo:
-#   consider new workflow
-#   - get spot binary
-#   - get spot labels, get spot region props
-#   - using spot region props, filter and determine boundaries (average of bounding boxes or fixed bounding box for now)
-#   - create binary mask containing multiple square regions - use fiducials to orient spacing, bounds
-#   - create sub-binary mask that is the intersection of "spot binary" and "region binary"
-#   - do region props on this sub-binary mask - then feed through rest of pipeline
