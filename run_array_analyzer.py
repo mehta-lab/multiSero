@@ -74,7 +74,7 @@ D) image_parser workflow above to loop 4 (read_to_grey)
     G) xlsx_report generation workflow steps 14-17
 
 """
-import sys, getopt
+import sys, getopt, os
 
 from array_analyzer.extract.image_parser import *
 from array_analyzer.extract.txt_parser import *
@@ -191,17 +191,26 @@ def workflow(input_folder_, output_folder_, debug=False):
         spot_labels = [p.label for p in props]
         bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
 
-        props_by_loc = generate_props_dict(props,
+        # props_by_loc = generate_props_dict(props,
+        #                                    params['rows'],
+        #                                    params['columns'],
+        #                                    min_area=100)
+        props_by_loc = grid_from_centroids(props,
+                                           im_crop,
                                            params['rows'],
                                            params['columns'],
                                            min_area=100)
-
         # This call to generate_props_dict is excessive.
         # Both props and bgprops can be assigned locations in previous call.
-        bgprops_by_loc  = generate_props_dict(bg_props,
-                                           params['rows'],
-                                           params['columns'],
-                                           min_area=100)
+        # bgprops_by_loc  = generate_props_dict(bg_props,
+        #                                    params['rows'],
+        #                                    params['columns'],
+        #                                    min_area=100)
+        bgprops_by_loc = grid_from_centroids(bg_props,
+                                             background,
+                                             params['rows'],
+                                             params['columns'],
+                                             min_area=100)
 
 
         props_array = assign_props_to_array(props_array, props_by_loc)
@@ -319,5 +328,5 @@ if __name__ == "__main__":
 
     input = ['-i', input_path, '-o', output_path, '-d']
 
-    # main(sys.argv[1:])
-    main(input)
+    main(sys.argv[1:])
+    # main(input)
