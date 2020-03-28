@@ -437,7 +437,7 @@ def build_block_array(props_array_, spot_mask_, rows, cols, side, return_type='r
     y_list_max = [fiduc_2[1], fiduc_4[1]]
     y_max = np.sum(y_list_max) / np.sum(len([v for v in y_list_max if v != 0]))
 
-    # check for NaNs
+    # check for NaNs - no fiducial was found
     if math.isnan(x_min):
         x_mins = [p.centroid[0] for p in props_array_[0, :] if p]
         x_min = np.average(x_mins)
@@ -453,6 +453,11 @@ def build_block_array(props_array_, spot_mask_, rows, cols, side, return_type='r
 
     space_x = (x_max - x_min) / (rows-1)
     space_y = (y_max - y_min) / (cols-1)
+
+    # find the average bbox size
+    bbox_area = [a.bbox_area for a in list(props_array_.flatten()) if a is not None]
+    area = np.mean(bbox_area)
+    side = int(np.sqrt(area))
 
     if side >= space_x or side >= space_y:
         raise AttributeError("spot area is larger than spot spacing.  Please select a smaller area")

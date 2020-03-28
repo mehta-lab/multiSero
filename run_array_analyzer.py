@@ -165,8 +165,8 @@ def workflow(input_folder_, output_folder_, debug=False):
     wellimages.sort(key=lambda x: (x[0], int(x[1:-4])))
     #TODO: select wells based to analyze based on user input (Bryant)
 
-    wellimages = ['H10.png','H11.png','H12.png']
-
+    # wellimages = ['H10.png','H11.png','H12.png']
+    wellimages = ['A1.png']
     for well in wellimages:
         start = time.time()
         image, image_name = read_to_grey(input_folder_,well)
@@ -176,7 +176,7 @@ def workflow(input_folder_, output_folder_, debug=False):
         bgprops_array = create_array(params['rows'], params['columns'], dtype=object)
 
         # finding center of well and cropping
-        cx, cy, r, well_mask = find_well_border(image, detmethod='region', segmethod='bimodal')
+        cx, cy, r, well_mask = find_well_border(image, detmethod='region', segmethod='otsu')
         im_crop = crop_image(image, cx, cy, r, border_=0)
 
         # find center of spots from crop
@@ -186,7 +186,7 @@ def workflow(input_folder_, output_folder_, debug=False):
         background = get_background(im_crop, fit_order=2)
         props = generate_props(spot_mask, intensity_image_=im_crop)
         props = select_props(props, attribute="area", condition="greater_than", condition_value=200)
-        props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.5)
+        # props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.5)
 
         # for grid fit, this props dict is used only for finding fiducials
         props_by_loc = generate_props_dict(props,
@@ -198,7 +198,7 @@ def workflow(input_folder_, output_folder_, debug=False):
         props_array = assign_props_to_array(props_array, props_by_loc)
 
         # use the props_array to find fiducials, create a new spot_mask "placed" on the array
-        placed_spotmask = build_block_array(props_array, spot_mask, 6, 8, 50, return_type='region')
+        placed_spotmask = build_block_array(props_array, spot_mask, params['rows'], params['columns'], 50, return_type='region')
 
         props_placed = generate_props(placed_spotmask, intensity_image_=im_crop)
         bg_props = generate_props(placed_spotmask, intensity_image_=background)
@@ -274,8 +274,9 @@ def workflow(input_folder_, output_folder_, debug=False):
 
 
 if __name__ == "__main__":
-    input_path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/' \
-                 'images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
+    # input_path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/' \
+    #              'images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
+    input_path = "/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_octopi/20200325 - Adam's plate/exposure500us"
     # output_path = '/Users/shalin.mehta/Documents/images_local/2020-01-15_plate4_AEP_Feb3_6mousesera/'
 
     output_path = '/Users/bryant.chhun/Desktop/Data/array-imager/' \
