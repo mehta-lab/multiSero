@@ -4,6 +4,7 @@ import os
 from copy import copy
 import numpy as np
 import re
+import itertools
 
 import skimage.io as io
 import skimage.util as u
@@ -17,7 +18,7 @@ from scipy.ndimage import binary_fill_holes
 from skimage import measure
 
 from .img_processing import  create_unimodal_mask
-
+from ..utils.mock_regionprop import MockRegionprop
 """
 method is
 1) read_to_grey(supplied images)
@@ -235,7 +236,7 @@ def select_props(props_, attribute, condition, condition_value):
     return props
 
 
-def generate_props_dict(props_, rows, cols, min_area=100, img_x_max=2048, img_y_max=2048):
+def generate_props_dict(props_, n_rows, n_cols, min_area=100, img_x_max=2048, img_y_max=2048):
     """
     based on the region props, creates a dictionary of format:
         key = (centroid_x, centroid_y)
@@ -243,8 +244,8 @@ def generate_props_dict(props_, rows, cols, min_area=100, img_x_max=2048, img_y_
 
     :param props_: list of region props
         approximately 36-48 of these, depending on quality of the image
-    :param rows: int
-    :param cols: int
+    :param n_rows: int
+    :param n_cols: int
     :param min_area: int
     :param img_x_max: int
     :param img_y_max: int
@@ -282,8 +283,8 @@ def generate_props_dict(props_, rows, cols, min_area=100, img_x_max=2048, img_y_
             csy = cy - miny
 
             # convert the centroid position to an integer that maps to array indices
-            norm_cent_x = int(round((rows-1) * (csx / smaxx)))
-            norm_cent_y = int(round((cols-1) * (csy / smaxy)))
+            norm_cent_x = int(round((n_rows - 1) * (csx / smaxx)))
+            norm_cent_y = int(round((n_cols - 1) * (csy / smaxy)))
 
             # print(f"\ncentroid = {prop.centroid}\n\tnorm_cent = {norm_cent_x, norm_cent_y}")
 
@@ -297,6 +298,83 @@ def generate_props_dict(props_, rows, cols, min_area=100, img_x_max=2048, img_y_
 
     return cent_map
 
+def grid_from_centroids(props_, im, n_rows, n_cols, min_area=100, im_height=2048, im_width=2048):
+    """
+    based on the region props, creates a dictionary of format:
+        key = (centroid_x, centroid_y)
+        value = region_prop object
+
+    :param props_: list of region props
+        approximately 36-48 of these, depending on quality of the image
+    :param im: array of the intensity image
+    :param n_rows: int
+    :param n_cols: int
+    :param min_area: int
+    :param im_height: int
+    :param im_width: int
+    :return: dict
+        of format (cent_x, cent_y): prop
+    """
+
+    # find y_min, x_min to "zero center" the array
+    y_min = im_height
+    x_min = im_width
+    # find y_max, x_max to scale to array index values
+    y_max = 0
+    x_max = 0
+    for prop in props_:
+        if prop.area > min_area:
+            if prop.centroid[0] < y_min:
+                y_min = prop.centroid[0]
+            if prop.centroid[1] < x_min:
+                x_min = prop.centroid[1]
+            if prop.centroid[0] > y_max:
+                y_max = prop.centroid[0]
+            if prop.centroid[1] > x_max:
+                x_max = prop.centroid[1]
+
+    # scaled max-x, max-y
+    y_range = y_max - y_min
+    x_range = x_max - x_min
+    grid_ids = list(itertools.product(range(n_rows), range(n_cols)))
+    grid_ids_detected = []
+    cent_map = {}
+    bbox_area = []
+    for prop in props_:
+        if prop.area > min_area:
+            cen_y, cen_x = prop.centroid
+            # convert the centroid position to an integer that maps to array indices
+            grid_y_idx = int(round((n_rows - 1) * ((cen_y - y_min) / y_range)))
+            grid_x_idx = int(round((n_cols - 1) * ((cen_x - x_min) / x_range)))
+
+            grid_ids_detected.append((grid_y_idx, grid_x_idx))
+            cent_map[(grid_y_idx, grid_x_idx)] = prop
+            bbox_area.append(prop.bbox_area)
+    # calculate mean bbox width for cropping undetected spots
+    bbox_area_mean = np.mean(bbox_area)
+    bbox_width = bbox_height = np.sqrt(bbox_area_mean)
+    if len(grid_ids_detected) != len(set(grid_ids_detected)):
+        print("ERROR, DUPLICATE ENTRIES")
+        raise AttributeError("generate props array failed\n"
+                             "duplicate spots found in one position\n")
+    # Add missing spots
+    for grid_id in grid_ids:
+        if grid_id not in grid_ids_detected:
+            # make mock regionprop objects to hold the properties
+            prop = MockRegionprop(label=prop.label)
+            prop.centroid = (grid_id[0]/(n_rows - 1) * y_range + y_min,
+            grid_id[1]/(n_cols - 1) * x_range + x_min)
+            prop.label += 1
+            prop.mean_intensity = 1
+            prop.intensity_image = crop_image(im,
+                                              prop.centroid[1],
+                                              prop.centroid[0],
+                                              int(bbox_width / 2),
+                                              border_=0)
+            prop.mean_intensity = np.mean(prop.intensity_image)
+            cent_map[grid_id] = prop
+
+    return cent_map
 
 def generate_region_array(props_):
     # props contains bounding box info
@@ -322,12 +400,12 @@ def assign_props_to_array(arr, cent_map_):
 
 def compute_od(props_array,bgprops_array):
     """
-    
+
     Parameters
     ----------
-    props_array: object: 
+    props_array: object:
      2D array of regionprops objects at the spots over data.
-    bgprops_array: object: 
+    bgprops_array: object:
      2D array of regionprops objects at the spots over background.
 
     Returns
@@ -337,18 +415,18 @@ def compute_od(props_array,bgprops_array):
     i_bg
     """
     assert props_array.shape == bgprops_array.shape, 'regionprops arrays representing sample and background are not the same.'
-    rows=props_array.shape[0]
-    cols=props_array.shape[1]
-    i_spot=np.empty((rows,cols))
-    i_bg=np.empty((rows,cols))
-    od_norm=np.empty((rows,cols))
+    n_rows=props_array.shape[0]
+    n_cols=props_array.shape[1]
+    i_spot=np.empty((n_rows,n_cols))
+    i_bg=np.empty((n_rows,n_cols))
+    od_norm=np.empty((n_rows,n_cols))
 
     i_spot[:]=np.NaN
     i_bg[:]=np.NaN
     od_norm[:]=np.NaN
 
-    for r in np.arange(rows):
-        for c in np.arange(cols):
+    for r in np.arange(n_rows):
+        for c in np.arange(n_cols):
             if props_array[r,c] is not None:
                 i_spot[r,c]=props_array[r,c].mean_intensity
                 i_bg[r,c]=bgprops_array[r,c].mean_intensity
