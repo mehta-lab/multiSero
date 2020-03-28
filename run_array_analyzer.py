@@ -74,7 +74,7 @@ D) image_parser workflow above to loop 4 (read_to_grey)
     G) xlsx_report generation workflow steps 14-17
 
 """
-import sys, getopt
+import sys, getopt, os
 
 from array_analyzer.extract.image_parser import *
 from array_analyzer.extract.txt_parser import *
@@ -140,10 +140,10 @@ def workflow(input_folder_, output_folder_, debug=False):
 
     antigen_array = populate_array_antigen(antigen_array, spot_ids, repl)
 
-    xlsx_workbook = create_base_template()
+    # xlsx_workbook = create_base_template()
 
     # save a sub path for this processing run
-    run_path = output_folder_ + os.sep + f'run_{datetime.now().hour}_{datetime.now().minute}_{datetime.now().second}'
+    run_path = output_folder_ + os.sep + f'{datetime.now().month}_{datetime.now().day}_{datetime.now().hour}_{datetime.now().minute}_{datetime.now().second}'
 
     # Write an excel file that can be read into jupyter notebook with minimal parsing.
     xlwriterOD = pd.ExcelWriter(os.path.join(run_path, 'ODs.xlsx'))
@@ -165,10 +165,12 @@ def workflow(input_folder_, output_folder_, debug=False):
     wellimages.sort(key=lambda x: (x[0], int(x[1:-4])))
     #TODO: select wells based to analyze based on user input (Bryant)
 
-    wellimages = ['A1.png','A12.png']
+    wellimages = ['H10.png','H11.png','H12.png']
+
     for well in wellimages:
-        image, image_name = read_to_grey(input_folder_,well)
         start = time.time()
+        image, image_name = read_to_grey(input_folder_,well)
+        # start = time.time()
         print(image_name)
         props_array = create_array(params['rows'], params['columns'], dtype=object)
         bgprops_array = create_array(params['rows'], params['columns'], dtype=object)
@@ -183,13 +185,8 @@ def workflow(input_folder_, output_folder_, debug=False):
 
         background = get_background(im_crop, fit_order=2)
         props = generate_props(spot_mask, intensity_image_=im_crop)
-        # bg_props = generate_props(spot_mask, intensity_image_=background)
-
         props = select_props(props, attribute="area", condition="greater_than", condition_value=200)
         props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.5)
-
-        # spot_labels = [p.label for p in props]
-        # bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
 
         # for grid fit, this props dict is used only for finding fiducials
         props_by_loc = generate_props_dict(props,
@@ -198,29 +195,14 @@ def workflow(input_folder_, output_folder_, debug=False):
                                            min_area=200,
                                            flag_duplicates=False)   # assign this flag
 
-        # This call to generate_props_dict is excessive.
-        # Both props and bgprops can be assigned locations in previous call.
-        # bgprops_by_loc = generate_props_dict(bg_props,
-        #                                      params['rows'],
-        #                                      params['columns'],
-        #                                      min_area=100)
-
-        well_path = os.path.join(run_path)
-
         props_array = assign_props_to_array(props_array, props_by_loc)
-        save_composite_spots(im_crop, props_array, well_path, image_name[:-4]+"_before_blocking", from_source=True)
-
-        # bgprops_array = assign_props_to_array(bgprops_array, bgprops_by_loc)
 
         # use the props_array to find fiducials, create a new spot_mask "placed" on the array
-        placed_spotmask = build_block_array(props_array, spot_mask, 6, 8, 28, return_type='region')
-
-        output_name = os.path.join(well_path, image_name[:-4])
-        io.imsave(output_name + "placed_spotmask.png",
-                 (255 * placed_spotmask).astype('uint8'))
+        placed_spotmask = build_block_array(props_array, spot_mask, 6, 8, 50, return_type='region')
 
         props_placed = generate_props(placed_spotmask, intensity_image_=im_crop)
         bg_props = generate_props(placed_spotmask, intensity_image_=background)
+
         spot_labels = [p.label for p in props_placed]
         bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
 
@@ -239,7 +221,7 @@ def workflow(input_folder_, output_folder_, debug=False):
         # todo: further calculations using bgprops, props here
         # TODO: compute spot and background intensities,
         #  and then show them on a plate like graphic (visualize_elisa_spots).
-        # od_well, i_well, bg_well = compute_od(props_array, bgprops_array)
+        od_well, i_well, bg_well = compute_od(props_array, bgprops_array)
 
         # pd_OD = pd.DataFrame(od_well)
         # pd_OD.to_excel(xlwriterOD, sheet_name=image_name[:-4])
@@ -247,8 +229,8 @@ def workflow(input_folder_, output_folder_, debug=False):
         # Add a sheet to excel file for this well.
 
         # xlsx report generation
-        xlsx_workbook = populate_main_tab(xlsx_workbook, spot_ids, props_array, image_name[:-4])
-        xlsx_workbook = populate_main_replicates(xlsx_workbook, props_array, antigen_array, image_name[:-4])
+        # xlsx_workbook = populate_main_tab(xlsx_workbook, spot_ids, props_array, image_name[:-4])
+        # xlsx_workbook = populate_main_replicates(xlsx_workbook, props_array, antigen_array, image_name[:-4])
 
         stop = time.time()
         print(f"\ttime to process={stop-start}")
@@ -271,9 +253,9 @@ def workflow(input_folder_, output_folder_, debug=False):
                       (255 * im_bg_overlay).astype('uint8'))
 
             # This plot shows which spots have been assigned what index.
-            # plot_spot_assignment(od_well, i_well, bg_well,
-            #                      im_crop, props_by_loc, bgprops_by_loc,
-            #                      image_name, output_name, params)
+            plot_spot_assignment(od_well, i_well, bg_well,
+                                 im_crop, props_placed_by_loc, bgprops_by_loc,
+                                 image_name, output_name, params)
 
             #   save spots
             save_all_wells(props_array, spot_ids, well_path, image_name[:-4])
@@ -283,10 +265,10 @@ def workflow(input_folder_, output_folder_, debug=False):
             save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=False)
 
     # SAVE COMPLETED WORKBOOK
-    xlsx_workbook.save(run_path + os.sep +
-                       f'testrun_{datetime.now().year}_'
-                       f'{datetime.now().month}{datetime.now().day}_'
-                       f'{datetime.now().hour}{datetime.now().minute}.xlsx')
+    # xlsx_workbook.save(run_path + os.sep +
+    #                   f'testrun_{datetime.now().year}_'
+    #                   f'{datetime.now().month}{datetime.now().day}_'
+    #                   f'{datetime.now().hour}{datetime.now().minute}.xlsx')
 
     xlwriterOD.close()
 
