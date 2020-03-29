@@ -198,7 +198,8 @@ def workflow(input_folder_, output_folder_, debug=False):
         props_array = assign_props_to_array(props_array, props_by_loc)
 
         # use the props_array to find fiducials, create a new spot_mask "placed" on the array
-        placed_spotmask = build_block_array(props_array, spot_mask, params['rows'], params['columns'], 50, return_type='region')
+        placed_spotmask = build_and_place_block_array(props_array, spot_mask, params, return_type='region')
+        io.imsave('/Users/bryant.chhun/Desktop/Data/array-imager/Plates_given_to_manu/placed_spotmask.png', placed_spotmask)
 
         props_placed = generate_props(placed_spotmask, intensity_image_=im_crop)
         bg_props = generate_props(placed_spotmask, intensity_image_=background)
@@ -221,7 +222,7 @@ def workflow(input_folder_, output_folder_, debug=False):
         # todo: further calculations using bgprops, props here
         # TODO: compute spot and background intensities,
         #  and then show them on a plate like graphic (visualize_elisa_spots).
-        od_well, i_well, bg_well = compute_od(props_array, bgprops_array)
+        od_well, i_well, bg_well = compute_od(props_array_placed, bgprops_array)
 
         # pd_OD = pd.DataFrame(od_well)
         # pd_OD.to_excel(xlwriterOD, sheet_name=image_name[:-4])
@@ -274,9 +275,9 @@ def workflow(input_folder_, output_folder_, debug=False):
 
 
 if __name__ == "__main__":
-    # input_path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/' \
-    #              'images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
-    input_path = "/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_octopi/20200325 - Adam's plate/exposure500us"
+    input_path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/' \
+                 'images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
+    # input_path = "/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_octopi/20200325 - Adam's plate/exposure500us"
     # output_path = '/Users/shalin.mehta/Documents/images_local/2020-01-15_plate4_AEP_Feb3_6mousesera/'
 
     output_path = '/Users/bryant.chhun/Desktop/Data/array-imager/' \

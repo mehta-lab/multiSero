@@ -400,22 +400,82 @@ def assign_props_to_array(arr, cent_map_):
     return arr
 
 
-def build_block_array(props_array_, spot_mask_, rows, cols, side, return_type='region'):
+def build_block_array(params_, pix_size=0.0049):
+    """
+    builds a binary array of squares centered on the expected spot position
+    The array dimensions are based on parsed .xml values from the print run
+
+    :param params_: dict
+        param dictionary from "create_xml_dict"
+    :param pix_size: float
+        size of pix in mm
+    :return: np.ndarray, origin
+
+    """
+
+    # fix the pixel size, for now, in mm
+    PIX_SIZE = pix_size
+
+    n_rows = params_['rows']
+    n_cols = params_['columns']
+
+    # values in mm
+    v_pitch = params_['v_pitch']
+    h_pitch = params_['h_pitch']
+    spot_width = params_['spot_width']
+
+    # values in pixels
+    v_pix = v_pitch/PIX_SIZE
+    h_pix = h_pitch/PIX_SIZE
+    spot_pix = spot_width/PIX_SIZE
+
+    # make the box 1.3x the size of the spot, unless it will cause overlap
+    side = int(1.3*spot_pix if 1.3*spot_pix < v_pix-1 and 1.3*spot_pix < h_pix-1 else spot_pix)
+
+    # create templates
+    x_range = int(v_pix*(n_rows-1)) + side
+    y_range = int(h_pix*(n_cols-1)) + side
+    target = np.zeros((x_range, y_range))
+
+    # center position of the origin
+    origin = (side/2, side/2)
+    print(origin)
+    for row in range(n_rows):
+        for col in range(n_cols):
+            center_x = origin[0] + row * v_pix
+            center_y = origin[1] + col * h_pix
+
+            # check that the blank fits within the bounds of the target array
+            x_min = int(center_x - side / 2) if int(center_x - side / 2) > 0 else 0
+            x_max = int(center_x + side / 2) if int(center_x + side / 2) < target.shape[0] else target.shape[0]
+            y_min = int(center_y - side / 2) if int(center_y - side / 2) > 0 else 0
+            y_max = int(center_y + side / 2) if int(center_y + side / 2) < target.shape[1] else target.shape[1]
+
+            blank = np.ones((x_max-x_min, y_max-y_min))
+
+            target[x_min:x_max, y_min:y_max] = blank
+
+    return target, origin
+
+
+def build_and_place_block_array(props_array_, spot_mask_, params_, return_type='region'):
     """
     Uses the fiducial centroid positions to build a "block array":
-        "block array" is :
+        "block array" is composed of (side, side) regions centered on each expected well position
+        There are (rows, cols) of
         np.array of shape = (rows, cols)
         whose elements are np.ones(shape=(side, side))
 
-    todo: there's a danger the "side" or shape of the spot is too large to fit in the crop
     :param props_array_:
     :param spot_mask_:
-    :param rows:
-    :param cols:
-    :param side:
+    :param params_:
     :param return_type:
     :return:
     """
+
+    rows = params_['rows']
+    cols = params_['columns']
+
     # fiducials are averaged to find x-y bounds.
     #   one or both can be None, if one is None, this is handled
     #   if two are None, we have to try something else
@@ -438,6 +498,7 @@ def build_block_array(props_array_, spot_mask_, rows, cols, side, return_type='r
     y_max = np.sum(y_list_max) / np.sum(len([v for v in y_list_max if v != 0]))
 
     # check for NaNs - no fiducial was found
+    #   instead, we will use ANY spot at the boundaries to motivate the positioning
     if math.isnan(x_min):
         x_mins = [p.centroid[0] for p in props_array_[0, :] if p]
         x_min = np.average(x_mins)
@@ -451,32 +512,42 @@ def build_block_array(props_array_, spot_mask_, rows, cols, side, return_type='r
         y_maxs = [p.centroid[1] for p in props_array_[:, cols-1] if p]
         y_max = np.average(y_maxs)
 
-    space_x = (x_max - x_min) / (rows-1)
-    space_y = (y_max - y_min) / (cols-1)
+    # build_block_array uses values in the params_ to motivate array dimensions, spacings
+    # build block array
+    template, temp_origin = build_block_array(params_)
 
-    # find the average bbox size
-    bbox_area = [a.bbox_area for a in list(props_array_.flatten()) if a is not None]
-    area = np.mean(bbox_area)
-    side = int(np.sqrt(area))
-
-    if side >= space_x or side >= space_y:
-        raise AttributeError("spot area is larger than spot spacing.  Please select a smaller area")
-
+    # center the template origin on the expected fiducial 1
     target = np.zeros(spot_mask_.shape)
-    blank = np.ones((side, side))
+    target[int(x_min-temp_origin[0]):int(x_min+template.shape[0]-temp_origin[0]),
+           int(y_min-temp_origin[1]):int(y_min+template.shape[1]-temp_origin[1])] = template
 
-    # center position of the origin
-    origin = (x_min, y_min)
-    print(origin)
-    print(space_x, space_y)
-    for row in range(rows):
-        for col in range(cols):
-            center_x = origin[0] + row * space_x
-            center_y = origin[1] + col * space_y
-            target[
-            int(center_x - side / 2): int(center_x + side / 2),
-            int(center_y - side / 2): int(center_y + side / 2)
-            ] = blank
+    # # block of code below interpolates the spacing based on fiducial information
+    # space_x = (x_max - x_min) / (rows-1)
+    # space_y = (y_max - y_min) / (cols-1)
+    #
+    # # find the average bbox size
+    # bbox_area = [a.bbox_area for a in list(props_array_.flatten()) if a is not None]
+    # area = np.mean(bbox_area)
+    # side = int(np.sqrt(area))
+    #
+    # if side >= space_x or side >= space_y:
+    #     raise AttributeError("spot area is larger than spot spacing.  Please select a smaller area")
+    #
+    # target = np.zeros(spot_mask_.shape)
+    # blank = np.ones((side, side))
+    #
+    # # center position of the origin
+    # origin = (x_min, y_min)
+    # print(origin)
+    # print(space_x, space_y)
+    # for row in range(rows):
+    #     for col in range(cols):
+    #         center_x = origin[0] + row * space_x
+    #         center_y = origin[1] + col * space_y
+    #         target[
+    #         int(center_x - side / 2): int(center_x + side / 2),
+    #         int(center_y - side / 2): int(center_y + side / 2)
+    #         ] = blank
 
     if return_type == 'product':
         return target*spot_mask_
