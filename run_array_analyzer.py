@@ -188,6 +188,11 @@ def workflow(input_folder_, output_folder_, debug=False):
         props = select_props(props, attribute="area", condition="greater_than", condition_value=200)
         # props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.5)
 
+        props_by_loc = find_grid_from_fiducials(props,
+                                                params['rows'],
+                                                params['columns'],
+                                                fiducial_locations=[(0,0), (0,1), (0,5), (7,0), (7,5)])
+
         # for grid fit, this props dict is used only for finding fiducials
         props_by_loc = generate_props_dict(props,
                                            params['rows'],
@@ -199,7 +204,7 @@ def workflow(input_folder_, output_folder_, debug=False):
 
         # use the props_array to find fiducials, create a new spot_mask "placed" on the array
         placed_spotmask = build_and_place_block_array(props_array, spot_mask, params, return_type='region')
-        io.imsave('/Users/bryant.chhun/Desktop/Data/array-imager/Plates_given_to_manu/placed_spotmask.png', placed_spotmask)
+        # io.imsave('/Users/bryant.chhun/Desktop/Data/array-imager/Plates_given_to_manu/placed_spotmask.png', placed_spotmask)
 
         props_placed = generate_props(placed_spotmask, intensity_image_=im_crop)
         bg_props = generate_props(placed_spotmask, intensity_image_=background)
@@ -280,7 +285,7 @@ if __name__ == "__main__":
     # input_path = "/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_octopi/20200325 - Adam's plate/exposure500us"
     # output_path = '/Users/shalin.mehta/Documents/images_local/2020-01-15_plate4_AEP_Feb3_6mousesera/'
 
-    output_path = '/Users/bryant.chhun/Desktop/Data/array-imager/' \
+    output_path = '/Users/ivan.ivanov/Documents/images_local/' \
                   'Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
 
     flags = ['-i', input_path, '-o', output_path, '-d']

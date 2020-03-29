@@ -304,6 +304,44 @@ def generate_props_dict(props_, n_rows, n_cols, min_area=100, img_x_max=2048, im
     return cent_map
 
 
+def find_grid_from_fiducials(props_, n_rows, n_cols, fiducial_locations, pix_size=0.0049, spot_spacing=0.4):
+    """
+    based on the region props, creates a dictionary of format:
+        key = (centroid_x, centroid_y)
+        value = region_prop object
+
+    :param props_: list of region props
+        approximately 36-48 of these, depending on quality of the image
+    :param n_rows: int
+    :param n_cols: int
+    :param fiducial_locations: list specifying location of fiducial markers, e.g.
+        [(0,0), (0,5), (5,0)] for markers at 3 corners of 6x6 array
+    :param pix_size: float
+        size of pix in mm
+    :param spot_spacing: float
+        spot center distance in mm
+    :return: dict
+        of format (cent_x, cent_y): prop for fiducials only
+    """
+
+    centroids_in_mm = np.array([p.centroid for p in props_])*pix_size
+
+    # find pairwide distances of centroids
+    cent_pdist = pdist(centroids_in_mm)
+    fid_pdist = pdist(np.array(fiducial_locations))
+
+
+def pdist(pts):
+    """
+    Calculate Euclidean pairwise distance
+    :param pts: array of points
+    :return: matrix of pairwise distances
+    """
+
+    dist = np.sum((pts[None, :] - pts[:, None]) ** 2, -1) ** 0.5
+    return dist
+
+
 def grid_from_centroids(props_, im, n_rows, n_cols, min_area=100, im_height=2048, im_width=2048):
     """
     based on the region props, creates a dictionary of format:
