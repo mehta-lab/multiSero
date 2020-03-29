@@ -81,6 +81,7 @@ from array_analyzer.extract.txt_parser import *
 from array_analyzer.load.xlsx_report import *
 from array_analyzer.extract.img_processing import *
 from array_analyzer.load.debug_images import *
+from array_analyzer.transform.property_filters import *
 
 import time
 from datetime import datetime
@@ -166,11 +167,11 @@ def workflow(input_folder_, output_folder_, debug=False):
     #TODO: select wells based to analyze based on user input (Bryant)
 
     # wellimages = ['H10.png','H11.png','H12.png']
-    wellimages = ['A1.png']
+    # wellimages = ['H8.png']
     for well in wellimages:
         start = time.time()
-        image, image_name = read_to_grey(input_folder_,well)
-        # start = time.time()
+        image, image_name = read_to_grey(input_folder_, well)
+
         print(image_name)
         props_array = create_array(params['rows'], params['columns'], dtype=object)
         bgprops_array = create_array(params['rows'], params['columns'], dtype=object)
@@ -179,14 +180,18 @@ def workflow(input_folder_, output_folder_, debug=False):
         cx, cy, r, well_mask = find_well_border(image, detmethod='region', segmethod='otsu')
         im_crop = crop_image(image, cx, cy, r, border_=0)
 
+        # io.imsave('/Users/bryant.chhun/Desktop/Data/array-imager/Plates_given_to_manu/im_crop.png', im_crop)
+
         # find center of spots from crop
         spot_mask = thresh_and_binarize(im_crop, method='rosin')
-        # TODO: Fit a grid to identify spots (Bryant, Syuan-Ming)
+
+        # io.imsave('/Users/bryant.chhun/Desktop/Data/array-imager/Plates_given_to_manu/spot_mask.png', 255*spot_mask.astype('uint8'))
 
         background = get_background(im_crop, fit_order=2)
         props = generate_props(spot_mask, intensity_image_=im_crop)
         props = select_props(props, attribute="area", condition="greater_than", condition_value=200)
-        # props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.5)
+        # props = fix_comets_min(props)
+        # props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.75)
 
         # for grid fit, this props dict is used only for finding fiducials
         props_by_loc = generate_props_dict(props,
@@ -195,11 +200,10 @@ def workflow(input_folder_, output_folder_, debug=False):
                                            min_area=200,
                                            flag_duplicates=False)   # assign this flag
 
-        props_array = assign_props_to_array(props_array, props_by_loc)
+        props_array = assign_props_to_array_2(props_array, props_by_loc)
 
         # use the props_array to find fiducials, create a new spot_mask "placed" on the array
         placed_spotmask = build_and_place_block_array(props_array, spot_mask, params, return_type='region')
-        io.imsave('/Users/bryant.chhun/Desktop/Data/array-imager/Plates_given_to_manu/placed_spotmask.png', placed_spotmask)
 
         props_placed = generate_props(placed_spotmask, intensity_image_=im_crop)
         bg_props = generate_props(placed_spotmask, intensity_image_=background)
@@ -224,8 +228,8 @@ def workflow(input_folder_, output_folder_, debug=False):
         #  and then show them on a plate like graphic (visualize_elisa_spots).
         od_well, i_well, bg_well = compute_od(props_array_placed, bgprops_array)
 
-        # pd_OD = pd.DataFrame(od_well)
-        # pd_OD.to_excel(xlwriterOD, sheet_name=image_name[:-4])
+        pd_OD = pd.DataFrame(od_well)
+        pd_OD.to_excel(xlwriterOD, sheet_name=image_name[:-4])
 
         # Add a sheet to excel file for this well.
 
@@ -265,6 +269,9 @@ def workflow(input_folder_, output_folder_, debug=False):
             save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=True)
             save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=False)
 
+            stop2 = time.time()
+            print(f"\ttime to save debug={stop2-stop}")
+
     # SAVE COMPLETED WORKBOOK
     # xlsx_workbook.save(run_path + os.sep +
     #                   f'testrun_{datetime.now().year}_'
@@ -275,9 +282,9 @@ def workflow(input_folder_, output_folder_, debug=False):
 
 
 if __name__ == "__main__":
-    input_path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/' \
-                 'images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
-    # input_path = "/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_octopi/20200325 - Adam's plate/exposure500us"
+    # input_path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/' \
+    #              'images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
+    input_path = "/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_octopi/20200325AdamsPlate/Averaged/500us"
     # output_path = '/Users/shalin.mehta/Documents/images_local/2020-01-15_plate4_AEP_Feb3_6mousesera/'
 
     output_path = '/Users/bryant.chhun/Desktop/Data/array-imager/' \
