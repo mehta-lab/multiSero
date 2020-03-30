@@ -20,10 +20,10 @@ Current version is written to analyze data acquired using ELISA-arrays. The code
     * One image per well of a plate named by the well-index (`A1,A2,A3,...`).
 
     Well A1 (Flu Experiment)
-    ![Well A1](https://drive.google.com/uc?export=view&id=1umSuvXz85mLqXzSVF_cm2QXCAFq0bXxL)
-    
+    ![Well A1](https://drive.google.com/uc?export=view&id=1utiSZF_jnIDFAuDYZ2TvZS7BjwmBqOQh)
+
     Well E12 (Flu Experiment)
-    ![Well E12](https://drive.google.com/uc?export=view&id=1umaFN5Ojrv_A0YGu3zVgKLCBJDhGpNiY)
+    ![Well E12](https://drive.google.com/uc?export=view&id=1uwtxcpIDsBDwET7IEvcdjwYn4Uxz4_mf)
     
     * .xml file that provides metadata for arrangement of antigens in 2D array. 
     
@@ -74,6 +74,7 @@ how well the algorithm identified spots.
 - etc...
 
 # Program workflow
+### Method: segmentation and array placement
 
 1) Read array metadata
 2) Identify the center of the well, crop it out
@@ -111,7 +112,7 @@ Example print run metadata
 
     ![Well A1 boundary](https://drive.google.com/uc?export=view&id=1uF7GiQRk0Agjrz3tiZ3Fls0sNkLNuTno)
     
-    ![Well A1_cropped](https://drive.google.com/uc?export=view&id=1uMZLHPh3cFnQiJZLZIm2pvRPaYluEi5k)
+    ![Well A1_cropped](https://drive.google.com/uc?export=view&id=1uzzgaXK2kv7LgsCmM8a1I1OsK8NFIwpY)
 
 ##### 3) Identifying the spots in the array
 - we use a unimodal threshold described by [Rosin](https://users.cs.cf.ac.uk/Paul.Rosin/resources/papers/unimodal2.pdf) 
@@ -124,7 +125,7 @@ to segment spots
 - At this point, we assume the filters leave only real spots.  From these spots, we use the fiducials to interpolate 
 a block onto each spot
 
-    ![Well_A1_block_placed](https://drive.google.com/uc?export=view&id=1um6yui3yFX8BJQRCOxFAsqrL6IlLUytU)
+    ![Well_A1_block_placed](https://drive.google.com/uc?export=view&id=1v0pSr1axFKHvEmPHR5sThVYQ4uyiY6d8)
 
 The above steps can be repeated for estimated background levels
 
@@ -159,10 +160,17 @@ The above steps can be repeated for estimated background levels
     
     [link to report](https://drive.google.com/file/d/1usd1cVAJFzWANqR92SucaT6PpW581q8b/view?usp=sharing)
     
-# Improvements
-##### Iterative Closest Point fitting
-- After segmenting the spots, we can fit a predicted grid array onto the segmentation via a rigid transform.
-After multiple iterations the fit will naturally converge to filter out erroneous spots.
+### OpenCV blob detector and Iterative Closest Point to place grid
+1) Read array metadata
+2) Segment the image using openCV SimpleBlobDetector, which returns centroids and radii.
+3) Create an array of centroids that will be our "guess".
+4) Perform Iterative Closest Point fitting of the source in 3 vs the target in 2
+5) Place a block at each fitted point.
+4) Read each block's region and convert that to an OD measurement
+5) Generate a report of spots and ODs
+
+
+
 
 # Contributing
 
