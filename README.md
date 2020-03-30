@@ -1,14 +1,39 @@
 # serology-COVID19
-analysis of ELISA serological data 
+Serological survey of antibody response to COVID-19 using ELISA and ELISA-arrays.
 
+This open-source repository provides tools to analyze antibody responses from the data acquired using ELISA assays in [conventional multi-well format](https://doi.org/10.1101/2020.03.17.20037713) and [ELISA-array format](https://doi.org/10.1101/2019.12.20.885285).
+The key goal is to enable rapid serological surveys of COVID-19 immunity. 
+
+# Status
+The code is still in infancy and is being rapidly developed. Present code is being written to analyze data from ELISA-arrays imaged with a variety of plate readers.
+* [SciReader CL2](https://www.scienion.com/products/scireaders/).
+* Open and configurable platform [Octopi](https://www.biorxiv.org/content/10.1101/684423v1) adapted for imaging multi-well plates.
+
+The code is structured to be broadly useful for other serological analyses, and imagers.
+
+# Structure
+
+Current version is written to analyze data acquired using ELISA-arrays. The code is divided in two major parts:
+**array_analyzer**: python module to analyze the images from ELISA-arrays acquired with variety of plate readers.
+* Inputs:
+    * One image per well of a plate named by the well-index (`A1,A2,A3,...`).
+    #TODO: add few images and their names.
+    * .xml file that provides metadata for arrangement of antigens in 2D array. 
+    # TODO: link to an xml in the repo or google-drive.
+
+* Outputs.
+    * Excel file (`OD...xlsx`): sheet named `antigens` shows arrangement of antigen spots, sheets named `A1,A2,A3,...` reports background corrected optical densities (ODs) at those spots.
+    * Several debug plots to assess image analysis. 
+
+**notebooks_interpretation**: collection of jupyter notebooks that show how to use output of `array_analyzer` to evaluate antibody binding. 
+
+# Usage
 
 ## array_analyzer
 
 the script "run_array_analyzer.py" can be run from command line if you comment out
 
 ```python
-    path = '/Users/bryant.chhun/PycharmProjects/array-imager/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
-    input = ['-i', path, '-o', path]
     main(input)
 ```
 
@@ -36,50 +61,17 @@ separate images for each spot like such:
 - <well_name>_spot-1-2.png
 - <well_name>_spot-2-2.png
 - etc...
+#TODO: describe what is currently output. 
 
-Finally, the excel spreadsheet report is written to the "run folder".  Currently it contains only the summary and replicate summary.
+# Contributing
 
-It does not contain the fine detail parameters per-well (like Eric's reference data)
+We welcome bug reports, feature requests, and contributions to the code. Please see issues on the repository for areas we need input on. 
+The master branch is protected and meant to be always functional. Develop on fork of the repo and branches of this repo. Pull requests are welcome.
+Please generate PRs after testing your code against real data and make sure that master branch is always functional.
 
-### performance of array_imager
+## array_analyzer
 
-Using %timeit in the jupyter notebook, I find:
-
-```python
-    %timeit edges = canny(binary, sigma=3)
-    932 ms ± 37.1 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
-    
-    %timeit hough_res = hough_circle(edges, hough_radii)
-    643 ms ± 21.3 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
-    
-    %timeit aaccums, cx, cy, radii = hough_circle_peaks(hough_res, hough_radii, total_num_peaks=1)
-    777 ms ± 12.5 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
-
-```
-While the processing reports (at runtime) total well processing time as such:
-
-```bash
-    A6.png
-        time to process=2.6693918704986572
-    A7.png
-        time to process=2.677278995513916
-    A5.png
-        time to process=2.785794973373413
-    B9.png
-        time to process=2.57763409614563
-    B8.png
-        time to process=2.824164867401123
-    A4.png
-        time to process=2.5805811882019043
-
-```
-From this, one can see how nearly 2.3 of the 2.5 seconds are taken by the "canny" and "hough" transforms
-
-### improvements, todos:
-
-- if the Rosin thresholding cuts out a spot, the spot will be “None” in the array (instead of a regionprop).  In this case, the summary in the Excel sheet is also empty.
-We can solve this by “guessing” the well position based on neighboring regionprop.bbox values.
-
-- it looks like the summary stats depend a lot on the rosin-thresholded image (as in, the stats are based on pixels inside the mask).  We can solve this by re-labeling the image based on the regionprop.bbox, then feeding this again through regionprop.
-
-- we can explore replacements to canny (which is probably overkill), and maybe even Hough circle that may speed this up
+#TODO: Following is the transformation of data and links to current implementation (date: ):
+# [segmentation of well](permalink to current master)
+# [identification of spot](permalink to current master)
+# ...
