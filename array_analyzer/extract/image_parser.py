@@ -549,34 +549,6 @@ def build_and_place_block_array(props_array_, spot_mask_, params_, return_type='
     target[int(x_min-temp_origin[0]):int(x_min+template.shape[0]-temp_origin[0]),
            int(y_min-temp_origin[1]):int(y_min+template.shape[1]-temp_origin[1])] = template
 
-    # # block of code below interpolates the spacing based on fiducial information
-    # space_x = (x_max - x_min) / (rows-1)
-    # space_y = (y_max - y_min) / (cols-1)
-    #
-    # # find the average bbox size
-    # bbox_area = [a.bbox_area for a in list(props_array_.flatten()) if a is not None]
-    # area = np.mean(bbox_area)
-    # side = int(np.sqrt(area))
-    #
-    # if side >= space_x or side >= space_y:
-    #     raise AttributeError("spot area is larger than spot spacing.  Please select a smaller area")
-    #
-    # target = np.zeros(spot_mask_.shape)
-    # blank = np.ones((side, side))
-    #
-    # # center position of the origin
-    # origin = (x_min, y_min)
-    # print(origin)
-    # print(space_x, space_y)
-    # for row in range(rows):
-    #     for col in range(cols):
-    #         center_x = origin[0] + row * space_x
-    #         center_y = origin[1] + col * space_y
-    #         target[
-    #         int(center_x - side / 2): int(center_x + side / 2),
-    #         int(center_y - side / 2): int(center_y + side / 2)
-    #         ] = blank
-
     if return_type == 'product':
         return target*spot_mask_
     elif return_type == 'region':

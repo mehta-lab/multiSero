@@ -141,8 +141,6 @@ def workflow(input_folder_, output_folder_, debug=False):
 
     antigen_array = populate_array_antigen(antigen_array, spot_ids, repl)
 
-    # xlsx_workbook = create_base_template()
-
     # save a sub path for this processing run
     run_path = output_folder_ + os.sep + f'{datetime.now().month}_{datetime.now().day}_{datetime.now().hour}_{datetime.now().minute}_{datetime.now().second}'
 
@@ -180,17 +178,12 @@ def workflow(input_folder_, output_folder_, debug=False):
         cx, cy, r, well_mask = find_well_border(image, detmethod='region', segmethod='otsu')
         im_crop = crop_image(image, cx, cy, r, border_=0)
 
-        # io.imsave('/Users/bryant.chhun/Desktop/Data/array-imager/Plates_given_to_manu/im_crop.png', im_crop)
-
         # find center of spots from crop
         spot_mask = thresh_and_binarize(im_crop, method='rosin')
-
-        # io.imsave('/Users/bryant.chhun/Desktop/Data/array-imager/Plates_given_to_manu/spot_mask.png', 255*spot_mask.astype('uint8'))
 
         background = get_background(im_crop, fit_order=2)
         props = generate_props(spot_mask, intensity_image_=im_crop)
         props = select_props(props, attribute="area", condition="greater_than", condition_value=200)
-        # props = fix_comets_min(props)
         # props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.75)
 
         # for grid fit, this props dict is used only for finding fiducials
@@ -231,12 +224,6 @@ def workflow(input_folder_, output_folder_, debug=False):
         pd_OD = pd.DataFrame(od_well)
         pd_OD.to_excel(xlwriterOD, sheet_name=image_name[:-4])
 
-        # Add a sheet to excel file for this well.
-
-        # xlsx report generation
-        # xlsx_workbook = populate_main_tab(xlsx_workbook, spot_ids, props_array, image_name[:-4])
-        # xlsx_workbook = populate_main_replicates(xlsx_workbook, props_array, antigen_array, image_name[:-4])
-
         stop = time.time()
         print(f"\ttime to process={stop-start}")
 
@@ -271,12 +258,6 @@ def workflow(input_folder_, output_folder_, debug=False):
 
             stop2 = time.time()
             print(f"\ttime to save debug={stop2-stop}")
-
-    # SAVE COMPLETED WORKBOOK
-    # xlsx_workbook.save(run_path + os.sep +
-    #                   f'testrun_{datetime.now().year}_'
-    #                   f'{datetime.now().month}{datetime.now().day}_'
-    #                   f'{datetime.now().hour}{datetime.now().minute}.xlsx')
 
     xlwriterOD.close()
 
