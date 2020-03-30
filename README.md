@@ -164,11 +164,6 @@ The above steps can be repeated for estimated background levels
 - After segmenting the spots, we can fit a predicted grid array onto the segmentation via a rigid transform.
 After multiple iterations the fit will naturally converge to filter out erroneous spots.
 
-#TODO: Following is the transformation of data and links to current implementation (date: ):
-# [segmentation of well](permalink to current master)
-# [identification of spot](permalink to current master)
-# ...
-
 # Contributing
 
 We welcome bug reports, feature requests, and contributions to the code. Please see issues on the repository for areas we need input on. 
