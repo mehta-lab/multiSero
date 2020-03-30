@@ -6,6 +6,8 @@ import numpy as np
 import re
 import itertools
 import math
+import cv2 as cv
+from types import SimpleNamespace
 
 import skimage.io as io
 import skimage.util as u
@@ -304,7 +306,7 @@ def generate_props_dict(props_, n_rows, n_cols, min_area=100, img_x_max=2048, im
     return cent_map
 
 
-def find_grid_from_fiducials(props_, n_rows, n_cols, fiducial_locations, pix_size=0.0049, spot_spacing=0.4):
+def find_fiducials_markers(props_, fiducial_locations, n_rows, n_cols, v_pitch, h_pitch, img_size, pix_size):
     """
     based on the region props, creates a dictionary of format:
         key = (centroid_x, centroid_y)
@@ -312,34 +314,48 @@ def find_grid_from_fiducials(props_, n_rows, n_cols, fiducial_locations, pix_siz
 
     :param props_: list of region props
         approximately 36-48 of these, depending on quality of the image
-    :param n_rows: int
-    :param n_cols: int
     :param fiducial_locations: list specifying location of fiducial markers, e.g.
         [(0,0), (0,5), (5,0)] for markers at 3 corners of 6x6 array
+    :param n_rows: int
+    :param n_cols: int
+    :param v_pitch: float
+        vertical spot center distance in mm
+    :param h_pitch: float
+        horizontal spot center distance in mm
+    :param img_size tuple
+        image size in pixels
     :param pix_size: float
         size of pix in mm
-    :param spot_spacing: float
-        spot center distance in mm
     :return: dict
         of format (cent_x, cent_y): prop for fiducials only
     """
 
-    centroids_in_mm = np.array([p.centroid for p in props_])*pix_size
+    centroids_in_mm = np.array([p.centroid for p in props_]) * pix_size
+    spots_x, spots_y = (centroids_in_mm[:,1], centroids_in_mm[:,0])
 
-    # find pairwide distances of centroids
-    cent_pdist = pdist(centroids_in_mm)
-    fid_pdist = pdist(np.array(fiducial_locations))
+    cent_y, cent_x = np.array(img_size) / 2 * pix_size
+    start_x = cent_x - h_pitch * (n_cols - 1) / 2
+    start_y = cent_y - v_pitch * (n_rows - 1) / 2
 
+    x_vals = np.array([f[0] for f in fiducial_locations]) * h_pitch + start_x
+    y_vals = np.array([f[1] for f in fiducial_locations]) * v_pitch + start_y
+    grid_x = x_vals.flatten()
+    grid_y = y_vals.flatten()
 
-def pdist(pts):
-    """
-    Calculate Euclidean pairwise distance
-    :param pts: array of points
-    :return: matrix of pairwise distances
-    """
+    source = np.array([grid_x, grid_y]).T
+    target = np.array([spots_x, spots_y]).T
+    t_matrix = icp(source, target)
 
-    dist = np.sum((pts[None, :] - pts[:, None]) ** 2, -1) ** 0.5
-    return dist
+    grid_estimate = cv.transform(np.expand_dims(source, 0), t_matrix[:2])
+
+    reg_x = grid_estimate[0, :, 0]
+    reg_y = grid_estimate[0, :, 1]
+
+    cent_map = {}
+    for i, f in enumerate(fiducial_locations):
+        cent_map[f[::-1]] = SimpleNamespace(centroid=(reg_y[i]/pix_size, reg_x[i]/pix_size))
+
+    return cent_map
 
 
 def grid_from_centroids(props_, im, n_rows, n_cols, min_area=100, im_height=2048, im_width=2048):
@@ -629,3 +645,52 @@ def compute_od(props_array,bgprops_array):
     # Optical density is affected by Beer-Lambert law, i.e. I = I0*e^-{c*thickness). I0/I = e^{c*thickness).
 
     return od_norm, i_spot, i_bg
+
+def icp(source, target, max_iterate=50, err=1):
+    """
+    Iterative closest point. Expects x, y coordinates of source in target in shape
+    nbr of points x 2
+    """
+    source = np.expand_dims(source, 0)
+    target = np.expand_dims(target, 0)
+
+    src = source.copy().astype(np.float32)
+    dst = target.copy().astype(np.float32)
+    nbr_src = src.shape[1]
+    nbr_dst = dst.shape[1]
+
+    # Initialize kNN module
+    knn = cv.ml.KNearest_create()
+    labels = np.array(range(nbr_dst)).astype(np.float32)
+    knn.train(dst[0], cv.ml.ROW_SAMPLE, labels)
+    # Initialize transformation matrix
+    t_matrix = np.eye(3)
+    t_temp = np.eye(3)
+    t_old = t_matrix
+
+    # Iterate while error > threshold
+    for i in range(max_iterate):
+
+        # Find closest points
+        ret, results, neighbors, dist = knn.findNearest(src[0], 1)
+        # Outlier removal
+        idxs = np.squeeze(neighbors.astype(np.uint8))
+        dist_max = dist.mean() + 1 * dist.std()
+        normal_idxs = np.where(dist < dist_max)[0]
+        idxs = idxs[normal_idxs]
+        # Find rigid transform
+        t_iter = cv.estimateRigidTransform(
+            src[0, normal_idxs, :],
+            dst[0, idxs, :],
+            fullAffine=False,
+        )
+        t_temp[:2] = t_iter
+        src = cv.transform(src, t_iter)
+        t_matrix = np.dot(t_temp, t_matrix)
+        # Estimate diff
+        t_diff = sum(sum(abs(t_matrix[:2] - t_old[:2])))
+        t_old = t_matrix
+        if t_diff < err:
+            break
+
+    return t_matrix[:2]
