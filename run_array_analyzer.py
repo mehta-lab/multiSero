@@ -186,12 +186,24 @@ def workflow(input_folder_, output_folder_, debug=False):
         props = select_props(props, attribute="area", condition="greater_than", condition_value=200)
         # props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.75)
 
+        fiducial_locations = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
+        pix_size = 0.0049 # in mm
+        props_by_loc = find_fiducials_markers(props,
+                                              fiducial_locations,
+                                              params['rows'],
+                                              params['columns'],
+                                              params['v_pitch'],
+                                              params['h_pitch'],
+                                              im_crop.shape,
+                                              pix_size)
+
+
         # for grid fit, this props dict is used only for finding fiducials
-        props_by_loc = generate_props_dict(props,
-                                           params['rows'],
-                                           params['columns'],
-                                           min_area=200,
-                                           flag_duplicates=False)   # assign this flag
+        # props_by_loc = generate_props_dict(props,
+        #                                    params['rows'],
+        #                                    params['columns'],
+        #                                    min_area=200,
+        #                                    flag_duplicates=False)   # assign this flag
 
         props_array = assign_props_to_array_2(props_array, props_by_loc)
 
@@ -268,7 +280,7 @@ if __name__ == "__main__":
     input_path = "/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_octopi/20200325AdamsPlate/Averaged/500us"
     # output_path = '/Users/shalin.mehta/Documents/images_local/2020-01-15_plate4_AEP_Feb3_6mousesera/'
 
-    output_path = '/Users/bryant.chhun/Desktop/Data/array-imager/' \
+    output_path = '/Users/ivan.ivanov/Documents/images_local/' \
                   'Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
 
     flags = ['-i', input_path, '-o', output_path, '-d']
