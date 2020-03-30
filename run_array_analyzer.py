@@ -175,19 +175,19 @@ def workflow(input_folder_, output_folder_, debug=False):
 
 
         # finding center of well and cropping
-        cx, cy, r, well_mask = find_well_border(image, detmethod='region', segmethod='bimodal')
+        cx, cy, r, well_mask = find_well_border(image, detmethod='region', segmethod='otsu')
         im_crop = crop_image(image, cx, cy, r, border_=0)
 
         # find center of spots from crop
-        spot_mask = thresh_and_binarize(im_crop, method='rosin')
+        spot_mask = thresh_and_binarize(im_crop, method='otsu')
         # TODO: Fit a grid to identify spots (Bryant, Syuan-Ming)
 
         background = get_background(im_crop, fit_order=2)
         props = generate_props(spot_mask, intensity_image_=im_crop)
         bg_props = generate_props(spot_mask, intensity_image_=background)
 
-        props = select_props(props, attribute="area", condition="greater_than", condition_value=200)
-        props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.5)
+        props = select_props(props, attribute="area", condition="greater_than", condition_value=300)
+        props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=1)
         spot_labels = [p.label for p in props]
         bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
 
@@ -312,8 +312,8 @@ def workflow(input_folder_, output_folder_, debug=False):
             #                       (255*np.ones((32, 32)).astype('uint8')))
 
     # SAVE COMPLETED WORKBOOK
-    # xlsx_workbook.save(run_path + os.sep +
-    #                   f'testrun_{datetime.now().year}_'
+    xlsx_workbook.save(run_path + os.sep +
+                      f'testrun_{datetime.now().year}_'
                        f'{datetime.now().month}{datetime.now().day}_'
                        f'{datetime.now().hour}{datetime.now().minute}.xlsx')
 

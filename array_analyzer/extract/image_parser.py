@@ -341,7 +341,6 @@ def grid_from_centroids(props_, im, n_rows, n_cols, min_area=100, im_height=2048
     cent_map = {}
     bbox_area = []
     for prop in props_:
-        if prop.area > min_area:
             cen_y, cen_x = prop.centroid
             # convert the centroid position to an integer that maps to array indices
             grid_y_idx = int(round((n_rows - 1) * ((cen_y - y_min) / y_range)))
@@ -353,26 +352,26 @@ def grid_from_centroids(props_, im, n_rows, n_cols, min_area=100, im_height=2048
     # calculate mean bbox width for cropping undetected spots
     bbox_area_mean = np.mean(bbox_area)
     bbox_width = bbox_height = np.sqrt(bbox_area_mean)
-    if len(grid_ids_detected) != len(set(grid_ids_detected)):
-        print("ERROR, DUPLICATE ENTRIES")
-        raise AttributeError("generate props array failed\n"
-                             "duplicate spots found in one position\n")
+    # if len(grid_ids_detected) != len(set(grid_ids_detected)):
+    #     print("ERROR, DUPLICATE ENTRIES")
+    #     raise AttributeError("generate props array failed\n"
+    #                          "duplicate spots found in one position\n")
     # Add missing spots
-    for grid_id in grid_ids:
-        if grid_id not in grid_ids_detected:
-            # make mock regionprop objects to hold the properties
-            prop = MockRegionprop(label=prop.label)
-            prop.centroid = (grid_id[0]/(n_rows - 1) * y_range + y_min,
-            grid_id[1]/(n_cols - 1) * x_range + x_min)
-            prop.label += 1
-            prop.mean_intensity = 1
-            prop.intensity_image = crop_image(im,
-                                              prop.centroid[1],
-                                              prop.centroid[0],
-                                              int(bbox_width / 2),
-                                              border_=0)
-            prop.mean_intensity = np.mean(prop.intensity_image)
-            cent_map[grid_id] = prop
+    # for grid_id in grid_ids:
+    #     if grid_id not in grid_ids_detected:
+    #         # make mock regionprop objects to hold the properties
+    #         prop = MockRegionprop(label=prop.label)
+    #         prop.centroid = (grid_id[0]/(n_rows - 1) * y_range + y_min,
+    #         grid_id[1]/(n_cols - 1) * x_range + x_min)
+    #         prop.label += 1
+    #         prop.mean_intensity = 1
+    #         prop.intensity_image = crop_image(im,
+    #                                           prop.centroid[1],
+    #                                           prop.centroid[0],
+    #                                           int(bbox_width / 2),
+    #                                           border_=0)
+    #         prop.mean_intensity = np.mean(prop.intensity_image)
+    #         cent_map[grid_id] = prop
 
     return cent_map
 
