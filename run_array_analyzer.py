@@ -133,16 +133,13 @@ def workflow(input_folder_, output_folder_, debug=False):
     spot_ids = create_array(params['rows'], params['columns'])
     antigen_array = create_array(params['rows'], params['columns'])
 
-
-
     # adding .xml info to these arrays
     spot_ids = populate_array_id(spot_ids, spots)
     # spot_ids = populate_array_fiduc(spot_ids, fiduc)
 
     antigen_array = populate_array_antigen(antigen_array, spot_ids, repl)
 
-    xlsx_workbook = create_base_template()
-
+    # xlsx_workbook = create_base_template()
 
     # save a sub path for this processing run
     run_path = output_folder_ + os.sep + f'run_{datetime.now().hour}_{datetime.now().minute}_{datetime.now().second}'
@@ -172,7 +169,6 @@ def workflow(input_folder_, output_folder_, debug=False):
         print(image_name)
         props_array = create_array(params['rows'], params['columns'], dtype=object)
         bgprops_array = create_array(params['rows'], params['columns'], dtype=object)
-
 
         # finding center of well and cropping
         cx, cy, r, well_mask = find_well_border(image, detmethod='region', segmethod='bimodal')
@@ -314,8 +310,8 @@ def workflow(input_folder_, output_folder_, debug=False):
     # SAVE COMPLETED WORKBOOK
     # xlsx_workbook.save(run_path + os.sep +
     #                   f'testrun_{datetime.now().year}_'
-                       f'{datetime.now().month}{datetime.now().day}_'
-                       f'{datetime.now().hour}{datetime.now().minute}.xlsx')
+    #                    f'{datetime.now().month}{datetime.now().day}_'
+    #                    f'{datetime.now().hour}{datetime.now().minute}.xlsx')
 
     xlwriterOD.close()
 
