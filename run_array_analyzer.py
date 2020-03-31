@@ -80,12 +80,15 @@ from array_analyzer.extract.image_parser import *
 from array_analyzer.extract.txt_parser import *
 from array_analyzer.load.xlsx_report import *
 from array_analyzer.extract.img_processing import *
+from array_analyzer.load.debug_images import *
+from array_analyzer.transform.property_filters import *
 
 import time
 from datetime import datetime
 import skimage.io as io
 import matplotlib.pyplot as plt
 import pandas as pd
+
 
 def main(argv):
     inputfolder = ''
@@ -123,7 +126,6 @@ def workflow(input_folder_, output_folder_, debug=False):
     xml = [f for f in os.listdir(input_folder_) if '.xml' in f]
     if len(xml) > 1:
         raise IOError("more than one .xml file found, aborting")
-
     xml_path = input_folder_+os.sep+xml[0]
 
     # parsing .xml
@@ -133,19 +135,14 @@ def workflow(input_folder_, output_folder_, debug=False):
     spot_ids = create_array(params['rows'], params['columns'])
     antigen_array = create_array(params['rows'], params['columns'])
 
-
-
     # adding .xml info to these arrays
     spot_ids = populate_array_id(spot_ids, spots)
     # spot_ids = populate_array_fiduc(spot_ids, fiduc)
 
     antigen_array = populate_array_antigen(antigen_array, spot_ids, repl)
 
-    xlsx_workbook = create_base_template()
-
-
     # save a sub path for this processing run
-    run_path = output_folder_ + os.sep + f'run_{datetime.now().hour}_{datetime.now().minute}_{datetime.now().second}'
+    run_path = output_folder_ + os.sep + f'{datetime.now().month}_{datetime.now().day}_{datetime.now().hour}_{datetime.now().minute}_{datetime.now().second}'
 
     # Write an excel file that can be read into jupyter notebook with minimal parsing.
     xlwriterOD = pd.ExcelWriter(os.path.join(run_path, 'ODs.xlsx'))
@@ -159,20 +156,23 @@ def workflow(input_folder_, output_folder_, debug=False):
     # loop over images => good place for multiproc?  careful with columns in report
     # ================
     images = [file for file in os.listdir(input_folder_) if '.png' in file or '.tif' in file or '.jpg' in file]
+
     # remove any images that are not images of wells.
     wellimages = [file for file in images if re.match(r'[A-P][0-9]{1,2}', file)]
+
     # sort by letter, then by number (with '10' coming AFTER '9')
     wellimages.sort(key=lambda x: (x[0], int(x[1:-4])))
     #TODO: select wells based to analyze based on user input (Bryant)
-    #wellimages=['A1.png','A2.png']
 
+    # wellimages = ['H10.png','H11.png','H12.png']
+    # wellimages = ['H8.png']
     for well in wellimages:
-        image, image_name = read_to_grey(input_folder_,well)
         start = time.time()
+        image, image_name = read_to_grey(input_folder_, well)
+
         print(image_name)
         props_array = create_array(params['rows'], params['columns'], dtype=object)
         bgprops_array = create_array(params['rows'], params['columns'], dtype=object)
-
 
         # finding center of well and cropping
         cx, cy, r, well_mask = find_well_border(image, detmethod='region', segmethod='otsu')
@@ -190,11 +190,47 @@ def workflow(input_folder_, output_folder_, debug=False):
         props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=1)
         spot_labels = [p.label for p in props]
         bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
+        props = select_props(props, attribute="area", condition="greater_than", condition_value=200)
+        # props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.75)
 
+        fiducial_locations = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
+        pix_size = 0.0049 # in mm
+        props_by_loc = find_fiducials_markers(props,
+                                              fiducial_locations,
+                                              params['rows'],
+                                              params['columns'],
+                                              params['v_pitch'],
+                                              params['h_pitch'],
+                                              im_crop.shape,
+                                              pix_size)
+
+
+        # for grid fit, this props dict is used only for finding fiducials
         # props_by_loc = generate_props_dict(props,
         #                                    params['rows'],
         #                                    params['columns'],
-        #                                    min_area=100)
+        #                                    min_area=200,
+        #                                    flag_duplicates=False)   # assign this flag
+
+        props_array = assign_props_to_array_2(props_array, props_by_loc)
+
+        # use the props_array to find fiducials, create a new spot_mask "placed" on the array
+        placed_spotmask = build_and_place_block_array(props_array, spot_mask, params, return_type='region')
+
+        props_placed = generate_props(placed_spotmask, intensity_image_=im_crop)
+        bg_props = generate_props(placed_spotmask, intensity_image_=background)
+
+        spot_labels = [p.label for p in props_placed]
+        bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
+
+        props_placed_by_loc = generate_props_dict(props_placed,
+                                                  params['rows'],
+                                                  params['columns'],
+                                                  min_area=100)
+        bgprops_by_loc = generate_props_dict(bg_props,
+                                             params['rows'],
+                                             params['columns'],
+                                             min_area=100)
         props_by_loc = grid_from_centroids(props,
                                            im_crop,
                                            params['rows'],
@@ -211,23 +247,16 @@ def workflow(input_folder_, output_folder_, debug=False):
                                              params['rows'],
                                              params['columns'],
                                              min_area=100)
-
-
-        props_array = assign_props_to_array(props_array, props_by_loc)
+        props_array_placed = assign_props_to_array(props_array, props_placed_by_loc)
         bgprops_array = assign_props_to_array(bgprops_array, bgprops_by_loc)
 
-       # TODO: compute spot and background intensities, and then show them on a plate like graphic (visualize_elisa_spots).
-        od_well,i_well,bg_well=compute_od(props_array,bgprops_array)
+        # todo: further calculations using bgprops, props here
+        # TODO: compute spot and background intensities,
+        #  and then show them on a plate like graphic (visualize_elisa_spots).
+        od_well, i_well, bg_well = compute_od(props_array_placed, bgprops_array)
 
         pd_OD = pd.DataFrame(od_well)
         pd_OD.to_excel(xlwriterOD, sheet_name=image_name[:-4])
-
-        # Add a sheet to excel file for this well.
-
-        # xlsx report generation
-        # xlsx_workbook = populate_main_tab(xlsx_workbook, spot_ids, props_array, image_name[:-4])
-        # xlsx_workbook = populate_main_replicates(xlsx_workbook, props_array, antigen_array, image_name[:-4])
-
 
         stop = time.time()
         print(f"\ttime to process={stop-start}")
@@ -237,7 +266,7 @@ def workflow(input_folder_, output_folder_, debug=False):
             well_path = os.path.join(run_path)
             os.makedirs(well_path, exist_ok=True)
             output_name = os.path.join(well_path, image_name[:-4])
-            im_bg_overlay = np.stack([background,im_crop,background], axis=2)
+            im_bg_overlay = np.stack([background, im_crop, background], axis=2)
 
             #   save cropped image and the binary
             io.imsave(output_name + "_crop.png",
@@ -250,83 +279,34 @@ def workflow(input_folder_, output_folder_, debug=False):
                       (255 * im_bg_overlay).astype('uint8'))
 
             # This plot shows which spots have been assigned what index.
-            plt.imshow(im_crop)
-            plt.colorbar()
-            for r in np.arange(params['rows']):
-                for c in np.arange(params['columns']):
-                    try:
-                        ceny, cenx = props_by_loc[(r,c)].centroid
-                    except:
-                        spot_text = '(' + str(r) + ',' + str(c) + ')'
-                        print(spot_text+ 'not found')
-                    else:
-                        cenybg, cenxbg = bgprops_by_loc[(r,c)].centroid
-                        plt.plot(cenx,ceny,'w+')
-                        plt.plot(cenxbg,cenybg,'wx')
-                        spot_text='(' + str(r) + ',' + str(c) + ')'
-                        plt.text(cenx,ceny-5,spot_text, va='bottom', ha='center', color='w')
-                        plt.text(0,0,image_name[:-4]+',spot count='+str(len(props_by_loc)))
-            figcentroid=plt.gcf()
-            centroids_debug=output_name+'_overlayCentroids.png'
-            figcentroid.savefig(centroids_debug)
-            plt.show()
-
-            plt.figure(figsize=(6,1.5))
-            plt.subplot(131)
-            plt.imshow(i_well,cmap='gray')
-            plt.colorbar()
-            plt.title('intensity')
-
-            plt.subplot(132)
-            plt.imshow(bg_well, cmap='gray')
-            plt.colorbar()
-            plt.title('background')
-
-            plt.subplot(133)
-            plt.imshow(od_well, cmap='gray')
-            plt.colorbar()
-            plt.title('OD')
-
-            figOD = plt.gcf()
-            od_debug = output_name + '_od.png'
-            figOD.savefig(od_debug)
-            plt.show()
-
-
-
+            plot_spot_assignment(od_well, i_well, bg_well,
+                                 im_crop, props_placed_by_loc, bgprops_by_loc,
+                                 image_name, output_name, params)
 
             #   save spots
-            # for row in range(props_array.shape[0]):
-            #     for col in range(props_array.shape[1]):
-            #
-            #         cell = spot_ids[row][col]
-            #         if cell == '':
-            #             continue
-            #
-            #         prop = props_array[row][col]
-            #         if prop is not None:
-            #             io.imsave(well_path + os.sep + image_name[:-4] + f"_spot_{cell}.png",
-            #                       (255*prop.intensity_image).astype('uint8'))
-            #         else:
-            #             io.imsave(well_path + os.sep + image_name[:-4] + f"_spot_{cell}.png",
-            #                       (255*np.ones((32, 32)).astype('uint8')))
+            save_all_wells(props_array, spot_ids, well_path, image_name[:-4])
 
-    # SAVE COMPLETED WORKBOOK
-    xlsx_workbook.save(run_path + os.sep +
-                      f'testrun_{datetime.now().year}_'
-                       f'{datetime.now().month}{datetime.now().day}_'
-                       f'{datetime.now().hour}{datetime.now().minute}.xlsx')
+            #   save a composite of all spots, where spots are from source or from region prop
+            save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=True)
+            save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=False)
+
+            stop2 = time.time()
+            print(f"\ttime to save debug={stop2-stop}")
 
     xlwriterOD.close()
 
+
 if __name__ == "__main__":
-    input_path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
-    output_path = '/Users/shalin.mehta/Documents/images_local/2020-01-15_plate4_AEP_Feb3_6mousesera/'
+    # input_path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/' \
+    #              'images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
+    input_path = "/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_octopi/20200325AdamsPlate/Averaged/500us"
+    # output_path = '/Users/shalin.mehta/Documents/images_local/2020-01-15_plate4_AEP_Feb3_6mousesera/'
 
-    #path = '/Users/bryant.chhun/PycharmProjects/array-imager/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
-    # path = '/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
+    output_path = '/Users/ivan.ivanov/Documents/images_local/' \
+                  'Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
 
-    input = ['-i', input_path, '-o', output_path, '-d']
+    flags = ['-i', input_path, '-o', output_path, '-d']
+    main(flags)
 
     main(sys.argv[1:])
     # main(input)

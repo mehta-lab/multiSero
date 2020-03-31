@@ -62,6 +62,8 @@ def create_xml_dict(path_):
     params['max_diam'] = float(layout['@max_diameter'])
     params['min_diam'] = float(layout['@min_diameter'])
 
+    # todo: add param for different imaging conditions (magnificaiton, camera pixel size, etc..)
+
     return fiduc, spots, repl, params
 
 
