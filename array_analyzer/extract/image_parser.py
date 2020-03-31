@@ -46,15 +46,14 @@ def read_to_grey(path_, wellimage_):
     """
     a generator that receives file path and returns the next rgb image as greyscale and its name
 
-    :param path_: path to folder with all images
-    :param wellimage_: name of the file with image of the well.
-    :return: next image as greyscale np.ndarray, filename
+    :param str path_: path to folder with all images
+    :param str wellimage_: name of the file with image of the well.
+    :return: next image as greyscale np.ndarray
     """
-
-    image_path = path_+os.sep+wellimage_
+    image_path = os.path.join(path_, wellimage_)
     im = io.imread(image_path)
-    i = rgb2grey(im)
-    return i, os.path.basename(image_path)
+    im = rgb2grey(im)
+    return im
 
 
 def thresh_and_binarize(image_, method='rosin', invert=True):
@@ -106,7 +105,7 @@ def find_well_border(image, segmethod='bimodal', detmethod='region'):
 
     :param image: np.ndarray
         raw image, not inverted
-    :param method: str
+    :param segmethod: str
         'otsu' or 'hough'
     :return: center x, center y, radius of the one hough circle
     """
@@ -117,7 +116,6 @@ def find_well_border(image, segmethod='bimodal', detmethod='region'):
     str_elem = disk(str_elem_size)
     well_mask = binary_opening(well_mask, str_elem)
     well_mask = binary_fill_holes(well_mask)
-
 
     if detmethod == 'region':
         labels = measure.label(well_mask)
@@ -306,7 +304,14 @@ def generate_props_dict(props_, n_rows, n_cols, min_area=100, img_x_max=2048, im
     return cent_map
 
 
-def find_fiducials_markers(props_, fiducial_locations, n_rows, n_cols, v_pitch, h_pitch, img_size, pix_size):
+def find_fiducials_markers(props_,
+                           fiducial_locations,
+                           n_rows,
+                           n_cols,
+                           v_pitch,
+                           h_pitch,
+                           img_size,
+                           pix_size):
     """
     based on the region props, creates a dictionary of format:
         key = (centroid_x, centroid_y)
@@ -646,29 +651,35 @@ def compute_od(props_array,bgprops_array):
 
     return od_norm, i_spot, i_bg
 
-def icp(source, target, max_iterate=50, err=1):
+
+def icp(source, target, max_iterate=50, matrix_diff=1.):
     """
-    Iterative closest point. Expects x, y coordinates of source in target in shape
-    nbr of points x 2
+    Iterative closest point. Expects x, y coordinates of source and target in
+    an array with shape: nbr of points x 2
+
+    :param np.array source: Source spot coordinates
+    :param np.array target: Target spot coordinates
+    :param int max_iterate: Maximum number of registration iterations
+    :param float matrix_diff: Sum of absolute differences between transformation
+        matrices after one iteration
+    :return np.array t_matrix: 2D transformation matrix
     """
     source = np.expand_dims(source, 0)
     target = np.expand_dims(target, 0)
 
     src = source.copy().astype(np.float32)
     dst = target.copy().astype(np.float32)
-    nbr_src = src.shape[1]
-    nbr_dst = dst.shape[1]
 
     # Initialize kNN module
     knn = cv.ml.KNearest_create()
-    labels = np.array(range(nbr_dst)).astype(np.float32)
+    labels = np.array(range(dst.shape[1])).astype(np.float32)
     knn.train(dst[0], cv.ml.ROW_SAMPLE, labels)
     # Initialize transformation matrix
     t_matrix = np.eye(3)
     t_temp = np.eye(3)
     t_old = t_matrix
 
-    # Iterate while error > threshold
+    # Iterate while matrix difference > threshold
     for i in range(max_iterate):
 
         # Find closest points
@@ -690,7 +701,7 @@ def icp(source, target, max_iterate=50, err=1):
         # Estimate diff
         t_diff = sum(sum(abs(t_matrix[:2] - t_old[:2])))
         t_old = t_matrix
-        if t_diff < err:
+        if t_diff < matrix_diff:
             break
 
     return t_matrix[:2]

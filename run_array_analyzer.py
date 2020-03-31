@@ -74,12 +74,15 @@ D) image_parser workflow above to loop 4 (read_to_grey)
     G) xlsx_report generation workflow steps 14-17
 
 """
-import sys, getopt, os
+import getopt
+import glob
+import os
+import sys
 
-from array_analyzer.extract.image_parser import *
-from array_analyzer.extract.txt_parser import *
+import array_analyzer.extract.image_parser as image_parser
+import array_analyzer.extract.txt_parser as txt_parser
 from array_analyzer.load.xlsx_report import *
-from array_analyzer.extract.img_processing import *
+import array_analyzer.extract.img_processing as img_processing
 from array_analyzer.load.debug_images import *
 from array_analyzer.transform.property_filters import *
 
@@ -123,26 +126,33 @@ def main(argv):
 
 def workflow(input_folder_, output_folder_, debug=False):
 
-    xml = [f for f in os.listdir(input_folder_) if '.xml' in f]
-    if len(xml) > 1:
-        raise IOError("more than one .xml file found, aborting")
-    xml_path = input_folder_+os.sep+xml[0]
+    xml_path = glob.glob(input_folder_ + '*.xml')
+    if len(xml_path) > 1 or not xml_path:
+        raise IOError("Did not find unique xml")
+    xml_path = xml_path[0]
 
     # parsing .xml
-    fiduc, spots, repl, params = create_xml_dict(xml_path)
+    fiduc, spots, repl, params = txt_parser.create_xml_dict(xml_path)
 
     # creating our arrays
-    spot_ids = create_array(params['rows'], params['columns'])
-    antigen_array = create_array(params['rows'], params['columns'])
+    spot_ids = txt_parser.create_array(params['rows'], params['columns'])
+    antigen_array = txt_parser.create_array(params['rows'], params['columns'])
 
     # adding .xml info to these arrays
-    spot_ids = populate_array_id(spot_ids, spots)
+    spot_ids = txt_parser.populate_array_id(spot_ids, spots)
     # spot_ids = populate_array_fiduc(spot_ids, fiduc)
 
-    antigen_array = populate_array_antigen(antigen_array, spot_ids, repl)
+    antigen_array = txt_parser.populate_array_antigen(antigen_array, spot_ids, repl)
 
     # save a sub path for this processing run
-    run_path = output_folder_ + os.sep + f'{datetime.now().month}_{datetime.now().day}_{datetime.now().hour}_{datetime.now().minute}_{datetime.now().second}'
+    run_path = os.path.join(
+        output_folder_,
+        '_'.join([str(datetime.now().month),
+                  str(datetime.now().day),
+                  str(datetime.now().hour),
+                  str(datetime.now().minute),
+                  str(datetime.now().second)]),
+    )
 
     # Write an excel file that can be read into jupyter notebook with minimal parsing.
     xlwriterOD = pd.ExcelWriter(os.path.join(run_path, 'ODs.xlsx'))
@@ -164,38 +174,55 @@ def workflow(input_folder_, output_folder_, debug=False):
     wellimages.sort(key=lambda x: (x[0], int(x[1:-4])))
     #TODO: select wells based to analyze based on user input (Bryant)
 
-    # wellimages = ['H10.png','H11.png','H12.png']
-    # wellimages = ['H8.png']
-    for well in wellimages:
+    for image_name in wellimages:
         start = time.time()
-        image, image_name = read_to_grey(input_folder_, well)
+        image = image_parser.read_to_grey(input_folder_, image_name)
 
         print(image_name)
-        props_array = create_array(params['rows'], params['columns'], dtype=object)
-        bgprops_array = create_array(params['rows'], params['columns'], dtype=object)
+        props_array = txt_parser.create_array(
+            params['rows'],
+            params['columns'],
+            dtype=object,
+        )
+        bgprops_array = txt_parser.create_array(
+            params['rows'],
+            params['columns'],
+            dtype=object,
+        )
 
         # finding center of well and cropping
-        cx, cy, r, well_mask = find_well_border(image, detmethod='region', segmethod='otsu')
-        im_crop = crop_image(image, cx, cy, r, border_=0)
+        cx, cy, r, well_mask = image_parser.find_well_border(
+            image,
+            segmethod='otsu',
+            detmethod='region',
+        )
+        im_crop = image_parser.crop_image(image, cx, cy, r, border_=0)
 
         # find center of spots from crop
-        spot_mask = thresh_and_binarize(im_crop, method='rosin')
+        spot_mask = image_parser.thresh_and_binarize(im_crop, method='rosin')
 
-        background = get_background(im_crop, fit_order=2)
-        props = generate_props(spot_mask, intensity_image_=im_crop)
-        props = select_props(props, attribute="area", condition="greater_than", condition_value=200)
+        background = img_processing.get_background(im_crop, fit_order=2)
+        props = image_parser.generate_props(spot_mask, intensity_image_=im_crop)
+        props = image_parser.select_props(
+            props,
+            attribute="area",
+            condition="greater_than",
+            condition_value=200,
+        )
         # props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.75)
 
         fiducial_locations = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
         pix_size = 0.0049 # in mm
-        props_by_loc = find_fiducials_markers(props,
-                                              fiducial_locations,
-                                              params['rows'],
-                                              params['columns'],
-                                              params['v_pitch'],
-                                              params['h_pitch'],
-                                              im_crop.shape,
-                                              pix_size)
+        props_by_loc = image_parser.find_fiducials_markers(
+            props,
+            fiducial_locations,
+            params['rows'],
+            params['columns'],
+            params['v_pitch'],
+            params['h_pitch'],
+            im_crop.shape,
+            pix_size,
+        )
 
 
         # for grid fit, this props dict is used only for finding fiducials
@@ -205,10 +232,16 @@ def workflow(input_folder_, output_folder_, debug=False):
         #                                    min_area=200,
         #                                    flag_duplicates=False)   # assign this flag
 
-        props_array = assign_props_to_array_2(props_array, props_by_loc)
+        props_array = image_parser.assign_props_to_array_2(props_array, props_by_loc)
 
-        # use the props_array to find fiducials, create a new spot_mask "placed" on the array
-        placed_spotmask = build_and_place_block_array(props_array, spot_mask, params, return_type='region')
+        # use the props_array to find fiducials,
+        # create a new spot_mask "placed" on the array
+        placed_spotmask = image_parser.build_and_place_block_array(
+            props_array,
+            spot_mask,
+            params,
+            return_type='region',
+        )
 
         props_placed = generate_props(placed_spotmask, intensity_image_=im_crop)
         bg_props = generate_props(placed_spotmask, intensity_image_=background)
