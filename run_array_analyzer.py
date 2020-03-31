@@ -94,8 +94,10 @@ def main(argv):
     inputfolder = ''
     outputfolder = ''
     debug = False
+    method = 'fit'
     try:
-        options, remainder = getopt.getopt(argv, "hi:o:d", ["help","ifile=", "ofile=", "debug="])
+        options, remainder = getopt.getopt(argv, "hi:o:dm:",
+                                           ["help","ifile=", "ofile=", "debug=", "method="])
     except getopt.GetoptError:
         print('run_array_analyzer.py -i <inputfolder> -o <outputfolder>')
         sys.exit(2)
@@ -108,6 +110,10 @@ def main(argv):
             inputfolder = arg
         elif opt in ("-o", "--ofile"):
             outputfolder = arg
+        elif opt in ("-m", "--method"):
+            method = arg
+            assert method in ['fit', 'interp'], \
+                ValueError('"method" has to be "fit" or "interp"')
         elif opt in ("-d", "--debug"):
             print('debug mode on, saving well and spot images')
             debug = True
@@ -118,10 +124,10 @@ def main(argv):
     if not os.path.isdir(outputfolder):
         os.makedirs(outputfolder)
 
-    workflow(inputfolder, outputfolder, debug=debug)
+    workflow(inputfolder, outputfolder, method=method, debug=debug)
 
 
-def workflow(input_folder_, output_folder_, debug=False):
+def workflow(input_folder_, output_folder_, method='fit', debug=False):
 
     xml = [f for f in os.listdir(input_folder_) if '.xml' in f]
     if len(xml) > 1:
@@ -165,92 +171,105 @@ def workflow(input_folder_, output_folder_, debug=False):
     #TODO: select wells based to analyze based on user input (Bryant)
 
     # wellimages = ['H10.png','H11.png','H12.png']
-    # wellimages = ['H8.png']
+    # wellimages = ['B8.png', 'B9.png', 'B10.png']
+    # wellimages = ['A12.png', 'A11.png', 'A8.png', 'A1.png']
+    # wellimages = ['A9.png']
+    if debug:
+        well_path = os.path.join(run_path)
+        os.makedirs(well_path, exist_ok=True)
+
     for well in wellimages:
         start = time.time()
         image, image_name = read_to_grey(input_folder_, well)
 
         print(image_name)
-        props_array = create_array(params['rows'], params['columns'], dtype=object)
+        output_name = os.path.join(well_path, image_name[:-4])
+        spot_props_array = create_array(params['rows'], params['columns'], dtype=object)
         bgprops_array = create_array(params['rows'], params['columns'], dtype=object)
 
         # finding center of well and cropping
         cx, cy, r, well_mask = find_well_border(image, detmethod='region', segmethod='otsu')
         im_crop = crop_image(image, cx, cy, r, border_=0)
 
+
         # find center of spots from crop
-        spot_mask = thresh_and_binarize(im_crop, method='otsu')
+        spot_mask = thresh_and_binarize(im_crop, method='bright_spots')
         # TODO: Fit a grid to identify spots (Bryant, Syuan-Ming)
-
+        if debug:
+            io.imsave(output_name + "_well_mask.png",
+                      (255 * well_mask).astype('uint8'))
+            io.imsave(output_name + "_crop.png",
+                      (255 * im_crop).astype('uint8'))
+            io.imsave(output_name + "_crop_binary.png",
+                  (255 * spot_mask).astype('uint8'))
         background = get_background(im_crop, fit_order=2)
-        props = generate_props(spot_mask, intensity_image_=im_crop)
-        bg_props = generate_props(spot_mask, intensity_image_=background)
 
-        props = select_props(props, attribute="area", condition="greater_than", condition_value=300)
-        props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=1)
-        spot_labels = [p.label for p in props]
-        bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
-        props = select_props(props, attribute="area", condition="greater_than", condition_value=200)
-        # props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.75)
+        if debug:
+            im_bg_overlay = np.stack([background, im_crop, background], axis=2)
+            io.imsave(output_name + "_crop_bg_overlay.png",
+                      (255 * im_bg_overlay).astype('uint8'))
 
-        fiducial_locations = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
-        pix_size = 0.0049 # in mm
-        props_by_loc = find_fiducials_markers(props,
-                                              fiducial_locations,
-                                              params['rows'],
-                                              params['columns'],
-                                              params['v_pitch'],
-                                              params['h_pitch'],
-                                              im_crop.shape,
-                                              pix_size)
+        spot_props = generate_props(spot_mask, intensity_image_=im_crop)
 
-
-        # for grid fit, this props dict is used only for finding fiducials
-        # props_by_loc = generate_props_dict(props,
-        #                                    params['rows'],
-        #                                    params['columns'],
-        #                                    min_area=200,
-        #                                    flag_duplicates=False)   # assign this flag
-
-        props_array = assign_props_to_array_2(props_array, props_by_loc)
-
-        # use the props_array to find fiducials, create a new spot_mask "placed" on the array
-        placed_spotmask = build_and_place_block_array(props_array, spot_mask, params, return_type='region')
-
-        props_placed = generate_props(placed_spotmask, intensity_image_=im_crop)
-        bg_props = generate_props(placed_spotmask, intensity_image_=background)
-
-        spot_labels = [p.label for p in props_placed]
-        bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
-
-        props_placed_by_loc = generate_props_dict(props_placed,
+        if method == 'fit':
+            spot_props = select_props(spot_props, attribute="area", condition="greater_than", condition_value=300)
+            fiducial_locations = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
+            pix_size = 0.0049 # in mm
+            props_by_loc = find_fiducials_markers(spot_props,
+                                                  fiducial_locations,
                                                   params['rows'],
                                                   params['columns'],
-                                                  min_area=100)
-        bgprops_by_loc = generate_props_dict(bg_props,
-                                             params['rows'],
-                                             params['columns'],
-                                             min_area=100)
-        props_by_loc = grid_from_centroids(props,
-                                           im_crop,
-                                           params['rows'],
-                                           params['columns'],
-                                           min_area=100)
-        # This call to generate_props_dict is excessive.
-        # Both props and bgprops can be assigned locations in previous call.
-        # bgprops_by_loc  = generate_props_dict(bg_props,
-        #                                    params['rows'],
-        #                                    params['columns'],
-        #                                    min_area=100)
-        bgprops_by_loc = grid_from_centroids(bg_props,
-                                             background,
-                                             params['rows'],
-                                             params['columns'],
-                                             min_area=100)
-        props_array_placed = assign_props_to_array(props_array, props_placed_by_loc)
+                                                  params['v_pitch'],
+                                                  params['h_pitch'],
+                                                  im_crop.shape,
+                                                  pix_size)
+
+            spot_props_array = assign_props_to_array_2(spot_props_array, props_by_loc)
+
+            # use the spot_props_array to find fiducials, create a new spot_mask "placed" on the array
+            placed_spotmask = build_and_place_block_array(spot_props_array, spot_mask, params, return_type='region')
+
+            spot_props = generate_props(placed_spotmask, intensity_image_=im_crop)
+            bg_props = generate_props(placed_spotmask, intensity_image_=background)
+
+            spot_labels = [p.label for p in spot_props]
+            bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
+
+            props_placed_by_loc = generate_props_dict(spot_props,
+                                                      params['rows'],
+                                                      params['columns'],
+                                                      min_area=100)
+            bgprops_by_loc = generate_props_dict(bg_props,
+                                                 params['rows'],
+                                                 params['columns'],
+                                                 min_area=100)
+        elif method == 'interp':
+            bg_props = generate_props(spot_mask, intensity_image_=background)
+            eccentricities = np.array([prop.eccentricity for prop in spot_props])
+            eccent_ub = eccentricities.mean() + 2 * eccentricities.std()
+            # spot_props = select_props(spot_props, attribute="area", condition="greater_than", condition_value=300)
+            spot_props = select_props(spot_props, attribute="eccentricity", condition="less_than",
+                                      condition_value=eccent_ub)
+            spot_labels = [p.label for p in spot_props]
+            bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
+
+            props_placed_by_loc = grid_from_centroids(spot_props,
+                                               im_crop,
+                                               params['rows'],
+                                               params['columns'],
+                                               )
+            # This call to generate_props_dict is excessive.
+            # Both spot_props and bgprops can be assigned locations in previous call.
+
+            bgprops_by_loc = grid_from_centroids(bg_props,
+                                                 background,
+                                                 params['rows'],
+                                                 params['columns'],
+                                                 )
+        props_array_placed = assign_props_to_array(spot_props_array, props_placed_by_loc)
         bgprops_array = assign_props_to_array(bgprops_array, bgprops_by_loc)
 
-        # todo: further calculations using bgprops, props here
+        # todo: further calculations using bgprops, spot_props here
         # TODO: compute spot and background intensities,
         #  and then show them on a plate like graphic (visualize_elisa_spots).
         od_well, i_well, bg_well = compute_od(props_array_placed, bgprops_array)
@@ -263,20 +282,6 @@ def workflow(input_folder_, output_folder_, debug=False):
 
         # SAVE FOR DEBUGGING
         if debug:
-            well_path = os.path.join(run_path)
-            os.makedirs(well_path, exist_ok=True)
-            output_name = os.path.join(well_path, image_name[:-4])
-            im_bg_overlay = np.stack([background, im_crop, background], axis=2)
-
-            #   save cropped image and the binary
-            io.imsave(output_name + "_crop.png",
-                      (255*im_crop).astype('uint8'))
-            io.imsave(output_name + "_crop_binary.png",
-                      (255 * spot_mask).astype('uint8'))
-            io.imsave(output_name + "_well_mask.png",
-                      (255 * well_mask).astype('uint8'))
-            io.imsave(output_name + "_crop_bg_overlay.png",
-                      (255 * im_bg_overlay).astype('uint8'))
 
             # This plot shows which spots have been assigned what index.
             plot_spot_assignment(od_well, i_well, bg_well,
@@ -284,11 +289,11 @@ def workflow(input_folder_, output_folder_, debug=False):
                                  image_name, output_name, params)
 
             #   save spots
-            save_all_wells(props_array, spot_ids, well_path, image_name[:-4])
+            # save_all_wells(spot_props_array, spot_ids, well_path, image_name[:-4])
 
             #   save a composite of all spots, where spots are from source or from region prop
-            save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=True)
-            save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=False)
+            # save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=True)
+            # save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=False)
 
             stop2 = time.time()
             print(f"\ttime to save debug={stop2-stop}")
@@ -304,9 +309,7 @@ if __name__ == "__main__":
 
     output_path = '/Users/ivan.ivanov/Documents/images_local/' \
                   'Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
-
-    flags = ['-i', input_path, '-o', output_path, '-d']
-    main(flags)
-
+    method = 'interp' # 'fit' or 'interp'
+    flags = ['-i', input_path, '-o', output_path, '-d', '-m', method]
+    # main(flags)
     main(sys.argv[1:])
-    # main(input)
