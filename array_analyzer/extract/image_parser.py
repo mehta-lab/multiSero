@@ -306,7 +306,7 @@ def generate_props_dict(props_, n_rows, n_cols, min_area=100, img_x_max=2048, im
     return cent_map
 
 
-def find_fiducials_markers(props_, fiducial_locations, n_rows, n_cols, v_pitch, h_pitch, img_size, pix_size):
+def find_fiducials_markers(props_, params_, img_size):
     """
     based on the region props, creates a dictionary of format:
         key = (centroid_x, centroid_y)
@@ -314,21 +314,19 @@ def find_fiducials_markers(props_, fiducial_locations, n_rows, n_cols, v_pitch, 
 
     :param props_: list of region props
         approximately 36-48 of these, depending on quality of the image
-    :param fiducial_locations: list specifying location of fiducial markers, e.g.
-        [(0,0), (0,5), (5,0)] for markers at 3 corners of 6x6 array
-    :param n_rows: int
-    :param n_cols: int
-    :param v_pitch: float
-        vertical spot center distance in mm
-    :param h_pitch: float
-        horizontal spot center distance in mm
+    :param params: dict
     :param img_size tuple
         image size in pixels
-    :param pix_size: float
-        size of pix in mm
     :return: dict
         of format (cent_x, cent_y): prop for fiducials only
     """
+
+    fiducial_locations = params_['fiducial_locations']
+    n_rows = params_['rows']
+    n_cols = params_['columns']
+    v_pitch = params_['v_pitch']
+    h_pitch = params_['h_pitch']
+    pix_size = params_['pixel_size']
 
     centroids_in_mm = np.array([p.centroid for p in props_]) * pix_size
     spots_x, spots_y = (centroids_in_mm[:,1], centroids_in_mm[:,0])
@@ -477,7 +475,7 @@ def assign_props_to_array_2(arr, cent_map_):
     return arr
 
 
-def build_block_array(params_, pix_size=0.0049):
+def build_block_array(params_):
     """
     builds a binary array of squares centered on the expected spot position
     The array dimensions are based on parsed .xml values from the print run
@@ -487,15 +485,13 @@ def build_block_array(params_, pix_size=0.0049):
 
     :param params_: dict
         param dictionary from "create_xml_dict"
-    :param pix_size: float
-        size of pix in mm
     :return: np.ndarray, origin
 
     """
 
     # fix the pixel size, for now, in mm
-    PIX_SIZE = pix_size
-    PIX_SIZE = 0.00185
+    PIX_SIZE = params_['pixel_size']
+    # PIX_SIZE = 0.00185
 
     n_rows = params_['rows']
     n_cols = params_['columns']

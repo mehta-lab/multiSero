@@ -131,6 +131,16 @@ def workflow(input_folder_, output_folder_, debug=False):
     # parsing .xml
     fiduc, spots, repl, params = create_xml_dict(xml_path)
 
+    # add fiducial locations and pixel size to params
+    # TODO: ged fiducial locations from xkappa-biotin locations in xml file
+
+    # for scienion images
+    # params['fiducial_locations'] = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
+    # params['pixel_size'] = 0.0049 # in mm
+    # for octopi images
+    params['fiducial_locations'] = [(0, 0), (0, 5), (5, 0), (5, 5)]
+    params['pixel_size'] = 0.00185 # in mm
+
     # creating our arrays
     spot_ids = create_array(params['rows'], params['columns'])
     antigen_array = create_array(params['rows'], params['columns'])
@@ -165,7 +175,7 @@ def workflow(input_folder_, output_folder_, debug=False):
     #TODO: select wells based to analyze based on user input (Bryant)
 
     # wellimages = ['H10.png','H11.png','H12.png']
-    # wellimages = ['H8.png']
+    # wellimages = ['H10.png']
     for well in wellimages:
         start = time.time()
         image, image_name = read_to_grey(input_folder_, well)
@@ -186,16 +196,9 @@ def workflow(input_folder_, output_folder_, debug=False):
         props = select_props(props, attribute="area", condition="greater_than", condition_value=200)
         # props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.75)
 
-        fiducial_locations = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
-        pix_size = 0.0049 # in mm
         props_by_loc = find_fiducials_markers(props,
-                                              fiducial_locations,
-                                              params['rows'],
-                                              params['columns'],
-                                              params['v_pitch'],
-                                              params['h_pitch'],
-                                              im_crop.shape,
-                                              pix_size)
+                                              params,
+                                              im_crop.shape)
 
 
         # for grid fit, this props dict is used only for finding fiducials
@@ -284,6 +287,7 @@ if __name__ == "__main__":
                   'Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
 
     flags = ['-i', input_path, '-o', output_path, '-d']
+    # flags = ['-i', input_path, '-o', output_path]
     main(flags)
 
     # main(sys.argv[1:])
