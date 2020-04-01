@@ -9,6 +9,7 @@ import math
 import cv2 as cv
 from types import SimpleNamespace
 
+from scipy.signal import find_peaks
 import skimage.io as io
 import skimage.util as u
 
@@ -53,6 +54,20 @@ def read_to_grey(path_, wellimage_):
     image_path = os.path.join(path_, wellimage_)
     im = io.imread(image_path)
     im = rgb2grey(im)
+    return im
+
+
+def read_gray_im(im_path):
+    """
+    Read image from full path to file location.
+
+    :param str im_path: Path to image
+    :return np.array im: Grayscale image
+    """
+    try:
+        im = cv.imread(im_path, cv.IMREAD_GRAYSCALE)
+    except IOError as e:
+        raise("Can't read image", e)
     return im
 
 
@@ -333,6 +348,8 @@ def find_fiducials_markers(props_,
         size of pix in mm
     :return: dict
         of format (cent_x, cent_y): prop for fiducials only
+    NOTE (Jenny): Why input pixel size here? All you do is multiply both
+    sets of coordinates with it, then divide by it.
     """
 
     centroids_in_mm = np.array([p.centroid for p in props_]) * pix_size
@@ -361,6 +378,94 @@ def find_fiducials_markers(props_,
         cent_map[f[::-1]] = SimpleNamespace(centroid=(reg_y[i]/pix_size, reg_x[i]/pix_size))
 
     return cent_map
+
+
+def get_spot_coords(im,
+                    min_thresh=0,
+                    max_thresh=255,
+                    min_area=50,
+                    max_area=10000,
+                    min_circularity=0.1,
+                    min_convexity=0.5):
+    """
+    Use OpenCVs simple blob detector (thresholdings and grouping by properties)
+    to detect all dark spots in the image
+
+    :param np.array im: uint8 mage containing spots
+    :param int min_thresh: Minimum threshold
+    :param int max_thresh: Maximum threshold
+    :param int min_area: Minimum spot area in pixels
+    :param int max_area: Maximum spot area in pixels
+    :param float min_circularity: Minimum circularity of spots
+    :param float min_convexity: Minimum convexity of spots
+    :return np.array spot_coords: x, y coordinates of spot centroids (nbr spots x 2)
+    """
+    params = cv.SimpleBlobDetector_Params()
+
+    # Change thresholds
+    params.minThreshold = min_thresh
+    params.maxThreshold = max_thresh
+    # Filter by Area
+    params.filterByArea = True
+    params.minArea = min_area
+    params.maxArea = max_area
+    # Filter by Circularity
+    params.filterByCircularity = True
+    params.minCircularity = min_circularity
+    # Filter by Convexity
+    params.filterByConvexity = True
+    params.minConvexity = min_convexity
+
+    detector = cv.SimpleBlobDetector_create(params)
+    # Detect blobs
+    keypoints = detector.detect(im)
+
+    spot_coords = np.zeros((len(keypoints), 2))
+    # Convert to np.arrays
+    for c in range(len(keypoints)):
+        pt = keypoints[c].pt
+        spot_coords[c, 0] = pt[0]
+        spot_coords[c, 1] = pt[1]
+
+    return spot_coords
+
+
+def grid_estimation(im, spot_coords, nbr_grid_rows, nbr_grid_cols, margin = 100):
+    """
+    Based on images intensities and detected spots, make an estimation
+    of grid location so that ICP algorithm is initialized close enough for convergence.
+
+    :param im:
+    :param spot_coords:
+    :param margin:
+    :return:
+    """
+    im_shape = im.shape
+    x_min = int(max(margin, np.min(spot_coords[:, 0]) - margin))
+    x_max = int(min(im_shape[1] - margin, np.max(spot_coords[:, 0]) + margin))
+    y_min = int(max(margin, np.min(spot_coords[:, 1]) - margin))
+    y_max = int(min(im_shape[0] - margin, np.max(spot_coords[:, 1]) + margin))
+
+    im_roi = im[y_min:y_max, x_min:x_max]
+    # Create intensity profiles along x and y and find first and last peak
+    profile_x = np.mean(im_roi, axis=0)
+    # invert because black spots
+    profile_x = profile_x.max() - profile_x
+    peaks_x, _ = find_peaks(profile_x, height=profile_x.max() / 3, distance=10)
+    spot_dist_x = (peaks_x[-1] - peaks_x[0]) / (nbr_grid_cols - 1)
+
+    profile_y = np.mean(im_roi, axis=1)
+    profile_y = profile_y.max() - profile_y
+    peaks_y, _ = find_peaks(profile_y, height=profile_y.max() / 3, distance=10)
+    spot_dist_y = (peaks_y[-1] - peaks_y[0]) / (nbr_grid_rows - 1)
+
+    dist_diff = abs(spot_dist_x - spot_dist_y) / spot_dist_x
+    assert dist_diff < 0.01, "Grid estimation failed"
+
+    spot_dist = (spot_dist_x + spot_dist_y) / 2
+    start_point = (x_min + peaks_x[0], y_min + peaks_y[0])
+
+    return start_point, spot_dist
 
 
 def grid_from_centroids(props_, im, n_rows, n_cols, min_area=100, im_height=2048, im_width=2048):
@@ -650,6 +755,29 @@ def compute_od(props_array,bgprops_array):
     # Optical density is affected by Beer-Lambert law, i.e. I = I0*e^-{c*thickness). I0/I = e^{c*thickness).
 
     return od_norm, i_spot, i_bg
+
+
+def create_reference_grid(start_point,
+                          nbr_grid_rows=6,
+                          nbr_grid_cols=6,
+                          spot_dist=83):
+    """
+    Generate initial spot grid based on image scale and number of spots.
+    :param tuple center_point: (x,y) coordinates of center of grid
+    :param int nbr_grid_rows: Number of spot rows
+    :param int nbr_grid_cols: Number of spot columns
+    :param int spot_dist: Distance between spots
+    :return np.array grid_coords: (x, y) coordinates for reference spots (nbr x 2)
+    """
+    start_x, start_y = start_point
+    x_vals = np.linspace(start_x, start_x + (nbr_grid_cols - 1) * spot_dist, nbr_grid_cols)
+    y_vals = np.linspace(start_y, start_y + (nbr_grid_rows - 1) * spot_dist, nbr_grid_rows)
+    grid_x, grid_y = np.meshgrid(x_vals, y_vals)
+    grid_x = grid_x.flatten()
+    grid_y = grid_y.flatten()
+    grid_coords = np.vstack([grid_x.T, grid_y.T]).T
+
+    return grid_coords
 
 
 def icp(source, target, max_iterate=50, matrix_diff=1.):

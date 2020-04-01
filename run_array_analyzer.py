@@ -175,8 +175,9 @@ def workflow(input_folder_, output_folder_, debug=False):
     #TODO: select wells based to analyze based on user input (Bryant)
 
     for image_name in wellimages:
-        start = time.time()
-        image = image_parser.read_to_grey(input_folder_, image_name)
+        start_time = time.time()
+        image = image_parser.read_gray_im(os.path.join(input_folder_, image_name))
+        print(time.time() - start_time)
 
         print(image_name)
         props_array = txt_parser.create_array(
@@ -189,122 +190,170 @@ def workflow(input_folder_, output_folder_, debug=False):
             params['columns'],
             dtype=object,
         )
-
-        # finding center of well and cropping
-        cx, cy, r, well_mask = image_parser.find_well_border(
+        nbr_grid_rows, nbr_grid_cols = props_array.shape
+        spot_coords = image_parser.get_spot_coords(
             image,
-            segmethod='otsu',
-            detmethod='region',
-        )
-        im_crop = image_parser.crop_image(image, cx, cy, r, border_=0)
-
-        # find center of spots from crop
-        spot_mask = image_parser.thresh_and_binarize(im_crop, method='rosin')
-
-        background = img_processing.get_background(im_crop, fit_order=2)
-        props = image_parser.generate_props(spot_mask, intensity_image_=im_crop)
-        props = image_parser.select_props(
-            props,
-            attribute="area",
-            condition="greater_than",
-            condition_value=200,
-        )
-        # props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.75)
-
-        fiducial_locations = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
-        pix_size = 0.0049 # in mm
-        props_by_loc = image_parser.find_fiducials_markers(
-            props,
-            fiducial_locations,
-            params['rows'],
-            params['columns'],
-            params['v_pitch'],
-            params['h_pitch'],
-            im_crop.shape,
-            pix_size,
+            min_area=250,
         )
 
+        im_roi = image.copy()
+        im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
+        for c in range(spot_coords.shape[0]):
+            cv.circle(
+                im_roi,
+                (int(spot_coords[c, 0]), int(spot_coords[c, 1])),
+                2,
+                (0, 255, 0),
+                10,
+            )
+        plt.imshow(im_roi)
+        plt.axis('off')
+        plt.show()
 
-        # for grid fit, this props dict is used only for finding fiducials
-        # props_by_loc = generate_props_dict(props,
-        #                                    params['rows'],
-        #                                    params['columns'],
-        #                                    min_area=200,
-        #                                    flag_duplicates=False)   # assign this flag
-
-        props_array = image_parser.assign_props_to_array_2(props_array, props_by_loc)
-
-        # use the props_array to find fiducials,
-        # create a new spot_mask "placed" on the array
-        placed_spotmask = image_parser.build_and_place_block_array(
-            props_array,
-            spot_mask,
-            params,
-            return_type='region',
+        start_point, spot_dist = image_parser.grid_estimation(
+            im=image,
+            spot_coords=spot_coords,
+            nbr_grid_rows=nbr_grid_rows,
+            nbr_grid_cols=nbr_grid_cols,
+            margin = 100,
         )
 
-        props_placed = generate_props(placed_spotmask, intensity_image_=im_crop)
-        bg_props = generate_props(placed_spotmask, intensity_image_=background)
+        grid_coords = image_parser.create_reference_grid(
+            start_point=start_point,
+            nbr_grid_rows=nbr_grid_rows,
+            nbr_grid_cols=nbr_grid_cols,
+            spot_dist=spot_dist,
+        )
+        im_roi = image.copy()
+        im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
+        for c in range(grid_coords.shape[0]):
+            cv.circle(
+                im_roi,
+                (int(grid_coords[c, 0]), int(grid_coords[c, 1])),
+                2,
+                (0, 255, 0),
+                10,
+            )
+        plt.imshow(im_roi)
+        plt.axis('off')
+        plt.show()
 
-        spot_labels = [p.label for p in props_placed]
-        bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
 
-        props_placed_by_loc = generate_props_dict(props_placed,
-                                                  params['rows'],
-                                                  params['columns'],
-                                                  min_area=100)
-        bgprops_by_loc = generate_props_dict(bg_props,
-                                             params['rows'],
-                                             params['columns'],
-                                             min_area=100)
+        # # finding center of well and cropping
+        # cx, cy, r, well_mask = image_parser.find_well_border(
+        #     image,
+        #     segmethod='otsu',
+        #     detmethod='region',
+        # )
+        # im_crop = image_parser.crop_image(image, cx, cy, r, border_=0)
+        #
+        # # find center of spots from crop
+        # spot_mask = image_parser.thresh_and_binarize(im_crop, method='rosin')
+        #
+        # background = img_processing.get_background(im_crop, fit_order=2)
+        # props = image_parser.generate_props(spot_mask, intensity_image_=im_crop)
+        # props = image_parser.select_props(
+        #     props,
+        #     attribute="area",
+        #     condition="greater_than",
+        #     condition_value=200,
+        # )
+        # # props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.75)
+        #
+        # fiducial_locations = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
+        # pix_size = 0.0049 # in mm
+        # props_by_loc = image_parser.find_fiducials_markers(
+        #     props,
+        #     fiducial_locations,
+        #     params['rows'],
+        #     params['columns'],
+        #     params['v_pitch'],
+        #     params['h_pitch'],
+        #     im_crop.shape,
+        #     pix_size,
+        # )
+        #
+        #
+        # # for grid fit, this props dict is used only for finding fiducials
+        # # props_by_loc = generate_props_dict(props,
+        # #                                    params['rows'],
+        # #                                    params['columns'],
+        # #                                    min_area=200,
+        # #                                    flag_duplicates=False)   # assign this flag
+        #
+        # props_array = image_parser.assign_props_to_array_2(props_array, props_by_loc)
+        #
+        # # use the props_array to find fiducials,
+        # # create a new spot_mask "placed" on the array
+        # placed_spotmask = image_parser.build_and_place_block_array(
+        #     props_array,
+        #     spot_mask,
+        #     params,
+        #     return_type='region',
+        # )
+        #
+        # props_placed = generate_props(placed_spotmask, intensity_image_=im_crop)
+        # bg_props = generate_props(placed_spotmask, intensity_image_=background)
+        #
+        # spot_labels = [p.label for p in props_placed]
+        # bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
+        #
+        # props_placed_by_loc = generate_props_dict(props_placed,
+        #                                           params['rows'],
+        #                                           params['columns'],
+        #                                           min_area=100)
+        # bgprops_by_loc = generate_props_dict(bg_props,
+        #                                      params['rows'],
+        #                                      params['columns'],
+        #                                      min_area=100)
+        #
+        # props_array_placed = assign_props_to_array(props_array, props_placed_by_loc)
+        # bgprops_array = assign_props_to_array(bgprops_array, bgprops_by_loc)
+        #
+        # # todo: further calculations using bgprops, props here
+        # # TODO: compute spot and background intensities,
+        # #  and then show them on a plate like graphic (visualize_elisa_spots).
+        # od_well, i_well, bg_well = compute_od(props_array_placed, bgprops_array)
+        #
+        # pd_OD = pd.DataFrame(od_well)
+        # pd_OD.to_excel(xlwriterOD, sheet_name=image_name[:-4])
+        #
+        # stop_time = time.time()
+        # print(f"\ttime to process={stop_time-start_time}")
 
-        props_array_placed = assign_props_to_array(props_array, props_placed_by_loc)
-        bgprops_array = assign_props_to_array(bgprops_array, bgprops_by_loc)
-
-        # todo: further calculations using bgprops, props here
-        # TODO: compute spot and background intensities,
-        #  and then show them on a plate like graphic (visualize_elisa_spots).
-        od_well, i_well, bg_well = compute_od(props_array_placed, bgprops_array)
-
-        pd_OD = pd.DataFrame(od_well)
-        pd_OD.to_excel(xlwriterOD, sheet_name=image_name[:-4])
-
-        stop = time.time()
-        print(f"\ttime to process={stop-start}")
-
-        # SAVE FOR DEBUGGING
-        if debug:
-            well_path = os.path.join(run_path)
-            os.makedirs(well_path, exist_ok=True)
-            output_name = os.path.join(well_path, image_name[:-4])
-            im_bg_overlay = np.stack([background, im_crop, background], axis=2)
-
-            #   save cropped image and the binary
-            io.imsave(output_name + "_crop.png",
-                      (255*im_crop).astype('uint8'))
-            io.imsave(output_name + "_crop_binary.png",
-                      (255 * spot_mask).astype('uint8'))
-            io.imsave(output_name + "_well_mask.png",
-                      (255 * well_mask).astype('uint8'))
-            io.imsave(output_name + "_crop_bg_overlay.png",
-                      (255 * im_bg_overlay).astype('uint8'))
-
-            # This plot shows which spots have been assigned what index.
-            plot_spot_assignment(od_well, i_well, bg_well,
-                                 im_crop, props_placed_by_loc, bgprops_by_loc,
-                                 image_name, output_name, params)
-
-            #   save spots
-            save_all_wells(props_array, spot_ids, well_path, image_name[:-4])
-
-            #   save a composite of all spots, where spots are from source or from region prop
-            save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=True)
-            save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=False)
-
-            stop2 = time.time()
-            print(f"\ttime to save debug={stop2-stop}")
-
-    xlwriterOD.close()
+    #     # SAVE FOR DEBUGGING
+    #     if debug:
+    #         well_path = os.path.join(run_path)
+    #         os.makedirs(well_path, exist_ok=True)
+    #         output_name = os.path.join(well_path, image_name[:-4])
+    #         im_bg_overlay = np.stack([background, im_crop, background], axis=2)
+    #
+    #         #   save cropped image and the binary
+    #         io.imsave(output_name + "_crop.png",
+    #                   (255*im_crop).astype('uint8'))
+    #         io.imsave(output_name + "_crop_binary.png",
+    #                   (255 * spot_mask).astype('uint8'))
+    #         io.imsave(output_name + "_well_mask.png",
+    #                   (255 * well_mask).astype('uint8'))
+    #         io.imsave(output_name + "_crop_bg_overlay.png",
+    #                   (255 * im_bg_overlay).astype('uint8'))
+    #
+    #         # This plot shows which spots have been assigned what index.
+    #         plot_spot_assignment(od_well, i_well, bg_well,
+    #                              im_crop, props_placed_by_loc, bgprops_by_loc,
+    #                              image_name, output_name, params)
+    #
+    #         #   save spots
+    #         save_all_wells(props_array, spot_ids, well_path, image_name[:-4])
+    #
+    #         #   save a composite of all spots, where spots are from source or from region prop
+    #         save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=True)
+    #         save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=False)
+    #
+    #         stop2 = time.time()
+    #         print(f"\ttime to save debug={stop2-stop}")
+    #
+    # xlwriterOD.close()
 
 
 if __name__ == "__main__":
