@@ -21,6 +21,7 @@ from skimage.feature import canny
 from skimage.morphology import binary_closing, binary_dilation, selem, disk, binary_opening
 from skimage.morphology import binary_closing, binary_dilation, selem, disk, binary_opening
 from scipy.ndimage import binary_fill_holes
+from scipy.ndimage.filters import gaussian_filter1d
 from skimage import measure
 
 from .img_processing import create_unimodal_mask, create_otsu_mask
@@ -65,7 +66,7 @@ def read_gray_im(im_path):
     :return np.array im: Grayscale image
     """
     try:
-        im = cv.imread(im_path, cv.IMREAD_GRAYSCALE)
+        im = cv.imread(im_path, cv.IMREAD_GRAYSCALE | cv.IMREAD_ANYDEPTH)
     except IOError as e:
         raise("Can't read image", e)
     return im
@@ -430,40 +431,57 @@ def get_spot_coords(im,
     return spot_coords
 
 
-def grid_estimation(im, spot_coords, nbr_grid_rows, nbr_grid_cols, margin = 100):
+def grid_estimation(im,
+                    spot_coords,
+                    nbr_grid_rows,
+                    nbr_grid_cols,
+                    margin=100,
+                    peak_fraction=.4):
     """
     Based on images intensities and detected spots, make an estimation
     of grid location so that ICP algorithm is initialized close enough for convergence.
 
-    :param im:
-    :param spot_coords:
-    :param margin:
-    :return:
+    :param np.array im: Grayscale image
+    :param np.array spot_coords: Spot x,y coordinates (nbr spots x 2)
+    :param int nbr_grid_rows: Number of grid rows
+    :param int nbr_grid_cols: Number of grid columns
+    :param int margin: Margin for cropping outside all detected spots
+    :param float peak_fraction: Fraction of max intensity to threshold significant peaks
+    :return tuple start_point: Min x, y coordinates for initial grid estimate
+    :return float spot_dist: Estimated distance between spots
     """
     im_shape = im.shape
     x_min = int(max(margin, np.min(spot_coords[:, 0]) - margin))
     x_max = int(min(im_shape[1] - margin, np.max(spot_coords[:, 0]) + margin))
     y_min = int(max(margin, np.min(spot_coords[:, 1]) - margin))
     y_max = int(min(im_shape[0] - margin, np.max(spot_coords[:, 1]) + margin))
-
     im_roi = im[y_min:y_max, x_min:x_max]
     # Create intensity profiles along x and y and find first and last peak
     profile_x = np.mean(im_roi, axis=0)
     # invert because black spots
     profile_x = profile_x.max() - profile_x
-    peaks_x, _ = find_peaks(profile_x, height=profile_x.max() / 3, distance=10)
+    profile_x = gaussian_filter1d(profile_x, 3)
+    min_height = profile_x.max() * peak_fraction
+    peaks_x, _ = find_peaks(profile_x, height=min_height, distance=50)
     spot_dist_x = (peaks_x[-1] - peaks_x[0]) / (nbr_grid_cols - 1)
 
     profile_y = np.mean(im_roi, axis=1)
     profile_y = profile_y.max() - profile_y
-    peaks_y, _ = find_peaks(profile_y, height=profile_y.max() / 3, distance=10)
+    profile_y = gaussian_filter1d(profile_y, 3)
+    min_height = profile_y.max() * peak_fraction
+    peaks_y, _ = find_peaks(profile_y, height=min_height, distance=50)
     spot_dist_y = (peaks_y[-1] - peaks_y[0]) / (nbr_grid_rows - 1)
-
     dist_diff = abs(spot_dist_x - spot_dist_y) / spot_dist_x
-    assert dist_diff < 0.01, "Grid estimation failed"
-
-    spot_dist = (spot_dist_x + spot_dist_y) / 2
-    start_point = (x_min + peaks_x[0], y_min + peaks_y[0])
+    if dist_diff < 0.01:
+        spot_dist = (spot_dist_x + spot_dist_y) / 2
+        start_point = (x_min + peaks_x[0], y_min + peaks_y[0])
+    else:
+        print("Grid estimation failed")
+        spot_dist = im.shape[1] * 0.05 # Wild guess until I come up with something better
+        start_point = np.mean(spot_coords, axis=0)
+        start_point[0] = start_point[0] - spot_dist * nbr_grid_cols / 2
+        start_point[1] = start_point[1] - spot_dist * nbr_grid_rows / 2
+        start_point = tuple(start_point)
 
     return start_point, spot_dist
 
@@ -763,7 +781,7 @@ def create_reference_grid(start_point,
                           spot_dist=83):
     """
     Generate initial spot grid based on image scale and number of spots.
-    :param tuple center_point: (x,y) coordinates of center of grid
+    :param tuple start_point: (x,y) coordinates of center of grid
     :param int nbr_grid_rows: Number of spot rows
     :param int nbr_grid_cols: Number of spot columns
     :param int spot_dist: Distance between spots
@@ -792,11 +810,11 @@ def icp(source, target, max_iterate=50, matrix_diff=1.):
         matrices after one iteration
     :return np.array t_matrix: 2D transformation matrix
     """
-    source = np.expand_dims(source, 0)
-    target = np.expand_dims(target, 0)
-
     src = source.copy().astype(np.float32)
     dst = target.copy().astype(np.float32)
+
+    src = np.expand_dims(src, 0)
+    dst = np.expand_dims(dst, 0)
 
     # Initialize kNN module
     knn = cv.ml.KNearest_create()

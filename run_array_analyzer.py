@@ -177,7 +177,6 @@ def workflow(input_folder_, output_folder_, debug=False):
     for image_name in wellimages:
         start_time = time.time()
         image = image_parser.read_gray_im(os.path.join(input_folder_, image_name))
-        print(time.time() - start_time)
 
         print(image_name)
         props_array = txt_parser.create_array(
@@ -215,9 +214,7 @@ def workflow(input_folder_, output_folder_, debug=False):
             spot_coords=spot_coords,
             nbr_grid_rows=nbr_grid_rows,
             nbr_grid_cols=nbr_grid_cols,
-            margin = 100,
         )
-
         grid_coords = image_parser.create_reference_grid(
             start_point=start_point,
             nbr_grid_rows=nbr_grid_rows,
@@ -238,6 +235,26 @@ def workflow(input_folder_, output_folder_, debug=False):
         plt.axis('off')
         plt.show()
 
+        # Optimize estimated coordinates with iterative closest point
+        t_matrix = image_parser.icp(
+            source=grid_coords,
+            target=spot_coords,
+        )
+        grid_coords = np.squeeze(cv.transform(np.expand_dims(grid_coords, 0), t_matrix))
+
+        im_roi = image.copy()
+        im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
+        for c in range(grid_coords.shape[0]):
+            cv.circle(
+                im_roi,
+                (int(grid_coords[c, 0]), int(grid_coords[c, 1])),
+                2,
+                (0, 255, 0),
+                10,
+            )
+        plt.imshow(im_roi)
+        plt.axis('off')
+        plt.show()
 
         # # finding center of well and cropping
         # cx, cy, r, well_mask = image_parser.find_well_border(
