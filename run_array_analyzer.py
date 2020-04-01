@@ -189,41 +189,52 @@ def workflow(input_folder_, output_folder_, debug=False):
             params['columns'],
             dtype=object,
         )
+        # finding center of well and cropping
+        cx, cy, r, well_mask = image_parser.find_well_border(
+            image,
+            segmethod='otsu',
+            detmethod='region',
+        )
+        im_crop = image_parser.crop_image(image, cx, cy, r, border_=0)
+
         nbr_grid_rows, nbr_grid_cols = props_array.shape
         spot_coords = image_parser.get_spot_coords(
-            image,
+            im_crop,
             min_area=250,
+            min_thresh=25,
         )
 
-        im_roi = image.copy()
+        im_roi = im_crop.copy()
         im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
         for c in range(spot_coords.shape[0]):
             coord = tuple(spot_coords[c, :].astype(np.int))
-            cv.circle(im_roi, coord, 2, (0, 255, 0), 10)
-        plt.imshow(im_roi)
-        plt.axis('off')
-        plt.show()
+            cv.circle(im_roi, coord, 2, (0, 255, 255), 10)
+        write_name = image_name[:-4] + '_spots.jpg'
+        cv.imwrite(os.path.join(run_path, write_name), im_roi)
+        # plt.imshow(im_roi)
+        # plt.axis('off')
+        # plt.show()
 
-        start_point, spot_dist = image_parser.grid_estimation(
-            im=image,
+        mean_point, spot_dist = image_parser.grid_estimation(
+            im=im_crop,
             spot_coords=spot_coords,
-            nbr_grid_rows=nbr_grid_rows,
-            nbr_grid_cols=nbr_grid_cols,
         )
         grid_coords = image_parser.create_reference_grid(
-            start_point=start_point,
+            mean_point=mean_point,
             nbr_grid_rows=nbr_grid_rows,
             nbr_grid_cols=nbr_grid_cols,
             spot_dist=spot_dist,
         )
-        im_roi = image.copy()
+        im_roi = im_crop.copy()
         im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
         for c in range(grid_coords.shape[0]):
             coord = tuple(grid_coords[c, :].astype(np.int))
-            cv.circle(im_roi, coord, 2, (0, 255, 0), 10)
-        plt.imshow(im_roi)
-        plt.axis('off')
-        plt.show()
+            cv.circle(im_roi, coord, 2, (255, 0, 255), 10)
+        write_name = image_name[:-4] + '_grid.jpg'
+        cv.imwrite(os.path.join(run_path, write_name), im_roi)
+        # plt.imshow(im_roi)
+        # plt.axis('off')
+        # plt.show()
 
         # Optimize estimated coordinates with iterative closest point
         t_matrix = image_parser.icp(
@@ -232,23 +243,18 @@ def workflow(input_folder_, output_folder_, debug=False):
         )
         grid_coords = np.squeeze(cv.transform(np.expand_dims(grid_coords, 0), t_matrix))
 
-        im_roi = image.copy()
+        im_roi = im_crop.copy()
         im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
         for c in range(grid_coords.shape[0]):
             coord = tuple(grid_coords[c, :].astype(np.int))
-            cv.circle(im_roi, coord, 2, (0, 255, 0), 10)
-        plt.imshow(im_roi)
-        plt.axis('off')
-        plt.show()
+            cv.circle(im_roi, coord, 2, (255, 255, 0), 10)
+        write_name = image_name[:-4] + '_icp.jpg'
+        cv.imwrite(os.path.join(run_path, write_name), im_roi)
+        # plt.imshow(im_roi)
+        # plt.axis('off')
+        # plt.show()
 
-        # # finding center of well and cropping
-        # cx, cy, r, well_mask = image_parser.find_well_border(
-        #     image,
-        #     segmethod='otsu',
-        #     detmethod='region',
-        # )
-        # im_crop = image_parser.crop_image(image, cx, cy, r, border_=0)
-        #
+
         # # find center of spots from crop
         # spot_mask = image_parser.thresh_and_binarize(im_crop, method='rosin')
         #

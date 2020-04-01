@@ -439,32 +439,36 @@ def find_profile_peaks(profile, margin, prominence):
     profile = profile.max() - profile
     max_pos = int(np.where(profile == profile.max())[0])
     # Make sure max is not due to leaving the center
-    if max_pos > len(profile) - margin:
-        profile = profile[:-margin]
-    elif max_pos < margin:
-        profile = profile[margin:]
+    add_margin = 0
+    half_margin = int(margin / 2)
+    if max_pos > len(profile) - half_margin:
+        profile = profile[:-half_margin]
+    elif max_pos < half_margin:
+        profile = profile[half_margin:]
+        add_margin = half_margin
     profile = gaussian_filter1d(profile, 3)
     min_prom = profile.max() * prominence
     peaks, _ = find_peaks(profile, prominence=min_prom, distance=50)
-    spot_dists = peaks[1:] - peaks[:-1]
-    start_pos = peaks[0]
-    return start_pos, spot_dists
+    if len(peaks >= 4):
+        spot_dists = peaks[1:] - peaks[:-1]
+    else:
+        spot_dists = None
+    mean_pos = peaks[0] + (peaks[-1] - peaks[0]) / 2 + add_margin
+    return mean_pos, spot_dists
 
 
 def grid_estimation(im,
                     spot_coords,
-                    nbr_grid_rows,
-                    nbr_grid_cols,
                     margin=50,
-                    prominence=.2):
+                    prominence=.1):
     """
     Based on images intensities and detected spots, make an estimation
     of grid location so that ICP algorithm is initialized close enough for convergence.
+    TODO: This assumes that you always detect the first peaks
+    this may be unstable so think of other ways to initialize...
 
     :param np.array im: Grayscale image
     :param np.array spot_coords: Spot x,y coordinates (nbr spots x 2)
-    :param int nbr_grid_rows: Number of grid rows
-    :param int nbr_grid_cols: Number of grid columns
     :param int margin: Margin for cropping outside all detected spots
     :param float prominence: Fraction of max intensity to filter out insignificant peaks
     :return tuple start_point: Min x, y coordinates for initial grid estimate
@@ -478,25 +482,14 @@ def grid_estimation(im,
     im_roi = im[y_min:y_max, x_min:x_max]
     # Create intensity profiles along x and y and find peaks
     profile_x = np.mean(im_roi, axis=0)
-    start_x, dists_x = find_profile_peaks(profile_x, margin, prominence)
+    mean_x, dists_x = find_profile_peaks(profile_x, margin, prominence)
     profile_y = np.mean(im_roi, axis=1)
-    start_y, dists_y = find_profile_peaks(profile_y, margin, prominence)
+    mean_y, dists_y = find_profile_peaks(profile_y, margin, prominence)
 
-    start_point = (start_x, start_y)
-    spot_dist
+    mean_point = (x_min + mean_x, y_min + mean_y)
+    spot_dist = np.median(np.hstack([dists_x, dists_y]))
 
-    profile_y = np.mean(im_roi, axis=1)
-    profile_y = profile_y.max() - profile_y
-    profile_y = gaussian_filter1d(profile_y, 3)
-    min_prom = profile_y.max() * prominence
-    peaks_y, _ = find_peaks(profile_y, prominence=min_prom, distance=50)
-    spot_dist_y = (peaks_y[-1] - peaks_y[0]) / (nbr_grid_rows - 1)
-    dist_diff = abs(spot_dist_x - spot_dist_y) / spot_dist_x
-
-        spot_dist = (spot_dist_x + spot_dist_y) / 2
-        start_point = (x_min + peaks_x[0], y_min + peaks_y[0])
-
-    return start_point, spot_dist
+    return mean_point, spot_dist
 
 
 def grid_from_centroids(props_, im, n_rows, n_cols, min_area=100, im_height=2048, im_width=2048):
@@ -788,7 +781,7 @@ def compute_od(props_array,bgprops_array):
     return od_norm, i_spot, i_bg
 
 
-def create_reference_grid(start_point,
+def create_reference_grid(mean_point,
                           nbr_grid_rows=6,
                           nbr_grid_cols=6,
                           spot_dist=83):
@@ -800,7 +793,8 @@ def create_reference_grid(start_point,
     :param int spot_dist: Distance between spots
     :return np.array grid_coords: (x, y) coordinates for reference spots (nbr x 2)
     """
-    start_x, start_y = start_point
+    start_x = mean_point[0] - spot_dist * (nbr_grid_cols - 1) / 2
+    start_y = mean_point[1] - spot_dist * (nbr_grid_rows - 1) / 2
     x_vals = np.linspace(start_x, start_x + (nbr_grid_cols - 1) * spot_dist, nbr_grid_cols)
     y_vals = np.linspace(start_y, start_y + (nbr_grid_rows - 1) * spot_dist, nbr_grid_rows)
     grid_x, grid_y = np.meshgrid(x_vals, y_vals)
@@ -845,7 +839,7 @@ def icp(source, target, max_iterate=50, matrix_diff=1.):
         ret, results, neighbors, dist = knn.findNearest(src[0], 1)
         # Outlier removal
         idxs = np.squeeze(neighbors.astype(np.uint8))
-        dist_max = dist.mean() + 1 * dist.std()
+        dist_max = 2 * np.median(dist)
         normal_idxs = np.where(dist < dist_max)[0]
         idxs = idxs[normal_idxs]
         # Find rigid transform
@@ -854,6 +848,9 @@ def icp(source, target, max_iterate=50, matrix_diff=1.):
             dst[0, idxs, :],
             fullAffine=False,
         )
+        if t_iter is None:
+            print("Optimization failed. Using initial estimate")
+            return np.eye(3)[:2]
         t_temp[:2] = t_iter
         src = cv.transform(src, t_iter)
         t_matrix = np.dot(t_temp, t_matrix)
