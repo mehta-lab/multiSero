@@ -418,8 +418,11 @@ def get_spot_coords(im,
     params.minConvexity = min_convexity
 
     detector = cv.SimpleBlobDetector_create(params)
+
+    # Normalize image
+    im_norm = ((im - im.min()) / (im.max() - im.min()) * 255).astype(np.uint8)
     # Detect blobs
-    keypoints = detector.detect(im)
+    keypoints = detector.detect(im_norm)
 
     spot_coords = np.zeros((len(keypoints), 2))
     # Convert to np.arrays
@@ -431,12 +434,29 @@ def get_spot_coords(im,
     return spot_coords
 
 
+def find_profile_peaks(profile, margin, prominence):
+    # invert because black spots
+    profile = profile.max() - profile
+    max_pos = int(np.where(profile == profile.max())[0])
+    # Make sure max is not due to leaving the center
+    if max_pos > len(profile) - margin:
+        profile = profile[:-margin]
+    elif max_pos < margin:
+        profile = profile[margin:]
+    profile = gaussian_filter1d(profile, 3)
+    min_prom = profile.max() * prominence
+    peaks, _ = find_peaks(profile, prominence=min_prom, distance=50)
+    spot_dists = peaks[1:] - peaks[:-1]
+    start_pos = peaks[0]
+    return start_pos, spot_dists
+
+
 def grid_estimation(im,
                     spot_coords,
                     nbr_grid_rows,
                     nbr_grid_cols,
-                    margin=100,
-                    peak_fraction=.4):
+                    margin=50,
+                    prominence=.2):
     """
     Based on images intensities and detected spots, make an estimation
     of grid location so that ICP algorithm is initialized close enough for convergence.
@@ -446,7 +466,7 @@ def grid_estimation(im,
     :param int nbr_grid_rows: Number of grid rows
     :param int nbr_grid_cols: Number of grid columns
     :param int margin: Margin for cropping outside all detected spots
-    :param float peak_fraction: Fraction of max intensity to threshold significant peaks
+    :param float prominence: Fraction of max intensity to filter out insignificant peaks
     :return tuple start_point: Min x, y coordinates for initial grid estimate
     :return float spot_dist: Estimated distance between spots
     """
@@ -456,32 +476,25 @@ def grid_estimation(im,
     y_min = int(max(margin, np.min(spot_coords[:, 1]) - margin))
     y_max = int(min(im_shape[0] - margin, np.max(spot_coords[:, 1]) + margin))
     im_roi = im[y_min:y_max, x_min:x_max]
-    # Create intensity profiles along x and y and find first and last peak
+    # Create intensity profiles along x and y and find peaks
     profile_x = np.mean(im_roi, axis=0)
-    # invert because black spots
-    profile_x = profile_x.max() - profile_x
-    profile_x = gaussian_filter1d(profile_x, 3)
-    min_height = profile_x.max() * peak_fraction
-    peaks_x, _ = find_peaks(profile_x, height=min_height, distance=50)
-    spot_dist_x = (peaks_x[-1] - peaks_x[0]) / (nbr_grid_cols - 1)
+    start_x, dists_x = find_profile_peaks(profile_x, margin, prominence)
+    profile_y = np.mean(im_roi, axis=1)
+    start_y, dists_y = find_profile_peaks(profile_y, margin, prominence)
+
+    start_point = (start_x, start_y)
+    spot_dist
 
     profile_y = np.mean(im_roi, axis=1)
     profile_y = profile_y.max() - profile_y
     profile_y = gaussian_filter1d(profile_y, 3)
-    min_height = profile_y.max() * peak_fraction
-    peaks_y, _ = find_peaks(profile_y, height=min_height, distance=50)
+    min_prom = profile_y.max() * prominence
+    peaks_y, _ = find_peaks(profile_y, prominence=min_prom, distance=50)
     spot_dist_y = (peaks_y[-1] - peaks_y[0]) / (nbr_grid_rows - 1)
     dist_diff = abs(spot_dist_x - spot_dist_y) / spot_dist_x
-    if dist_diff < 0.01:
+
         spot_dist = (spot_dist_x + spot_dist_y) / 2
         start_point = (x_min + peaks_x[0], y_min + peaks_y[0])
-    else:
-        print("Grid estimation failed")
-        spot_dist = im.shape[1] * 0.05 # Wild guess until I come up with something better
-        start_point = np.mean(spot_coords, axis=0)
-        start_point[0] = start_point[0] - spot_dist * nbr_grid_cols / 2
-        start_point[1] = start_point[1] - spot_dist * nbr_grid_rows / 2
-        start_point = tuple(start_point)
 
     return start_point, spot_dist
 

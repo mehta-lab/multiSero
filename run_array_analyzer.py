@@ -198,13 +198,8 @@ def workflow(input_folder_, output_folder_, debug=False):
         im_roi = image.copy()
         im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
         for c in range(spot_coords.shape[0]):
-            cv.circle(
-                im_roi,
-                (int(spot_coords[c, 0]), int(spot_coords[c, 1])),
-                2,
-                (0, 255, 0),
-                10,
-            )
+            coord = tuple(spot_coords[c, :].astype(np.int))
+            cv.circle(im_roi, coord, 2, (0, 255, 0), 10)
         plt.imshow(im_roi)
         plt.axis('off')
         plt.show()
@@ -224,13 +219,8 @@ def workflow(input_folder_, output_folder_, debug=False):
         im_roi = image.copy()
         im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
         for c in range(grid_coords.shape[0]):
-            cv.circle(
-                im_roi,
-                (int(grid_coords[c, 0]), int(grid_coords[c, 1])),
-                2,
-                (0, 255, 0),
-                10,
-            )
+            coord = tuple(grid_coords[c, :].astype(np.int))
+            cv.circle(im_roi, coord, 2, (0, 255, 0), 10)
         plt.imshow(im_roi)
         plt.axis('off')
         plt.show()
@@ -245,13 +235,8 @@ def workflow(input_folder_, output_folder_, debug=False):
         im_roi = image.copy()
         im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
         for c in range(grid_coords.shape[0]):
-            cv.circle(
-                im_roi,
-                (int(grid_coords[c, 0]), int(grid_coords[c, 1])),
-                2,
-                (0, 255, 0),
-                10,
-            )
+            coord = tuple(grid_coords[c, :].astype(np.int))
+            cv.circle(im_roi, coord, 2, (0, 255, 0), 10)
         plt.imshow(im_roi)
         plt.axis('off')
         plt.show()
