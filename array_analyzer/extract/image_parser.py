@@ -132,7 +132,7 @@ def find_well_border(image, segmethod='bimodal', detmethod='region'):
 
         # let's assume ONE circle for now (take only props[0])
         props = select_props(props, attribute="area", condition="greater_than", condition_value=10**5)
-        props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.5)
+        props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.6)
         well_mask[labels != props[0].label] = 0
         cy, cx = props[0].centroid # notice that the coordinate order is different from hough.
         radii = int((props[0].minor_axis_length + props[0].major_axis_length)/ 4 / np.sqrt(2))
@@ -402,8 +402,8 @@ def grid_from_centroids(props_, im, n_rows, n_cols, dist_flr=True):
     x_min = centroids[x_min_idx, 1]
     x_max_idx = np.argmax(centroids[:, 1])
     x_max = centroids[x_max_idx, 1]
-    # apply nearest neighbor distance filter to remove false points
-    if dist_flr:
+    # apply nearest neighbor distance filter to remove false points if >= 10 points are detected
+    if dist_flr and centroids.shape[0] >= 10:
         y_sort_ids = np.argsort(centroids[:, 0])
         x_sort_ids = np.argsort(centroids[:, 1])
         dist_tree = spatial.cKDTree(centroids)

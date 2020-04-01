@@ -174,6 +174,7 @@ def workflow(input_folder_, output_folder_, method='fit', debug=False):
     # wellimages = ['B8.png', 'B9.png', 'B10.png']
     # wellimages = ['A12.png', 'A11.png', 'A8.png', 'A1.png']
     # wellimages = ['A9.png']
+    # wellimages = ['E5.png']
     if debug:
         well_path = os.path.join(run_path)
         os.makedirs(well_path, exist_ok=True)
