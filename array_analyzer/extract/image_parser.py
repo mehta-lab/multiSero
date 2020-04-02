@@ -449,7 +449,7 @@ def find_profile_peaks(profile, margin, prominence):
     profile = gaussian_filter1d(profile, 3)
     min_prom = profile.max() * prominence
     peaks, _ = find_peaks(profile, prominence=min_prom, distance=50)
-    if len(peaks >= 4):
+    if len(peaks) >= 4:
         spot_dists = peaks[1:] - peaks[:-1]
     else:
         spot_dists = None
@@ -460,7 +460,7 @@ def find_profile_peaks(profile, margin, prominence):
 def grid_estimation(im,
                     spot_coords,
                     margin=50,
-                    prominence=.1):
+                    prominence=.15):
     """
     Based on images intensities and detected spots, make an estimation
     of grid location so that ICP algorithm is initialized close enough for convergence.
@@ -487,7 +487,14 @@ def grid_estimation(im,
     mean_y, dists_y = find_profile_peaks(profile_y, margin, prominence)
 
     mean_point = (x_min + mean_x, y_min + mean_y)
-    spot_dist = np.median(np.hstack([dists_x, dists_y]))
+    spot_dist = np.hstack([dists_x, dists_y])
+    # Remove invalid distances
+    spot_dist = spot_dist[np.where(spot_dist != None)]
+    if spot_dist.size == 0:
+        # Failed at estimating spot dist. Return default or error out?
+        spot_dist = 80
+    else:
+        spot_dist = np.median(spot_dist)
 
     return mean_point, spot_dist
 

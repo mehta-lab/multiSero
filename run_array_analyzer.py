@@ -196,6 +196,9 @@ def workflow(input_folder_, output_folder_, debug=False):
             detmethod='region',
         )
         im_crop = image_parser.crop_image(image, cx, cy, r, border_=0)
+        # Remove background
+        background = img_processing.get_background(im_crop, fit_order=2)
+        im_crop = (im_crop / background * np.mean(background)).astype(np.uint8)
 
         nbr_grid_rows, nbr_grid_cols = props_array.shape
         spot_coords = image_parser.get_spot_coords(
@@ -258,7 +261,6 @@ def workflow(input_folder_, output_folder_, debug=False):
         # # find center of spots from crop
         # spot_mask = image_parser.thresh_and_binarize(im_crop, method='rosin')
         #
-        # background = img_processing.get_background(im_crop, fit_order=2)
         # props = image_parser.generate_props(spot_mask, intensity_image_=im_crop)
         # props = image_parser.select_props(
         #     props,
