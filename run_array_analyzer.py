@@ -92,6 +92,10 @@ import skimage.io as io
 import matplotlib.pyplot as plt
 import pandas as pd
 
+FIDUCIALS = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
+FIDUCIALS_IDX = [0, 5, 6, 30, 35]
+SCENION_SPOT_DIST = 82
+
 
 def main(argv):
     inputfolder = ''
@@ -188,25 +192,25 @@ def workflow(input_folder_, output_folder_, debug=False):
             params['columns'],
             dtype=object,
         )
-        # finding center of well and cropping
-        cx, cy, r, well_mask = image_parser.find_well_border(
-            image,
-            segmethod='otsu',
-            detmethod='region',
-        )
-        im_crop = image_parser.crop_image(image, cx, cy, r, border_=0)
-        # Remove background
-        background = img_processing.get_background(im_crop, fit_order=2)
-        im_crop = (im_crop / background * np.mean(background)).astype(np.uint8)
+        # # finding center of well and cropping
+        # cx, cy, r, well_mask = image_parser.find_well_border(
+        #     image,
+        #     segmethod='otsu',
+        #     detmethod='region',
+        # )
+        # im_crop = image_parser.crop_image(image, cx, cy, r, border_=0)
+        # # Remove background
+        # background = img_processing.get_background(im_crop, fit_order=2)
+        # im_crop = (im_crop / background * np.mean(background)).astype(np.uint8)
 
         nbr_grid_rows, nbr_grid_cols = props_array.shape
         spot_coords = image_parser.get_spot_coords(
-            im_crop,
+            image,
             min_area=250,
             min_thresh=25,
         )
 
-        im_roi = im_crop.copy()
+        im_roi = image.copy()
         im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
         for c in range(spot_coords.shape[0]):
             coord = tuple(spot_coords[c, :].astype(np.int))
@@ -217,25 +221,40 @@ def workflow(input_folder_, output_folder_, debug=False):
         # plt.axis('off')
         # plt.show()
 
-        mean_point, spot_dist = image_parser.grid_estimation(
-            im=im_crop,
-            spot_coords=spot_coords,
-        )
+        # mean_point, spot_dist = image_parser.grid_estimation(
+        #     im=image,
+        #     spot_coords=spot_coords,
+        # )
+
+        # Initial estimate of spot center
+        mean_point = tuple(np.mean(spot_coords, axis=0))
+        spot_dist = SCENION_SPOT_DIST
         grid_coords = image_parser.create_reference_grid(
             mean_point=mean_point,
             nbr_grid_rows=nbr_grid_rows,
             nbr_grid_cols=nbr_grid_cols,
             spot_dist=spot_dist,
         )
+        fiducial_coords = grid_coords[FIDUCIALS_IDX, :]
 
-        for c in range(grid_coords.shape[0]):
-            coord = tuple(grid_coords[c, :].astype(np.int))
+        im_roi = image.copy()
+        im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
+        for c in range(fiducial_coords.shape[0]):
+            coord = tuple(fiducial_coords[c, :].astype(np.int))
             cv.circle(im_roi, coord, 2, (0, 0, 255), 10)
-        write_name = image_name[:-4] + '_grid.jpg'
+        # write_name = image_name[:-4] + '_grid.jpg'
         # cv.imwrite(os.path.join(run_path, write_name), im_roi)
         # plt.imshow(im_roi)
         # plt.axis('off')
         # plt.show()
+
+        particles = image_parser.create_gaussian_particles(
+            x_distr=(mean_point[0], np.std(spot_coords[0]) / 10),
+            y_distr=(mean_point[1], np.std(spot_coords[1]) / 10),
+            scale_distr=(1, .1),
+            angle_distr=(0, .5),
+            nbr_particles=10,
+        )
 
         # Optimize estimated coordinates with iterative closest point
         t_matrix = image_parser.icp(
@@ -268,7 +287,6 @@ def workflow(input_folder_, output_folder_, debug=False):
         # )
         # # props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.75)
         #
-        # fiducial_locations = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
         # pix_size = 0.0049 # in mm
         # props_by_loc = image_parser.find_fiducials_markers(
         #     props,

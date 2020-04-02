@@ -868,3 +868,95 @@ def icp(source, target, max_iterate=50, matrix_diff=1.):
             break
 
     return t_matrix[:2]
+
+
+def create_uniform_particles(x_range, y_range, hdg_range, N):
+    particles = np.empty((N, 3))
+    particles[:, 0] = np.random.uniform(x_range[0], x_range[1], size=N)
+    particles[:, 1] = np.random.uniform(y_range[0], y_range[1], size=N)
+    particles[:, 2] = np.random.uniform(hdg_range[0], hdg_range[1], size=N)
+    particles[:, 2] %= 2 * np.pi
+    return particles
+
+
+def create_gaussian_particles(x_distr,
+                              y_distr,
+                              scale_distr=(1, .1),
+                              angle_distr=(0, .5),
+                              nbr_particles=100):
+    """
+    Distribution of particles in (mean, std)
+
+    :param nbr_particles:
+    :param pos_distr:
+    :param scale_distr:
+    :param angle_distr:
+    :return:
+    """
+    # x, y, scale, angle
+    particles = np.empty((nbr_particles, 4))
+    particles[:, 0] = x_distr[0] + (np.random.randn(nbr_particles) * y_distr[1])
+    particles[:, 1] = y_distr[0] + (np.random.randn(nbr_particles) * y_distr[1])
+    particles[:, 2] = scale_distr[0] + (np.random.randn(nbr_particles) * scale_distr[1])
+    particles[:, 3] = angle_distr[0] + (np.random.randn(nbr_particles) * angle_distr[1])
+    return particles
+
+
+def particle_filter(fiducial_coords, spot_coords, particles):
+
+    # Pretrain spot coords
+    dst = spot_coords.copy().astype(np.float32)
+    knn = cv.ml.KNearest_create()
+    labels = np.array(range(dst.shape[0])).astype(np.float32)
+    knn.train(dst, cv.ml.ROW_SAMPLE, labels)
+
+    nbr_particles = particles.shape[0]
+    weights = np.zeros(nbr_particles)
+    idxs = np.arange(nbr_particles)
+    stds = np.std(particles, axis=0)
+
+    im_roi = image.copy()
+    im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
+
+    # Iterate until min dist doesn't change
+    min_dist_old = 10e6
+
+
+    for p in range(nbr_particles):
+        particle = particles[p]
+        # Generate transformation matrix
+        t_matrix = cv.getRotationMatrix2D(
+            (particle[0],particle[1]),
+            particle[3],
+            particle[2],
+        )
+        trans_coords = cv.transform(np.array([fiducial_coords]), t_matrix)
+        trans_coords = trans_coords[0].astype(np.float32)
+
+        for c in range(trans_coords.shape[0]):
+            coord = tuple(trans_coords[c, :].astype(np.int))
+            cv.circle(im_roi, coord, 2, (0, 0, 255), 10)
+
+        # Find nearest spots
+        ret, results, neighbors, dist = knn.findNearest(trans_coords, 1)
+        weights[p] = np.linalg.norm(dist)
+
+    plt.imshow(im_roi)
+    plt.axis('off')
+    plt.show()
+
+    min_dist = np.min(weights)
+    print(min_dist)
+    weights = 1 / weights
+    # Make weights sum to 1
+    weights = weights / sum(weights)
+
+    # Importance sampling
+    idxs = np.random.choice(nbr_particles, nbr_particles, p=weights)
+    particles = particles[idxs, :]
+
+    # Distort particles
+    for i in range(4):
+        distort = np.random.randn(nbr_particles)
+        particles[:, i] = particles[:, i] + distort * stds[i]
+
