@@ -451,7 +451,7 @@ def get_spot_coords(im,
 def find_profile_peaks(profile, margin, prominence):
     # invert because black spots
     profile = profile.max() - profile
-    max_pos = int(np.where(profile == profile.max())[0])
+    max_pos = int(np.max(np.where(profile == profile.max())[0]))
     # Make sure max is not due to leaving the center
     add_margin = 0
     half_margin = int(margin / 2)

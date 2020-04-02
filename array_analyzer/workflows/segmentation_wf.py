@@ -87,7 +87,6 @@ def seg(input_folder_, output_folder_, method='interp', debug=False):
 
         # find center of spots from crop
         spot_mask = thresh_and_binarize(im_crop, method='bright_spots')
-        # TODO: Fit a grid to identify spots (Bryant, Syuan-Ming)
         if debug:
             io.imsave(output_name + "_well_mask.png",
                       (255 * well_mask).astype('uint8'))
