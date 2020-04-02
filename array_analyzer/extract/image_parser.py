@@ -24,9 +24,9 @@ from scipy.ndimage import binary_fill_holes
 from scipy.ndimage.filters import gaussian_filter1d
 from skimage import measure
 
-from .img_processing import create_unimodal_mask, create_otsu_mask
-from .img_processing import  create_unimodal_mask
-from ..utils.mock_regionprop import MockRegionprop
+# from .img_processing import create_unimodal_mask, create_otsu_mask
+# from .img_processing import  create_unimodal_mask
+# from ..utils.mock_regionprop import MockRegionprop
 """
 method is
 1) read_to_grey(supplied images)

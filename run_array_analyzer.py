@@ -178,7 +178,6 @@ def workflow(input_folder_, output_folder_, debug=False):
         start_time = time.time()
         image = image_parser.read_gray_im(os.path.join(input_folder_, image_name))
 
-        print(image_name)
         props_array = txt_parser.create_array(
             params['rows'],
             params['columns'],
@@ -211,9 +210,9 @@ def workflow(input_folder_, output_folder_, debug=False):
         im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
         for c in range(spot_coords.shape[0]):
             coord = tuple(spot_coords[c, :].astype(np.int))
-            cv.circle(im_roi, coord, 2, (0, 255, 255), 10)
+            cv.circle(im_roi, coord, 2, (255, 0, 0), 10)
         write_name = image_name[:-4] + '_spots.jpg'
-        cv.imwrite(os.path.join(run_path, write_name), im_roi)
+        # cv.imwrite(os.path.join(run_path, write_name), im_roi)
         # plt.imshow(im_roi)
         # plt.axis('off')
         # plt.show()
@@ -228,13 +227,12 @@ def workflow(input_folder_, output_folder_, debug=False):
             nbr_grid_cols=nbr_grid_cols,
             spot_dist=spot_dist,
         )
-        im_roi = im_crop.copy()
-        im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
+
         for c in range(grid_coords.shape[0]):
             coord = tuple(grid_coords[c, :].astype(np.int))
-            cv.circle(im_roi, coord, 2, (255, 0, 255), 10)
+            cv.circle(im_roi, coord, 2, (0, 0, 255), 10)
         write_name = image_name[:-4] + '_grid.jpg'
-        cv.imwrite(os.path.join(run_path, write_name), im_roi)
+        # cv.imwrite(os.path.join(run_path, write_name), im_roi)
         # plt.imshow(im_roi)
         # plt.axis('off')
         # plt.show()
@@ -245,12 +243,12 @@ def workflow(input_folder_, output_folder_, debug=False):
             target=spot_coords,
         )
         grid_coords = np.squeeze(cv.transform(np.expand_dims(grid_coords, 0), t_matrix))
+        print("Time to register grid to {}: {:.3f} s".format(image_name,
+                                                             time.time() - start_time))
 
-        im_roi = im_crop.copy()
-        im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
         for c in range(grid_coords.shape[0]):
             coord = tuple(grid_coords[c, :].astype(np.int))
-            cv.circle(im_roi, coord, 2, (255, 255, 0), 10)
+            cv.circle(im_roi, coord, 2, (0, 255, 0), 10)
         write_name = image_name[:-4] + '_icp.jpg'
         cv.imwrite(os.path.join(run_path, write_name), im_roi)
         # plt.imshow(im_roi)
