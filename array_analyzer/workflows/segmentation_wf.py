@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-def seg(input_folder_, output_folder_, method='fit', debug=False):
+def seg(input_folder_, output_folder_, method='interp', debug=False):
 
     xml = [f for f in os.listdir(input_folder_) if '.xml' in f]
     if len(xml) > 1:
@@ -57,13 +57,15 @@ def seg(input_folder_, output_folder_, method='fit', debug=False):
 
     # sort by letter, then by number (with '10' coming AFTER '9')
     wellimages.sort(key=lambda x: (x[0], int(x[1:-4])))
-    #TODO: select wells based to analyze based on user input (Bryant)
 
     # wellimages = ['H10.png','H11.png','H12.png']
     # wellimages = ['B8.png', 'B9.png', 'B10.png']
     # wellimages = ['A12.png', 'A11.png', 'A8.png', 'A1.png']
     # wellimages = ['A9.png']
     # wellimages = ['E5.png']
+    well_path = None
+    output_name = None
+
     if debug:
         well_path = os.path.join(run_path)
         os.makedirs(well_path, exist_ok=True)
@@ -71,16 +73,17 @@ def seg(input_folder_, output_folder_, method='fit', debug=False):
     for well in wellimages:
         start = time.time()
         image, image_name = read_to_grey(input_folder_, well)
-
         print(image_name)
-        output_name = os.path.join(well_path, image_name[:-4])
+
+        if debug:
+            output_name = os.path.join(well_path, image_name[:-4])
+
         spot_props_array = create_array(params['rows'], params['columns'], dtype=object)
         bgprops_array = create_array(params['rows'], params['columns'], dtype=object)
 
         # finding center of well and cropping
         cx, cy, r, well_mask = find_well_border(image, detmethod='region', segmethod='otsu')
         im_crop = crop_image(image, cx, cy, r, border_=0)
-
 
         # find center of spots from crop
         spot_mask = thresh_and_binarize(im_crop, method='bright_spots')
@@ -182,8 +185,8 @@ def seg(input_folder_, output_folder_, method='fit', debug=False):
             # save_all_wells(spot_props_array, spot_ids, well_path, image_name[:-4])
 
             #   save a composite of all spots, where spots are from source or from region prop
-            # save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=True)
-            # save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=False)
+            save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=True)
+            save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=False)
 
             stop2 = time.time()
             print(f"\ttime to save debug={stop2-stop}")

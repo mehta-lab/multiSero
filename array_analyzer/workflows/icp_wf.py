@@ -21,7 +21,7 @@ import pandas as pd
 
 def icp(input_folder_, output_folder_, debug=False):
 
-    xml_path = glob.glob(input_folder_ + '*.xml')
+    xml_path = glob.glob(input_folder_ + '/*.xml')
     if len(xml_path) > 1 or not xml_path:
         raise IOError("Did not find unique xml")
     xml_path = xml_path[0]
@@ -67,7 +67,8 @@ def icp(input_folder_, output_folder_, debug=False):
 
     # sort by letter, then by number (with '10' coming AFTER '9')
     wellimages.sort(key=lambda x: (x[0], int(x[1:-4])))
-    #TODO: select wells based to analyze based on user input (Bryant)
+
+    # wellimages = ["A6.png"]
 
     for image_name in wellimages:
         start_time = time.time()

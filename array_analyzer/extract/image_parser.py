@@ -59,7 +59,7 @@ def read_to_grey(path_, wellimage_):
     image_path = os.path.join(path_, wellimage_)
     im = io.imread(image_path)
     im = rgb2grey(im)
-    return im
+    return im, os.path.basename(image_path)
 
 
 def read_gray_im(im_path):
@@ -608,7 +608,7 @@ def grid_from_centroids(props_, im, n_rows, n_cols, dist_flr=True):
             # make mock regionprop objects to hold the properties
             prop = MockRegionprop(label=props_[-1].label)
             prop.centroid = (grid_id[0]/(n_rows - 1) * y_range + y_min,
-            grid_id[1]/(n_cols - 1) * x_range + x_min)
+                             grid_id[1]/(n_cols - 1) * x_range + x_min)
             prop.label += 1
             prop.mean_intensity = 1
             prop.intensity_image = crop_image(im,
@@ -617,6 +617,14 @@ def grid_from_centroids(props_, im, n_rows, n_cols, dist_flr=True):
                                               int(bbox_width / 2),
                                               border_=0)
             prop.mean_intensity = np.mean(prop.intensity_image)
+
+            # hardcode the bbox to be box of side = 40 around centroid
+            int_shape = prop.intensity_image.shape
+            prop.bbox = (int(round(prop.centroid[0]-(int_shape[0]/2))),
+                         int(round(prop.centroid[1]-(int_shape[1]/2))),
+                         int(round(prop.centroid[0]+(int_shape[0]/2))),
+                         int(round(prop.centroid[1]+(int_shape[1]/2))))
+
             cent_map[grid_id] = prop
 
     return cent_map
