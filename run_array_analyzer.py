@@ -65,9 +65,9 @@ if __name__ == "__main__":
     # output_path = '/Users/shalin.mehta/Documents/images_local/2020-01-15_plate4_AEP_Feb3_6mousesera/'
     # output_path = '/Users/ivan.ivanov/Documents/images_local/' \
     #               'Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
-    output_path = '/Users/bryant.chhun/Desktop/Data/array-imager/Plates_given_to_manu/expt_merge_seg_icp/seg'
+    output_path = '/Users/bryant.chhun/Desktop/Data/array-imager/Plates_given_to_manu/expt_merge_seg_icp/icp'
 
-    method = 'fit' # 'fit' or 'interp'
+    method = 'fit'  # 'fit' or 'interp'
     flags = ['-i', input_path, '-o', output_path, '-d', '-m', method]
 
     main(flags)

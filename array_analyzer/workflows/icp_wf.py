@@ -68,7 +68,7 @@ def icp(input_folder_, output_folder_, debug=False):
     # sort by letter, then by number (with '10' coming AFTER '9')
     wellimages.sort(key=lambda x: (x[0], int(x[1:-4])))
 
-    wellimages = ["A6.png"]
+    # wellimages = ["A6.png"]
 
     for image_name in wellimages:
         start_time = time.time()
