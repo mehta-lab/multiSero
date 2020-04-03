@@ -451,7 +451,7 @@ def get_spot_coords(im,
 def find_profile_peaks(profile, margin, prominence):
     # invert because black spots
     profile = profile.max() - profile
-    max_pos = int(np.mean(np.where(profile == profile.max())[0]))
+    max_pos = int(np.where(profile == profile.max())[0])
     # Make sure max is not due to leaving the center
     add_margin = 0
     half_margin = int(margin / 2)
@@ -938,6 +938,7 @@ def create_gaussian_particles(x_vars,
                               nbr_particles=100):
     """
     Create particles from parameters x, y, scale and angle given mean and std.
+
     :param x_vars:
     :param y_vars:
     :param scale_vars:
@@ -962,6 +963,7 @@ def particle_filter(fiducial_coords,
                     stop_criteria=.1):
     """
     Particle filtering to determine best grid location
+
     :param fiducial_coords:
     :param spot_coords:
     :param particles:

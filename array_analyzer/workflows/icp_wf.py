@@ -21,6 +21,7 @@ import pandas as pd
 FIDUCIALS = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
 FIDUCIALS_IDX = [0, 5, 6, 30, 35]
 SCENION_SPOT_DIST = 82
+# TODO: Jenny should check that this file reflects her workflow
 
 
 def icp(input_folder_, output_folder_, debug=False):

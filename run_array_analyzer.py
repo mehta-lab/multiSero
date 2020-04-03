@@ -6,6 +6,10 @@ import sys
 from array_analyzer.transform.property_filters import *
 from array_analyzer.workflows import icp_wf, interpolation_wf
 
+FIDUCIALS = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
+FIDUCIALS_IDX = [0, 5, 6, 30, 35]
+SCENION_SPOT_DIST = 82
+
 
 def main(argv):
     inputfolder = ''
@@ -68,9 +72,9 @@ if __name__ == "__main__":
     # output_path = '/Users/shalin.mehta/Documents/images_local/2020-01-15_plate4_AEP_Feb3_6mousesera/'
     # output_path = '/Users/ivan.ivanov/Documents/images_local/' \
     #               'Plates_given_to_manu/2020-01-15_plate4_AEP_Feb3_6mousesera'
-    output_path = '/Users/bryant.chhun/Desktop/Data/array-imager/Plates_given_to_manu/expt_merge_seg_icp/icp'
+    output_path = '/Users/bryant.chhun/Desktop/Data/array-imager/Plates_given_to_manu/expt_merge_seg_icp/seg'
 
-    method = 'fit'  # 'fit' or 'interp'
+    method = 'interp'  # 'fit' or 'interp'
     flags = ['-i', input_path, '-o', output_path, '-d', '-m', method]
 
     main(flags)
