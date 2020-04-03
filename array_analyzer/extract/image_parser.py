@@ -879,30 +879,47 @@ def create_uniform_particles(x_range, y_range, hdg_range, N):
     return particles
 
 
-def create_gaussian_particles(x_distr,
-                              y_distr,
-                              scale_distr=(1, .1),
-                              angle_distr=(0, .5),
+def create_gaussian_particles(x_vars,
+                              y_vars,
+                              scale_vars=(1, .1),
+                              angle_vars=(0, .5),
                               nbr_particles=100):
     """
-    Distribution of particles in (mean, std)
+    Create particles from parameters x, y, scale and angle given mean and std.
 
+    :param x_vars:
+    :param y_vars:
+    :param scale_vars:
+    :param angle_vars:
     :param nbr_particles:
-    :param pos_distr:
-    :param scale_distr:
-    :param angle_distr:
     :return:
     """
     # x, y, scale, angle
     particles = np.empty((nbr_particles, 4))
-    particles[:, 0] = x_distr[0] + (np.random.randn(nbr_particles) * y_distr[1])
-    particles[:, 1] = y_distr[0] + (np.random.randn(nbr_particles) * y_distr[1])
-    particles[:, 2] = scale_distr[0] + (np.random.randn(nbr_particles) * scale_distr[1])
-    particles[:, 3] = angle_distr[0] + (np.random.randn(nbr_particles) * angle_distr[1])
+    particles[:, 0] = x_vars[0] + (np.random.randn(nbr_particles) * y_vars[1])
+    particles[:, 1] = y_vars[0] + (np.random.randn(nbr_particles) * y_vars[1])
+    particles[:, 2] = angle_vars[0] + (np.random.randn(nbr_particles) * angle_vars[1])
+    particles[:, 3] = scale_vars[0] + (np.random.randn(nbr_particles) * scale_vars[1])
     return particles
 
 
-def particle_filter(fiducial_coords, spot_coords, particles):
+def particle_filter(fiducial_coords,
+                    spot_coords,
+                    particles,
+                    stds,
+                    max_iter=50,
+                    stop_criteria=.1):
+    """
+    Particle filtering to determine best grid location
+
+    :param fiducial_coords:
+    :param spot_coords:
+    :param particles:
+    :param stds:
+    :param max_iter:
+    :param stop_criteria:
+    :return:
+    """
 
     # Pretrain spot coords
     dst = spot_coords.copy().astype(np.float32)
@@ -912,51 +929,66 @@ def particle_filter(fiducial_coords, spot_coords, particles):
 
     nbr_particles = particles.shape[0]
     weights = np.zeros(nbr_particles)
-    idxs = np.arange(nbr_particles)
-    stds = np.std(particles, axis=0)
-
-    im_roi = image.copy()
-    im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
 
     # Iterate until min dist doesn't change
-    min_dist_old = 10e6
+    min_dist_old = 10 ** 6
+    for i in range(max_iter):
+        # Reduce standard deviations a little every iteration
+        stds = stds * 0.95 ** i
 
+        # im_roi = image.copy()
+        # im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
 
-    for p in range(nbr_particles):
-        particle = particles[p]
-        # Generate transformation matrix
-        t_matrix = cv.getRotationMatrix2D(
-            (particle[0],particle[1]),
-            particle[3],
-            particle[2],
-        )
-        trans_coords = cv.transform(np.array([fiducial_coords]), t_matrix)
-        trans_coords = trans_coords[0].astype(np.float32)
+        for p in range(nbr_particles):
+            particle = particles[p]
+            # Generate transformation matrix
+            t_matrix = cv.getRotationMatrix2D(
+                (particle[0], particle[1]),
+                particle[2],
+                particle[3],
+            )
+            trans_coords = cv.transform(np.array([fiducial_coords]), t_matrix)
+            trans_coords = trans_coords[0].astype(np.float32)
 
-        for c in range(trans_coords.shape[0]):
-            coord = tuple(trans_coords[c, :].astype(np.int))
-            cv.circle(im_roi, coord, 2, (0, 0, 255), 10)
+            # for c in range(trans_coords.shape[0]):
+            #     coord = tuple(trans_coords[c, :].astype(np.int))
+            #     cv.circle(im_roi, coord, 2, (0, 0, 255), 10)
 
-        # Find nearest spots
-        ret, results, neighbors, dist = knn.findNearest(trans_coords, 1)
-        weights[p] = np.linalg.norm(dist)
+            # Find nearest spots
+            ret, results, neighbors, dist = knn.findNearest(trans_coords, 1)
+            weights[p] = np.linalg.norm(dist)
 
-    plt.imshow(im_roi)
-    plt.axis('off')
-    plt.show()
+        # plt.imshow(im_roi)
+        # plt.axis('off')
+        # plt.show()
 
-    min_dist = np.min(weights)
-    print(min_dist)
-    weights = 1 / weights
-    # Make weights sum to 1
-    weights = weights / sum(weights)
+        min_dist = np.min(weights)
+        print(min_dist)
+        # Low distance should correspond to high probability
+        weights = 1 / weights
+        # Make weights sum to 1
+        weights = weights / sum(weights)
 
-    # Importance sampling
-    idxs = np.random.choice(nbr_particles, nbr_particles, p=weights)
-    particles = particles[idxs, :]
+        # Importance sampling
+        idxs = np.random.choice(nbr_particles, nbr_particles, p=weights)
+        particles = particles[idxs, :]
 
-    # Distort particles
-    for i in range(4):
-        distort = np.random.randn(nbr_particles)
-        particles[:, i] = particles[:, i] + distort * stds[i]
+        # Distort particles
+        for c in range(4):
+            distort = np.random.randn(nbr_particles)
+            particles[:, c] = particles[:, c] + distort * stds[c]
 
+        # See if min dist is not decreasing anymore
+        if abs(min_dist_old - min_dist) < stop_criteria:
+            break
+        min_dist_old = min_dist
+
+    # Return best particle
+    particle = particles[weights == weights.max(), :][0]
+    # Generate transformation matrix
+    t_matrix = cv.getRotationMatrix2D(
+        (particle[0], particle[1]),
+        particle[2],
+        particle[3],
+    )
+    return t_matrix
