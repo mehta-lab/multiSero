@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-def seg(input_folder_, output_folder_, method='interp', debug=False):
+def interp(input_folder_, output_folder_, method='interp', debug=False):
 
     xml = [f for f in os.listdir(input_folder_) if '.xml' in f]
     if len(xml) > 1:
