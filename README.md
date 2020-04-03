@@ -53,8 +53,9 @@ then at cli, you can type:
 
 ```bash
 
-    python run_array_imager.py -i <input_folder> -o <output_folder>
+    python run_array_imager.py -i <input_folder> -o <output_folder> -m <method>
 
+    (where <method> is one of "fit" or "interp")
     (Optionally, you can add a flag "-d" for debug, which writes diagnostic images.)
 
 ```
@@ -108,21 +109,29 @@ Example print run metadata
 
 ##### 2) Identifying the center of the well
 - as you can see from the images above, the well position can vary from image to image.
-- we threshold to identify the boundary using OTSU
+- METHOD "interp": we threshold to identify the boundary using OTSU
 
     ![Well A1 boundary](https://drive.google.com/uc?export=view&id=1uF7GiQRk0Agjrz3tiZ3Fls0sNkLNuTno)
     
     ![Well A1_cropped](https://drive.google.com/uc?export=view&id=1uzzgaXK2kv7LgsCmM8a1I1OsK8NFIwpY)
+    
+- METHOD "fit": does not need to identify well boundary
 
 ##### 3) Identifying the spots in the array
-- we use a unimodal threshold described by [Rosin](https://users.cs.cf.ac.uk/Paul.Rosin/resources/papers/unimodal2.pdf) 
-to segment spots
+- METHOD "interp": select only the brightest pixels as seed positions for spots (greater than 95th percentile)
+    
+- METHOD "fit": select spots using openCV's SimpleBlobDetector with params: minArea, maxArea, minCircularity, minConvexivity
 
     ![Well A1_cropped](https://drive.google.com/uc?export=view&id=1uUf775-vCuRmkxc0q52wr4Qgiofwr3C-)
-    
-- next we gather properties of each segmented region to apply some filters
 
-- At this point, we assume the filters leave only real spots.  From these spots, we use the fiducials to interpolate 
+- next we gather properties of each segmented region (using sckimage.measure.regionprops) to apply some filters
+
+- METHOD "interp": filter spots by eccentricity < mean + 2*std
+
+- METHOD 'fit': Generate a reference grid that conforms to array print run (rows x cols).  
+Using "iterative closest point" algorithm, fit the fiducials from this reference grid to the result from SimpleBlobDetector. 
+
+- At this point, we assume the filters or fitting methods leave only real spots.  From these spots, we use interpolate 
 a block onto each spot
 
     ![Well_A1_block_placed](https://drive.google.com/uc?export=view&id=1v0pSr1axFKHvEmPHR5sThVYQ4uyiY6d8)
@@ -130,7 +139,7 @@ a block onto each spot
 The above steps can be repeated for estimated background levels
 
 ##### 4) Generating a report
-- The information from each spot above is summarized as an Optical Density (OD) in the following images and report
+- The information from each spot in step #3 above is summarized as an Optical Density (OD) in the following images and report
 
     ![A1_OD](https://drive.google.com/uc?export=view&id=1ChcSAJeCkkT4PBBMezBOa60jwkbDqpyZ)
     

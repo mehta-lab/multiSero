@@ -14,14 +14,17 @@ def main(argv):
     method = 'fit'
     try:
         options, remainder = getopt.getopt(argv, "hi:o:dm:",
-                                           ["help","ifile=", "ofile=", "debug=", "method="])
+                                           ["help", "ifile=", "ofile=", "debug=", "method="])
     except getopt.GetoptError:
-        print('run_array_analyzer.py -i <inputfolder> -o <outputfolder>')
+        print('run_array_analyzer.py -i <inputfolder> -o <outputfolder> -m <method>')
         sys.exit(2)
 
     for opt, arg in options:
         if opt == '-h':
-            print('run_array_analyzer.py -i <inputfolder> -o <outputfolder>')
+            print('run_array_analyzer.py -i <inputfolder> -o <outputfolder> -m <method>')
+            print('\t inputfolder: path to folder containing .xml and images')
+            print('\t outputfolder: path to folder for writing report and troubleshooting images')
+            print('\t method: one of "fit" or "interp"')
             sys.exit()
         elif opt in ("-i", "--ifile"):
             inputfolder = arg
