@@ -18,6 +18,10 @@ import skimage.io as io
 import matplotlib.pyplot as plt
 import pandas as pd
 
+FIDUCIALS = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
+FIDUCIALS_IDX = [0, 5, 6, 30, 35]
+SCENION_SPOT_DIST = 82
+
 
 def icp(input_folder_, output_folder_, debug=False):
 
@@ -68,8 +72,11 @@ def icp(input_folder_, output_folder_, debug=False):
     # sort by letter, then by number (with '10' coming AFTER '9')
     wellimages.sort(key=lambda x: (x[0], int(x[1:-4])))
 
-    # wellimages = ["A6.png"]
+    # The expected standard deviations could be estimated from training data
+    # Just winging it for now
+    stds = np.array([50, 50, .1, .0001])  # x, y, angle, scale
 
+    # wellimages = ["A6.png"]
     for image_name in wellimages:
         start_time = time.time()
         image = image_parser.read_gray_im(os.path.join(input_folder_, image_name))
@@ -84,139 +91,69 @@ def icp(input_folder_, output_folder_, debug=False):
             params['columns'],
             dtype=object,
         )
-        # finding center of well and cropping
-        cx, cy, r, well_mask = image_parser.find_well_border(
-            image,
-            segmethod='otsu',
-            detmethod='region',
-        )
-        im_crop = image_parser.crop_image(image, cx, cy, r, border_=0)
+        # # finding center of well and cropping
+        # cx, cy, r, well_mask = image_parser.find_well_border(
+        #     image,
+        #     segmethod='otsu',
+        #     detmethod='region',
+        # )
+        # im_crop = image_parser.crop_image(image, cx, cy, r, border_=0)
         # Remove background
-        background = img_processing.get_background(im_crop, fit_order=2)
-        im_crop = (im_crop / background * np.mean(background)).astype(np.uint8)
+        # background = img_processing.get_background(im_crop, fit_order=2)
+        # im_crop = (im_crop / background * np.mean(background)).astype(np.uint8)
 
         nbr_grid_rows, nbr_grid_cols = props_array.shape
         spot_coords = image_parser.get_spot_coords(
-            im_crop,
+            image,
             min_area=250,
             min_thresh=25,
         )
 
-        im_roi = im_crop.copy()
+        im_roi = image.copy()
         im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
         for c in range(spot_coords.shape[0]):
             coord = tuple(spot_coords[c, :].astype(np.int))
-            cv.circle(im_roi, coord, 2, (255, 0, 0), 10)
-        write_name = image_name[:-4] + '_spots.jpg'
-        # cv.imwrite(os.path.join(run_path, write_name), im_roi)
-        # plt.imshow(im_roi)
-        # plt.axis('off')
-        # plt.show()
+            cv.circle(im_roi, coord, 2, (255, 0, 0), 15)
 
-        mean_point, spot_dist = image_parser.grid_estimation(
-            im=im_crop,
-            spot_coords=spot_coords,
-        )
+        # Initial estimate of spot center
+        mean_point = tuple(np.mean(spot_coords, axis=0))
         grid_coords = image_parser.create_reference_grid(
             mean_point=mean_point,
             nbr_grid_rows=nbr_grid_rows,
             nbr_grid_cols=nbr_grid_cols,
-            spot_dist=spot_dist,
+            spot_dist=SCENION_SPOT_DIST,
         )
+        fiducial_coords = grid_coords[FIDUCIALS_IDX, :]
 
-        for c in range(grid_coords.shape[0]):
-            coord = tuple(grid_coords[c, :].astype(np.int))
-            cv.circle(im_roi, coord, 2, (0, 0, 255), 10)
-        write_name = image_name[:-4] + '_grid.jpg'
-        # cv.imwrite(os.path.join(run_path, write_name), im_roi)
-        # plt.imshow(im_roi)
-        # plt.axis('off')
-        # plt.show()
+        for c in range(fiducial_coords.shape[0]):
+            coord = tuple(fiducial_coords[c, :].astype(np.int))
+            cv.circle(im_roi, coord, 2, (0, 0, 255), 15)
+
+        particles = image_parser.create_gaussian_particles(
+            x_vars=(mean_point[0], stds[0]),
+            y_vars=(mean_point[1], stds[1]),
+            scale_vars=(1, [stds[2]]),
+            angle_vars=(0, stds[2]),
+            nbr_particles=1000,
+        )
 
         # Optimize estimated coordinates with iterative closest point
-        t_matrix = image_parser.icp(
-            source=grid_coords,
-            target=spot_coords,
+        t_matrix = image_parser.particle_filter(
+            fiducial_coords=fiducial_coords,
+            spot_coords=spot_coords,
+            particles=particles,
+            stds=stds,
         )
-        grid_coords = np.squeeze(cv.transform(np.expand_dims(grid_coords, 0), t_matrix))
+        grid_coords = np.squeeze(cv.transform(np.array([grid_coords]), t_matrix))
         print("Time to register grid to {}: {:.3f} s".format(image_name,
                                                              time.time() - start_time))
 
         for c in range(grid_coords.shape[0]):
             coord = tuple(grid_coords[c, :].astype(np.int))
-            cv.circle(im_roi, coord, 2, (0, 255, 0), 10)
+            cv.circle(im_roi, coord, 2, (0, 255, 0), 15)
         write_name = image_name[:-4] + '_icp.jpg'
         cv.imwrite(os.path.join(run_path, write_name), im_roi)
-        # plt.imshow(im_roi)
-        # plt.axis('off')
-        # plt.show()
 
-
-        # # find center of spots from crop
-        # spot_mask = image_parser.thresh_and_binarize(im_crop, method='rosin')
-        #
-        # props = image_parser.generate_props(spot_mask, intensity_image_=im_crop)
-        # props = image_parser.select_props(
-        #     props,
-        #     attribute="area",
-        #     condition="greater_than",
-        #     condition_value=200,
-        # )
-        # # props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.75)
-        #
-        # fiducial_locations = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
-        # pix_size = 0.0049 # in mm
-        # props_by_loc = image_parser.find_fiducials_markers(
-        #     props,
-        #     fiducial_locations,
-        #     params['rows'],
-        #     params['columns'],
-        #     params['v_pitch'],
-        #     params['h_pitch'],
-        #     im_crop.shape,
-        #     pix_size,
-        # )
-        #
-        #
-        # # for grid fit, this props dict is used only for finding fiducials
-        # # props_by_loc = generate_props_dict(props,
-        # #                                    params['rows'],
-        # #                                    params['columns'],
-        # #                                    min_area=200,
-        # #                                    flag_duplicates=False)   # assign this flag
-        #
-        # props_array = image_parser.assign_props_to_array_2(props_array, props_by_loc)
-        #
-        # # use the props_array to find fiducials,
-        # # create a new spot_mask "placed" on the array
-        # placed_spotmask = image_parser.build_and_place_block_array(
-        #     props_array,
-        #     spot_mask,
-        #     params,
-        #     return_type='region',
-        # )
-        #
-        # props_placed = generate_props(placed_spotmask, intensity_image_=im_crop)
-        # bg_props = generate_props(placed_spotmask, intensity_image_=background)
-        #
-        # spot_labels = [p.label for p in props_placed]
-        # bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
-        #
-        # props_placed_by_loc = generate_props_dict(props_placed,
-        #                                           params['rows'],
-        #                                           params['columns'],
-        #                                           min_area=100)
-        # bgprops_by_loc = generate_props_dict(bg_props,
-        #                                      params['rows'],
-        #                                      params['columns'],
-        #                                      min_area=100)
-        #
-        # props_array_placed = assign_props_to_array(props_array, props_placed_by_loc)
-        # bgprops_array = assign_props_to_array(bgprops_array, bgprops_by_loc)
-        #
-        # # todo: further calculations using bgprops, props here
-        # # TODO: compute spot and background intensities,
-        # #  and then show them on a plate like graphic (visualize_elisa_spots).
         # od_well, i_well, bg_well = compute_od(props_array_placed, bgprops_array)
         #
         # pd_OD = pd.DataFrame(od_well)
