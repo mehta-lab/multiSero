@@ -90,6 +90,7 @@ def create_otsu_mask(input_image, scale=1):
         thr = threshold_otsu(input_image, nbins=512)
     return input_image > (scale * thr)
 
+
 def create_multiotsu_mask(input_image, n_class, fg_class, str_elem_size=3):
     """Create a binary mask using morphological operations
 
@@ -115,6 +116,7 @@ def create_multiotsu_mask(input_image, n_class, fg_class, str_elem_size=3):
     # remove small objects in mask
     mask = binary_opening(mask, str_elem)
     return mask
+
 
 def get_background(img, fit_order):
     bg_estimator = BackgroundEstimator2D(block_size=128)
