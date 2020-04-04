@@ -1,7 +1,12 @@
+import cv2 as cv
 import numpy as np
+
+from scipy.signal import find_peaks
+from scipy.ndimage.filters import gaussian_filter1d
 from skimage.morphology import disk, ball, binary_opening, binary_erosion
 from skimage.filters import threshold_otsu, threshold_multiotsu
 from scipy.ndimage import binary_fill_holes
+
 from .background_estimator import BackgroundEstimator2D
 
 
@@ -79,11 +84,9 @@ def create_otsu_mask(input_image, scale=1):
     Opening removes small objects in the foreground.
 
     :param np.array input_image: generate masks from this image
-    :param int str_elem_size: size of the structuring element. typically 3, 5
+    :param float scale: Scale the threshold
     :return: mask of input_image, np.array
     """
-
-
     if np.min(input_image) == np.max(input_image):
         return np.ones(input_image.shape)
     else:
@@ -100,8 +103,6 @@ def create_multiotsu_mask(input_image, n_class, fg_class, str_elem_size=3):
     :param int str_elem_size: size of the structuring element. typically 3, 5
     :return: mask of input_image, np.array
     """
-
-
     if np.min(input_image) == np.max(input_image):
         return np.ones(input_image.shape)
     else:
@@ -122,3 +123,119 @@ def get_background(img, fit_order):
     bg_estimator = BackgroundEstimator2D(block_size=128)
     background = bg_estimator.get_background(img, order=fit_order, normalize=False)
     return background
+
+
+def get_spot_coords(im,
+                    min_thresh=0,
+                    max_thresh=255,
+                    min_area=50,
+                    max_area=10000,
+                    min_circularity=0.1,
+                    min_convexity=0.5):
+    """
+    Use OpenCVs simple blob detector (thresholdings and grouping by properties)
+    to detect all dark spots in the image
+    :param np.array im: uint8 mage containing spots
+    :param int min_thresh: Minimum threshold
+    :param int max_thresh: Maximum threshold
+    :param int min_area: Minimum spot area in pixels
+    :param int max_area: Maximum spot area in pixels
+    :param float min_circularity: Minimum circularity of spots
+    :param float min_convexity: Minimum convexity of spots
+    :return np.array spot_coords: x, y coordinates of spot centroids (nbr spots x 2)
+    """
+    params = cv.SimpleBlobDetector_Params()
+
+    # Change thresholds
+    params.minThreshold = min_thresh
+    params.maxThreshold = max_thresh
+    # Filter by Area
+    params.filterByArea = True
+    params.minArea = min_area
+    params.maxArea = max_area
+    # Filter by Circularity
+    params.filterByCircularity = True
+    params.minCircularity = min_circularity
+    # Filter by Convexity
+    params.filterByConvexity = True
+    params.minConvexity = min_convexity
+
+    detector = cv.SimpleBlobDetector_create(params)
+
+    # Normalize image
+    im_norm = ((im - im.min()) / (im.max() - im.min()) * 255).astype(np.uint8)
+    # Detect blobs
+    keypoints = detector.detect(im_norm)
+
+    spot_coords = np.zeros((len(keypoints), 2))
+    # Convert to np.arrays
+    for c in range(len(keypoints)):
+        pt = keypoints[c].pt
+        spot_coords[c, 0] = pt[0]
+        spot_coords[c, 1] = pt[1]
+
+    return spot_coords
+
+
+def find_profile_peaks(profile, margin, prominence):
+    # invert because black spots
+    profile = profile.max() - profile
+    max_pos = int(np.where(profile == profile.max())[0][0])
+    # Make sure max is not due to leaving the center
+    add_margin = 0
+    half_margin = int(margin / 2)
+    if max_pos > len(profile) - half_margin:
+        profile = profile[:-half_margin]
+    elif max_pos < half_margin:
+        profile = profile[half_margin:]
+        add_margin = half_margin
+    profile = gaussian_filter1d(profile, 3)
+    min_prom = profile.max() * prominence
+    peaks, _ = find_peaks(profile, prominence=min_prom, distance=50)
+    if len(peaks) >= 4:
+        spot_dists = peaks[1:] - peaks[:-1]
+    else:
+        spot_dists = None
+    mean_pos = peaks[0] + (peaks[-1] - peaks[0]) / 2 + add_margin
+    return mean_pos, spot_dists
+
+
+def grid_estimation(im,
+                    spot_coords,
+                    margin=50,
+                    prominence=.15):
+    """
+    Based on images intensities and detected spots, make an estimation
+    of grid location so that ICP algorithm is initialized close enough for convergence.
+    TODO: This assumes that you always detect the first peaks
+    this may be unstable so think of other ways to initialize...
+    :param np.array im: Grayscale image
+    :param np.array spot_coords: Spot x,y coordinates (nbr spots x 2)
+    :param int margin: Margin for cropping outside all detected spots
+    :param float prominence: Fraction of max intensity to filter out insignificant peaks
+    :return tuple start_point: Min x, y coordinates for initial grid estimate
+    :return float spot_dist: Estimated distance between spots
+    """
+    im_shape = im.shape
+    x_min = int(max(margin, np.min(spot_coords[:, 0]) - margin))
+    x_max = int(min(im_shape[1] - margin, np.max(spot_coords[:, 0]) + margin))
+    y_min = int(max(margin, np.min(spot_coords[:, 1]) - margin))
+    y_max = int(min(im_shape[0] - margin, np.max(spot_coords[:, 1]) + margin))
+    im_roi = im[y_min:y_max, x_min:x_max]
+    # Create intensity profiles along x and y and find peaks
+    profile_x = np.mean(im_roi, axis=0)
+    mean_x, dists_x = find_profile_peaks(profile_x, margin, prominence)
+    profile_y = np.mean(im_roi, axis=1)
+    mean_y, dists_y = find_profile_peaks(profile_y, margin, prominence)
+
+    mean_point = (x_min + mean_x, y_min + mean_y)
+    spot_dist = np.hstack([dists_x, dists_y])
+    # Remove invalid distances
+    spot_dist = spot_dist[np.where(spot_dist != None)]
+    if spot_dist.size == 0:
+        # Failed at estimating spot dist. Return default or error out?
+        spot_dist = None
+    else:
+        spot_dist = np.median(spot_dist)
+
+    return mean_point, spot_dist

@@ -72,14 +72,15 @@ def icp(source, target, max_iterate=50, matrix_diff=1.):
             fullAffine=False,
         )
         if t_iter is None:
-            print("Optimization failed. Using initial estimate")
-            return np.eye(3)[:2]
+            print("ICP optimization failed.")
+            return None
         t_temp[:2] = t_iter
         src = cv.transform(src, t_iter)
         t_matrix = np.dot(t_temp, t_matrix)
         # Estimate diff
         t_diff = sum(sum(abs(t_matrix[:2] - t_old[:2])))
         t_old = t_matrix
+        print(t_diff)
         if t_diff < matrix_diff:
             break
 

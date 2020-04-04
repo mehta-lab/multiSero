@@ -10,7 +10,6 @@ import math
 from types import SimpleNamespace
 from scipy import spatial, stats
 
-from scipy.signal import find_peaks
 import skimage.io as io
 import skimage.util as u
 
@@ -23,14 +22,11 @@ from skimage.morphology import binary_closing, binary_dilation, selem, disk, bin
 from skimage.morphology import binary_closing, binary_dilation, selem, disk, binary_opening
 from skimage.segmentation import clear_border
 from scipy.ndimage import binary_fill_holes
-from scipy.ndimage.filters import gaussian_filter1d
 from skimage import measure
 
-from .img_processing import create_unimodal_mask, create_otsu_mask, create_multiotsu_mask
+from .img_processing import create_unimodal_mask, create_otsu_mask
 from ..utils.mock_regionprop import MockRegionprop
-# from .img_processing import create_unimodal_mask, create_otsu_mask
-# from .img_processing import  create_unimodal_mask
-# from ..utils.mock_regionprop import MockRegionprop
+
 """
 method is
 1) read_to_grey(supplied images)
@@ -101,9 +97,9 @@ def thresh_and_binarize(image_, method='rosin', invert=True):
     elif method == 'otsu':
         spots = create_otsu_mask(image_, scale=1)
 
-    elif method == 'multi_otsu':
-        n_class = 3
-        spots = create_multiotsu_mask(image_, n_class=n_class, fg_class=n_class - 1)
+    # elif method == 'multi_otsu':
+    #     n_class = 3
+    #     spots = create_multiotsu_mask(image_, n_class=n_class, fg_class=n_class - 1)
 
     elif method == 'rosin':
         spots = create_unimodal_mask(image_, str_elem_size=3)

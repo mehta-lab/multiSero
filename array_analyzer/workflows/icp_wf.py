@@ -7,12 +7,14 @@ import skimage.io as io
 import pandas as pd
 
 import array_analyzer.extract.image_parser as image_parser
+import array_analyzer.extract.img_processing as img_processing
 import array_analyzer.extract.txt_parser as txt_parser
 from array_analyzer.load.debug_images import *
 from array_analyzer.transform.property_filters import *
 import array_analyzer.transform.point_registration as registration
 
 FIDUCIALS = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
+FIDUCIALS_IDX = [0, 5, 6, 30, 35]
 SCENION_SPOT_DIST = 82
 
 
@@ -84,18 +86,24 @@ def point_registration(input_folder_, output_folder_, debug=False):
             segmethod='otsu',
             detmethod='region',
         )
-
+        im_crop = image_parser.crop_image(image, cx, cy, r, border_=0)
+        # Estimate and remove background
         background = img_processing.get_background(im_crop, fit_order=2)
         im_crop = (im_crop / background * np.mean(background)).astype(np.uint8)
 
         nbr_grid_rows, nbr_grid_cols = props_array.shape
-        spot_coords = image_parser.get_spot_coords(
-            image,
-            min_area=250,
+        spot_coords = img_processing.get_spot_coords(
+            im_crop,
+            min_area=1000,
             min_thresh=25,
         )
         # Initial estimate of spot center
-        mean_point = tuple(np.mean(spot_coords, axis=0))
+        mean_point, spot_dist = img_processing.grid_estimation(
+            im=im_crop,
+            spot_coords=spot_coords,
+        )
+        if spot_dist is None:
+            spot_dist = SCENION_SPOT_DIST
         grid_coords = registration.create_reference_grid(
             mean_point=mean_point,
             nbr_grid_rows=nbr_grid_rows,
@@ -104,64 +112,77 @@ def point_registration(input_folder_, output_folder_, debug=False):
         )
         # Register grid to spots using iterative closest point
         t_matrix = registration.icp(
-            source=grid_coords,
+            source=grid_coords[FIDUCIALS_IDX],
             target=spot_coords,
         )
-        # Transform coordinates
-        reg_coords = np.squeeze(cv.transform(
-            np.array([grid_coords]),
-            t_matrix),
-        )
+        if t_matrix is None:
+            # Registration failed, try mean instead
+            mean_point = tuple(np.mean(spot_coords, axis=0))
+            grid_coords = registration.create_reference_grid(
+                mean_point=mean_point,
+                nbr_grid_rows=nbr_grid_rows,
+                nbr_grid_cols=nbr_grid_cols,
+                spot_dist=SCENION_SPOT_DIST,
+            )
+            t_matrix = registration.icp(
+                source=grid_coords[FIDUCIALS_IDX],
+                target=spot_coords,
+            )
+        if t_matrix is not None:
+            # Transform coordinates
+            reg_coords = np.squeeze(cv.transform(
+                np.array([grid_coords]),
+                t_matrix),
+            )
+        else:
+            print("ICP failed, using initial estimate")
+            reg_coords = grid_coords
 
-
-        im_crop = image_parser.crop_image(image, cx, cy, r, border_=0)
+        # od_well, i_well, bg_well = compute_od(props_array_placed, bgprops_array)
+        #
+        # pd_OD = pd.DataFrame(od_well)
+        # pd_OD.to_excel(xlwriterOD, sheet_name=image_name[:-4])
 
         print("Time to register grid to {}: {:.3f} s".format(
             image_name,
             time.time() - start_time),
         )
 
-        for c in range(reg_coords.shape[0]):
-            coord = tuple(reg_coords[c, :].astype(np.int))
-            cv.circle(im_roi, coord, 2, (0, 255, 0), 15)
-        write_name = image_name[:-4] + '_icp.jpg'
-        cv.imwrite(os.path.join(run_path, write_name), im_roi)
-
-        # od_well, i_well, bg_well = compute_od(props_array_placed, bgprops_array)
-        #
-        # pd_OD = pd.DataFrame(od_well)
-        # pd_OD.to_excel(xlwriterOD, sheet_name=image_name[:-4])
-        #
-        # stop_time = time.time()
-        # print(f"\ttime to process={stop_time-start_time}")
-
         # SAVE FOR DEBUGGING
         if debug:
-            well_path = os.path.join(run_path)
-            os.makedirs(well_path, exist_ok=True)
-            output_name = os.path.join(well_path, image_name[:-4])
-            im_bg_overlay = np.stack([background, im_crop, background], axis=2)
-
-            # Save image with spots
-            im_roi = image.copy()
+            # # Save image with spots
+            im_roi = im_crop.copy()
             im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
             for c in range(spot_coords.shape[0]):
                 coord = tuple(spot_coords[c, :].astype(np.int))
                 cv.circle(im_roi, coord, 2, (255, 0, 0), 15)
+            for c in range(grid_coords.shape[0]):
+                coord = tuple(grid_coords[c, :].astype(np.int))
+                cv.circle(im_roi, coord, 2, (0, 0, 255), 15)
+            for c in range(reg_coords.shape[0]):
+                coord = tuple(reg_coords[c, :].astype(np.int))
+                cv.circle(im_roi, coord, 2, (0, 255, 0), 15)
+            write_name = image_name[:-4] + '_icp.jpg'
+            cv.imwrite(os.path.join(run_path, write_name), im_roi)
 
-            # This plot shows which spots have been assigned what index.
-            plot_spot_assignment(od_well, i_well, bg_well,
-                                 im_crop, props_placed_by_loc, bgprops_by_loc,
-                                 image_name, output_name, params)
-
-            #   save spots
-            save_all_wells(props_array, spot_ids, well_path, image_name[:-4])
-
-            #   save a composite of all spots, where spots are from source or from region prop
-            save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=True)
-            save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=False)
-
-            stop2 = time.time()
-            print(f"\ttime to save debug={stop2-stop}")
+            # well_path = os.path.join(run_path)
+            # os.makedirs(well_path, exist_ok=True)
+            # output_name = os.path.join(well_path, image_name[:-4])
+            # im_bg_overlay = np.stack([background, im_crop, background], axis=2)
+            #
+            # # This plot shows which spots have been assigned what index.
+            # plot_spot_assignment(od_well, i_well, bg_well,
+            #                      im_crop, props_placed_by_loc, bgprops_by_loc,
+            #                      image_name, output_name, params)
+            #
+            # #   save spots
+            # save_all_wells(props_array, spot_ids, well_path, image_name[:-4])
+            #
+            # #   save a composite of all spots, where spots are from source or from region prop
+            # save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=True)
+            # save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=False)
+            #
+            # stop2 = time.time()
+            # print(f"\ttime to save debug={stop2-stop}")
 
     xlwriterOD.close()
