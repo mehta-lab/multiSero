@@ -76,5 +76,5 @@ if __name__ == "__main__":
     method = 'interp'  # 'fit' or 'interp'
     flags = ['-i', input_path, '-o', output_path, '-d', '-m', method]
 
-    main(flags)
-    # main(sys.argv[1:])
+    # main(flags)
+    main(sys.argv[1:])

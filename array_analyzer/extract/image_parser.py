@@ -491,8 +491,8 @@ def grid_from_centroids(props_, im, n_rows, n_cols, dist_flr=True):
                                               prop.centroid[0],
                                               int(bbox_width / 2),
                                               border_=0)
-            prop.mean_intensity = np.mean(prop.intensity_image)
-
+            # prop.mean_intensity = np.mean(prop.intensity_image)
+            prop.mean_intensity = np.median(prop.intensity_image)
             # hardcode the bbox to be box of side = 40 around centroid
             int_shape = prop.intensity_image.shape
             prop.bbox = (int(round(prop.centroid[0]-(int_shape[0]/2))),
@@ -709,7 +709,7 @@ def compute_od(props_array,bgprops_array):
             if props_array[r,c] is not None:
                 i_spot[r,c]=props_array[r,c].mean_intensity
                 i_bg[r,c]=bgprops_array[r,c].mean_intensity
-    od_norm=i_bg/i_spot
+    od_norm = np.log10(i_bg / i_spot)
     # Optical density is affected by Beer-Lambert law, i.e. I = I0*e^-{c*thickness). I0/I = e^{c*thickness).
 
     return od_norm, i_spot, i_bg
