@@ -834,7 +834,7 @@ def compute_od(props_array,bgprops_array):
             if props_array[r,c] is not None:
                 i_spot[r,c]=props_array[r,c].mean_intensity
                 i_bg[r,c]=bgprops_array[r,c].mean_intensity
-    od_norm=i_bg/i_spot
+    od_norm = np.log10(i_bg / i_spot)
     # Optical density is affected by Beer-Lambert law, i.e. I = I0*e^-{c*thickness). I0/I = e^{c*thickness).
 
     return od_norm, i_spot, i_bg
