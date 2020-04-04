@@ -10,4 +10,3 @@ class MockRegionprop:
         self.mean_intensity = mean_intensity
         self.label = label
         self.intensity_image = intensity_image
-
