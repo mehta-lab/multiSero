@@ -2,12 +2,13 @@
 
 import os
 from copy import copy
+import cv2 as cv
 import numpy as np
 import re
 import itertools
 import math
-import cv2 as cv
 from types import SimpleNamespace
+from scipy import spatial, stats
 
 import skimage.io as io
 import skimage.util as u
@@ -19,12 +20,13 @@ from skimage.transform import hough_circle, hough_circle_peaks
 from skimage.feature import canny
 from skimage.morphology import binary_closing, binary_dilation, selem, disk, binary_opening
 from skimage.morphology import binary_closing, binary_dilation, selem, disk, binary_opening
+from skimage.segmentation import clear_border
 from scipy.ndimage import binary_fill_holes
 from skimage import measure
 
 from .img_processing import create_unimodal_mask, create_otsu_mask
-from .img_processing import  create_unimodal_mask
 from ..utils.mock_regionprop import MockRegionprop
+
 """
 method is
 1) read_to_grey(supplied images)
@@ -46,15 +48,27 @@ def read_to_grey(path_, wellimage_):
     """
     a generator that receives file path and returns the next rgb image as greyscale and its name
 
-    :param path_: path to folder with all images
-    :param wellimage_: name of the file with image of the well.
-    :return: next image as greyscale np.ndarray, filename
+    :param str path_: path to folder with all images
+    :param str wellimage_: name of the file with image of the well.
+    :return: next image as greyscale np.ndarray
     """
-
-    image_path = path_+os.sep+wellimage_
+    image_path = os.path.join(path_, wellimage_)
     im = io.imread(image_path)
-    i = rgb2grey(im)
-    return i, os.path.basename(image_path)
+    im = rgb2grey(im)
+    return im, os.path.basename(image_path)
+
+
+def read_gray_im(im_path):
+    """
+    Read image from full path to file location.
+    :param str im_path: Path to image
+    :return np.array im: Grayscale image
+    """
+    try:
+        im = cv.imread(im_path, cv.IMREAD_GRAYSCALE | cv.IMREAD_ANYDEPTH)
+    except IOError as e:
+        raise("Can't read image", e)
+    return im
 
 
 def thresh_and_binarize(image_, method='rosin', invert=True):
@@ -81,14 +95,22 @@ def thresh_and_binarize(image_, method='rosin', invert=True):
         spots[image_ >= thresh] = 1
 
     elif method == 'otsu':
-        thresh = threshold_otsu(image_, nbins=512)
+        spots = create_otsu_mask(image_, scale=1)
 
-        spots = copy(image_)
-        spots[image_ < thresh] = 0
-        spots[image_ >= thresh] = 1
+    # elif method == 'multi_otsu':
+    #     n_class = 3
+    #     spots = create_multiotsu_mask(image_, n_class=n_class, fg_class=n_class - 1)
 
     elif method == 'rosin':
         spots = create_unimodal_mask(image_, str_elem_size=3)
+
+    elif method == 'bright_spots':
+        spots = image_ > np.percentile(image_, 95)
+        str_elem = disk(10)
+        # spots = binary_closing(spots, str_elem)
+        spots = binary_opening(spots, str_elem)
+        spots = clear_border(spots)
+
     else:
         raise ModuleNotFoundError("not a supported method for thresh_and_binarize")
 
@@ -106,24 +128,25 @@ def find_well_border(image, segmethod='bimodal', detmethod='region'):
 
     :param image: np.ndarray
         raw image, not inverted
-    :param method: str
+    :param segmethod: str
         'otsu' or 'hough'
     :return: center x, center y, radius of the one hough circle
     """
-    segmented_img = thresh_and_binarize(image, method=segmethod, invert=True)
-    well_mask = segmented_img == 0
+    well_mask = thresh_and_binarize(image, method=segmethod, invert=False)
     # Now remove small objects.
-    str_elem_size=10
+    str_elem_size = 10
     str_elem = disk(str_elem_size)
     well_mask = binary_opening(well_mask, str_elem)
-    well_mask = binary_fill_holes(well_mask)
-
+    # well_mask = binary_fill_holes(well_mask)
 
     if detmethod == 'region':
         labels = measure.label(well_mask)
         props = measure.regionprops(labels)
 
         # let's assume ONE circle for now (take only props[0])
+        props = select_props(props, attribute="area", condition="greater_than", condition_value=10**5)
+        props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.6)
+        well_mask[labels != props[0].label] = 0
         cy, cx = props[0].centroid # notice that the coordinate order is different from hough.
         radii = int((props[0].minor_axis_length + props[0].major_axis_length)/ 4 / np.sqrt(2))
         # Otsu threshold fails occasionally and leads to asymmetric region. Averaging both axes makes the segmentation robust.
@@ -150,11 +173,11 @@ def crop_image(arr, cx_, cy_, radius_, border_=200):
     crop the supplied image to include only the well and its spots
 
     :param arr: image
-    :param cx_: float
-    :param cy_: float
-    :param radius_:
-    :param border_:
-    :return:
+    :param float cx_: Center x coordinate
+    :param float cy_: Center y coordinate
+    :param float radius_: Crop radius
+    :param int border_: Margin on each side in pixels
+    :return np.array crop: Cropped image
     """
     cx_ = int(np.rint(cx_))
     cy_ = int(np.rint(cy_))
@@ -306,7 +329,14 @@ def generate_props_dict(props_, n_rows, n_cols, min_area=100, img_x_max=2048, im
     return cent_map
 
 
-def find_fiducials_markers(props_, fiducial_locations, n_rows, n_cols, v_pitch, h_pitch, img_size, pix_size):
+def find_fiducials_markers(props_,
+                           fiducial_locations,
+                           n_rows,
+                           n_cols,
+                           v_pitch,
+                           h_pitch,
+                           img_size,
+                           pix_size):
     """
     based on the region props, creates a dictionary of format:
         key = (centroid_x, centroid_y)
@@ -328,6 +358,8 @@ def find_fiducials_markers(props_, fiducial_locations, n_rows, n_cols, v_pitch, 
         size of pix in mm
     :return: dict
         of format (cent_x, cent_y): prop for fiducials only
+    NOTE (Jenny): Why input pixel size here? All you do is multiply both
+    sets of coordinates with it, then divide by it.
     """
 
     centroids_in_mm = np.array([p.centroid for p in props_]) * pix_size
@@ -358,7 +390,8 @@ def find_fiducials_markers(props_, fiducial_locations, n_rows, n_cols, v_pitch, 
     return cent_map
 
 
-def grid_from_centroids(props_, im, n_rows, n_cols, min_area=100, im_height=2048, im_width=2048):
+# def grid_from_centroids(props_, im, n_rows, n_cols, min_area=100, im_height=2048, im_width=2048):
+def grid_from_centroids(props_, im, n_rows, n_cols, dist_flr=True):
     """
     based on the region props, creates a dictionary of format:
         key = (centroid_x, centroid_y)
@@ -375,23 +408,54 @@ def grid_from_centroids(props_, im, n_rows, n_cols, min_area=100, im_height=2048
     :return: dict
         of format (cent_x, cent_y): prop
     """
+    centroids = np.array([prop.weighted_centroid for prop in props_])
+    bbox_area = np.array([prop.bbox_area for prop in props_])
+    # calculate mean bbox width for cropping undetected spots
+    bbox_area_mean = np.mean(bbox_area)
+    bbox_width = bbox_height = np.sqrt(bbox_area_mean)
 
-    # find y_min, x_min to "zero center" the array
-    y_min = im_height
-    x_min = im_width
-    # find y_max, x_max to scale to array index values
-    y_max = 0
-    x_max = 0
-    for prop in props_:
-        if prop.area > min_area:
-            if prop.centroid[0] < y_min:
-                y_min = prop.centroid[0]
-            if prop.centroid[1] < x_min:
-                x_min = prop.centroid[1]
-            if prop.centroid[0] > y_max:
-                y_max = prop.centroid[0]
-            if prop.centroid[1] > x_max:
-                x_max = prop.centroid[1]
+
+    y_min_idx = np.argmin(centroids[:, 0])
+    y_min = centroids[y_min_idx, 0]
+    y_max_idx = np.argmax(centroids[:, 0])
+    y_max = centroids[y_max_idx, 0]
+    x_min_idx = np.argmin(centroids[:, 1])
+    x_min = centroids[x_min_idx, 1]
+    x_max_idx = np.argmax(centroids[:, 1])
+    x_max = centroids[x_max_idx, 1]
+    # apply nearest neighbor distance filter to remove false points if >= 10 points are detected
+    if dist_flr and centroids.shape[0] >= 10:
+        y_sort_ids = np.argsort(centroids[:, 0])
+        x_sort_ids = np.argsort(centroids[:, 1])
+        dist_tree = spatial.cKDTree(centroids)
+        dist, ids = dist_tree.query(centroids, k=2)
+        dist = dist[:, 1]
+        dist_median = np.median(dist)
+        dist_std = 0.8 * dist.std()
+        if dist_std > 5:
+            y_min_idx = 0
+            while dist[y_sort_ids[y_min_idx]] > dist_median + dist_std or \
+                    dist[y_sort_ids[y_min_idx]] < dist_median - dist_std:
+                y_min_idx += 1
+            y_min = centroids[y_sort_ids[y_min_idx], 0]
+
+            y_max_idx = len(ids) - 1
+            while dist[y_sort_ids[y_max_idx]] > dist_median + dist_std or \
+                    dist[y_sort_ids[y_max_idx]] < dist_median - dist_std:
+                y_max_idx -= 1
+            y_max = centroids[y_sort_ids[y_max_idx], 0]
+
+            x_min_idx = 0
+            while dist[x_sort_ids[x_min_idx]] > dist_median + dist_std or \
+                    dist[x_sort_ids[x_min_idx]] < dist_median - dist_std:
+                x_min_idx += 1
+            x_min = centroids[x_sort_ids[x_min_idx], 1]
+
+            x_max_idx = len(ids) - 1
+            while dist[x_sort_ids[x_max_idx]] > dist_median + dist_std or \
+                    dist[x_sort_ids[x_max_idx]] < dist_median - dist_std:
+                x_max_idx -= 1
+            x_max = centroids[x_sort_ids[x_max_idx], 1]
 
     # scaled max-x, max-y
     y_range = y_max - y_min
@@ -399,31 +463,27 @@ def grid_from_centroids(props_, im, n_rows, n_cols, min_area=100, im_height=2048
     grid_ids = list(itertools.product(range(n_rows), range(n_cols)))
     grid_ids_detected = []
     cent_map = {}
-    bbox_area = []
-    for prop in props_:
-        if prop.area > min_area:
-            cen_y, cen_x = prop.centroid
-            # convert the centroid position to an integer that maps to array indices
-            grid_y_idx = int(round((n_rows - 1) * ((cen_y - y_min) / y_range)))
-            grid_x_idx = int(round((n_cols - 1) * ((cen_x - x_min) / x_range)))
+    # for prop in props_:
+    #         cen_y, cen_x = prop.weighted_centroid
+    #         # convert the centroid position to an integer that maps to array indices
+    #         grid_y_idx = int(round((n_rows - 1) * ((cen_y - y_min) / y_range)))
+    #         grid_x_idx = int(round((n_cols - 1) * ((cen_x - x_min) / x_range)))
+    #         grid_id = (grid_y_idx, grid_x_idx)
+    #         if grid_id in grid_ids:
+    #             grid_ids_detected.append(grid_id)
+    #             cent_map[grid_id] = prop
 
-            grid_ids_detected.append((grid_y_idx, grid_x_idx))
-            cent_map[(grid_y_idx, grid_x_idx)] = prop
-            bbox_area.append(prop.bbox_area)
-    # calculate mean bbox width for cropping undetected spots
-    bbox_area_mean = np.mean(bbox_area)
-    bbox_width = bbox_height = np.sqrt(bbox_area_mean)
-    if len(grid_ids_detected) != len(set(grid_ids_detected)):
-        print("ERROR, DUPLICATE ENTRIES")
-        raise AttributeError("generate props array failed\n"
-                             "duplicate spots found in one position\n")
+    # if len(grid_ids_detected) != len(set(grid_ids_detected)):
+    #     print("ERROR, DUPLICATE ENTRIES")
+    #     raise AttributeError("generate props array failed\n"
+    #                          "duplicate spots found in one position\n")
     # Add missing spots
     for grid_id in grid_ids:
         if grid_id not in grid_ids_detected:
             # make mock regionprop objects to hold the properties
-            prop = MockRegionprop(label=prop.label)
+            prop = MockRegionprop(label=props_[-1].label)
             prop.centroid = (grid_id[0]/(n_rows - 1) * y_range + y_min,
-            grid_id[1]/(n_cols - 1) * x_range + x_min)
+                             grid_id[1]/(n_cols - 1) * x_range + x_min)
             prop.label += 1
             prop.mean_intensity = 1
             prop.intensity_image = crop_image(im,
@@ -432,6 +492,14 @@ def grid_from_centroids(props_, im, n_rows, n_cols, min_area=100, im_height=2048
                                               int(bbox_width / 2),
                                               border_=0)
             prop.mean_intensity = np.mean(prop.intensity_image)
+
+            # hardcode the bbox to be box of side = 40 around centroid
+            int_shape = prop.intensity_image.shape
+            prop.bbox = (int(round(prop.centroid[0]-(int_shape[0]/2))),
+                         int(round(prop.centroid[1]-(int_shape[1]/2))),
+                         int(round(prop.centroid[0]+(int_shape[0]/2))),
+                         int(round(prop.centroid[1]+(int_shape[1]/2))))
+
             cent_map[grid_id] = prop
 
     return cent_map
@@ -646,51 +714,3 @@ def compute_od(props_array,bgprops_array):
 
     return od_norm, i_spot, i_bg
 
-def icp(source, target, max_iterate=50, err=1):
-    """
-    Iterative closest point. Expects x, y coordinates of source in target in shape
-    nbr of points x 2
-    """
-    source = np.expand_dims(source, 0)
-    target = np.expand_dims(target, 0)
-
-    src = source.copy().astype(np.float32)
-    dst = target.copy().astype(np.float32)
-    nbr_src = src.shape[1]
-    nbr_dst = dst.shape[1]
-
-    # Initialize kNN module
-    knn = cv.ml.KNearest_create()
-    labels = np.array(range(nbr_dst)).astype(np.float32)
-    knn.train(dst[0], cv.ml.ROW_SAMPLE, labels)
-    # Initialize transformation matrix
-    t_matrix = np.eye(3)
-    t_temp = np.eye(3)
-    t_old = t_matrix
-
-    # Iterate while error > threshold
-    for i in range(max_iterate):
-
-        # Find closest points
-        ret, results, neighbors, dist = knn.findNearest(src[0], 1)
-        # Outlier removal
-        idxs = np.squeeze(neighbors.astype(np.uint8))
-        dist_max = dist.mean() + 1 * dist.std()
-        normal_idxs = np.where(dist < dist_max)[0]
-        idxs = idxs[normal_idxs]
-        # Find rigid transform
-        t_iter = cv.estimateRigidTransform(
-            src[0, normal_idxs, :],
-            dst[0, idxs, :],
-            fullAffine=False,
-        )
-        t_temp[:2] = t_iter
-        src = cv.transform(src, t_iter)
-        t_matrix = np.dot(t_temp, t_matrix)
-        # Estimate diff
-        t_diff = sum(sum(abs(t_matrix[:2] - t_old[:2])))
-        t_old = t_matrix
-        if t_diff < err:
-            break
-
-    return t_matrix[:2]
