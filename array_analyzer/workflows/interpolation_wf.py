@@ -67,17 +67,10 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
     well_path = None
     output_name = None
 
-    if debug:
-        well_path = os.path.join(run_path)
-        os.makedirs(well_path, exist_ok=True)
-
     for well in wellimages:
         start = time.time()
         image, image_name = read_to_grey(input_folder_, well)
         print(image_name)
-
-        if debug:
-            output_name = os.path.join(well_path, image_name[:-4])
 
         spot_props_array = create_array(params['rows'], params['columns'], dtype=object)
         bgprops_array = create_array(params['rows'], params['columns'], dtype=object)
@@ -88,19 +81,8 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
 
         # find center of spots from crop
         spot_mask = thresh_and_binarize(im_crop, method='bright_spots')
-        if debug:
-            io.imsave(output_name + "_well_mask.png",
-                      (255 * well_mask).astype('uint8'))
-            io.imsave(output_name + "_crop.png",
-                      (255 * im_crop).astype('uint8'))
-            io.imsave(output_name + "_crop_binary.png",
-                  (255 * spot_mask).astype('uint8'))
         background = get_background(im_crop, fit_order=2)
-        #
-        if debug:
-            im_bg_overlay = np.stack([background, im_crop, background], axis=2)
-            io.imsave(output_name + "_crop_bg_overlay.png",
-                      (255 * im_bg_overlay).astype('uint8'))
+
 
         spot_props = generate_props(spot_mask, intensity_image_=im_crop)
 
@@ -175,10 +157,28 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
 
         # SAVE FOR DEBUGGING
         if debug:
+            well_path = os.path.join(run_path)
+            os.makedirs(run_path, exist_ok=True)
+            output_name = os.path.join(well_path, image_name[:-4])
+
+            # Save spot and background intensities.
             pd_int = pd.DataFrame(int_well)
             pd_int.to_excel(xlwriter_int, sheet_name=image_name[:-4])
             pd_bg = pd.DataFrame(bg_well)
             pd_bg.to_excel(xlwriter_bg, sheet_name=image_name[:-4])
+
+            # Save mask of the well, cropped grayscale image, cropped spot segmentation.
+            io.imsave(output_name + "_well_mask.png",
+                      (255 * well_mask).astype('uint8'))
+            io.imsave(output_name + "_crop.png",
+                      (255 * im_crop).astype('uint8'))
+            io.imsave(output_name + "_crop_binary.png",
+                      (255 * spot_mask).astype('uint8'))
+
+            # Evaluate accuracy of background estimation with green (image), magenta (background) overlay.
+            im_bg_overlay = np.stack([background, im_crop, background], axis=2)
+            io.imsave(output_name + "_crop_bg_overlay.png",
+                      (255 * im_bg_overlay).astype('uint8'))
 
             # # This plot shows which spots have been assigned what index.
             plot_spot_assignment(od_well, int_well, bg_well,

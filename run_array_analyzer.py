@@ -14,7 +14,7 @@ def main(argv):
     inputfolder = ''
     outputfolder = ''
     debug = False
-    method = 'fit'
+    method = 'interp'
     try:
         options, remainder = getopt.getopt(argv, "hi:o:dm:",
                                            ["help", "ifile=", "ofile=", "debug=", "method="])
