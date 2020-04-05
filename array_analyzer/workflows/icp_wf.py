@@ -47,10 +47,7 @@ def point_registration(input_folder_, output_folder_, debug=False):
                   str(datetime.now().second)]),
     )
 
-    # Write an excel file that can be read into jupyter notebook with minimal parsing.
-    xlwriterOD = pd.ExcelWriter(os.path.join(run_path, 'ODs.xlsx'))
-    pdantigen = pd.DataFrame(antigen_array)
-    pdantigen.to_excel(xlwriterOD, sheet_name='antigens')
+
 
     if not os.path.isdir(run_path):
         os.mkdir(run_path)
@@ -153,17 +150,18 @@ def point_registration(input_folder_, output_folder_, debug=False):
             # # Save image with spots
             im_roi = im_crop.copy()
             im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
-            for c in range(spot_coords.shape[0]):
-                coord = tuple(spot_coords[c, :].astype(np.int))
-                cv.circle(im_roi, coord, 2, (255, 0, 0), 15)
-            for c in range(grid_coords.shape[0]):
-                coord = tuple(grid_coords[c, :].astype(np.int))
-                cv.circle(im_roi, coord, 2, (0, 0, 255), 15)
-            for c in range(reg_coords.shape[0]):
-                coord = tuple(reg_coords[c, :].astype(np.int))
-                cv.circle(im_roi, coord, 2, (0, 255, 0), 15)
+            plt.imshow(im_roi)
+            plt.plot(spot_coords[:,0],spot_coords[:,1],'rx',ms=12)
+            plt.plot(grid_coords[:,0],grid_coords[:,1],'b+',ms=12)
+            plt.plot(reg_coords[:,0],reg_coords[:,1],'g.',ms=10)
+
             write_name = image_name[:-4] + '_icp.jpg'
-            cv.imwrite(os.path.join(run_path, write_name), im_roi)
+            figICP = plt.gcf()
+            figICP.savefig(os.path.join(run_path, write_name))
+            plt.show()
+            # cv.imwrite flips the color identity. Confusing to write the diagnostic plot and interpret.
+            # cv.imwrite(os.path.join(run_path, write_name), cv.cvtColor(im_roi, cv.COLOR_RGB2BGR))
+
 
             # well_path = os.path.join(run_path)
             # os.makedirs(well_path, exist_ok=True)
@@ -184,5 +182,3 @@ def point_registration(input_folder_, output_folder_, debug=False):
             #
             # stop2 = time.time()
             # print(f"\ttime to save debug={stop2-stop}")
-
-    xlwriterOD.close()
