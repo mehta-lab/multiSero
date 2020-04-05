@@ -7,7 +7,6 @@ from array_analyzer.transform.property_filters import *
 from array_analyzer.workflows import icp_wf, interpolation_wf
 
 FIDUCIALS = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
-FIDUCIALS_IDX = [0, 5, 6, 30, 35]
 SCENION_SPOT_DIST = 82
 
 
@@ -49,7 +48,7 @@ def main(argv):
         os.makedirs(outputfolder)
 
     if method == 'fit':
-        icp_wf.icp(inputfolder, outputfolder, debug)
+        icp_wf.point_registration(inputfolder, outputfolder, debug)
     elif method == 'interp':
         interpolation_wf.interp(inputfolder, outputfolder, method='interp', debug=debug)
     else:
