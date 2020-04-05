@@ -41,13 +41,9 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
 
     # Write an excel file that can be read into jupyter notebook with minimal parsing.
     xlwriterOD = pd.ExcelWriter(os.path.join(run_path, 'ODs.xlsx'))
-    pdantigen = pd.DataFrame(antigen_array)
-    pdantigen.to_excel(xlwriterOD, sheet_name='antigens')
     if debug:
         xlwriter_int = pd.ExcelWriter(os.path.join(run_path, 'intensities.xlsx'))
-        pdantigen.to_excel(xlwriter_int, sheet_name='antigens')
         xlwriter_bg = pd.ExcelWriter(os.path.join(run_path, 'backgrounds.xlsx'))
-        pdantigen.to_excel(xlwriter_bg, sheet_name='antigens')
 
     if not os.path.isdir(run_path):
         os.mkdir(run_path)
@@ -92,19 +88,19 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
 
         # find center of spots from crop
         spot_mask = thresh_and_binarize(im_crop, method='bright_spots')
-        # if debug:
-        #     io.imsave(output_name + "_well_mask.png",
-        #               (255 * well_mask).astype('uint8'))
-        #     io.imsave(output_name + "_crop.png",
-        #               (255 * im_crop).astype('uint8'))
-        #     io.imsave(output_name + "_crop_binary.png",
-        #           (255 * spot_mask).astype('uint8'))
+        if debug:
+            io.imsave(output_name + "_well_mask.png",
+                      (255 * well_mask).astype('uint8'))
+            io.imsave(output_name + "_crop.png",
+                      (255 * im_crop).astype('uint8'))
+            io.imsave(output_name + "_crop_binary.png",
+                  (255 * spot_mask).astype('uint8'))
         background = get_background(im_crop, fit_order=2)
         #
-        # if debug:
-        #     im_bg_overlay = np.stack([background, im_crop, background], axis=2)
-        #     io.imsave(output_name + "_crop_bg_overlay.png",
-        #               (255 * im_bg_overlay).astype('uint8'))
+        if debug:
+            im_bg_overlay = np.stack([background, im_crop, background], axis=2)
+            io.imsave(output_name + "_crop_bg_overlay.png",
+                      (255 * im_bg_overlay).astype('uint8'))
 
         spot_props = generate_props(spot_mask, intensity_image_=im_crop)
 
@@ -185,15 +181,15 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
             pd_bg.to_excel(xlwriter_bg, sheet_name=image_name[:-4])
 
             # # This plot shows which spots have been assigned what index.
-            # plot_spot_assignment(od_well, int_well, bg_well,
-            #                      im_crop, props_placed_by_loc, bgprops_by_loc,
-            #                      image_name, output_name, params)
+            plot_spot_assignment(od_well, int_well, bg_well,
+                                  im_crop, props_placed_by_loc, bgprops_by_loc,
+                                  image_name, output_name, params)
             #
             # #   save spots
             # # save_all_wells(spot_props_array, spot_ids, well_path, image_name[:-4])
             #
             # #   save a composite of all spots, where spots are from source or from region prop
-            # save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=True)
+            save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=True)
             # save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=False)
 
             stop2 = time.time()
