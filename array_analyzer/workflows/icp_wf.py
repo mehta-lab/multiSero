@@ -47,10 +47,7 @@ def point_registration(input_folder_, output_folder_, debug=False):
                   str(datetime.now().second)]),
     )
 
-    # Write an excel file that can be read into jupyter notebook with minimal parsing.
-    xlwriterOD = pd.ExcelWriter(os.path.join(run_path, 'ODs.xlsx'))
-    pdantigen = pd.DataFrame(antigen_array)
-    pdantigen.to_excel(xlwriterOD, sheet_name='antigens')
+
 
     if not os.path.isdir(run_path):
         os.mkdir(run_path)
@@ -138,10 +135,7 @@ def point_registration(input_folder_, output_folder_, debug=False):
             print("ICP failed, using initial estimate")
             reg_coords = grid_coords
 
-        # od_well, i_well, bg_well = compute_od(props_array_placed, bgprops_array)
-        #
-        # pd_OD = pd.DataFrame(od_well)
-        # pd_OD.to_excel(xlwriterOD, sheet_name=image_name[:-4])
+
 
         print("Time to register grid to {}: {:.3f} s".format(
             image_name,
@@ -150,39 +144,32 @@ def point_registration(input_folder_, output_folder_, debug=False):
 
         # SAVE FOR DEBUGGING
         if debug:
+            well_path = os.path.join(run_path)
+            os.makedirs(run_path, exist_ok=True)
+            output_name = os.path.join(well_path, image_name[:-4])
+
+            # Save mask of the well, cropped grayscale image, cropped spot segmentation.
+            io.imsave(output_name + "_well_mask.png",
+                      (255 * well_mask).astype('uint8'))
+            io.imsave(output_name + "_crop.png",
+                      (255 * im_crop).astype('uint8'))
+
+            # Evaluate accuracy of background estimation with green (image), magenta (background) overlay.
+            im_bg_overlay = np.stack([background, im_crop, background], axis=2)
+            io.imsave(output_name + "_crop_bg_overlay.png",
+                      (255 * im_bg_overlay).astype('uint8'))
+
             # # Save image with spots
             im_roi = im_crop.copy()
             im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
-            for c in range(spot_coords.shape[0]):
-                coord = tuple(spot_coords[c, :].astype(np.int))
-                cv.circle(im_roi, coord, 2, (255, 0, 0), 15)
-            for c in range(grid_coords.shape[0]):
-                coord = tuple(grid_coords[c, :].astype(np.int))
-                cv.circle(im_roi, coord, 2, (0, 0, 255), 15)
-            for c in range(reg_coords.shape[0]):
-                coord = tuple(reg_coords[c, :].astype(np.int))
-                cv.circle(im_roi, coord, 2, (0, 255, 0), 15)
+            plt.imshow(im_roi)
+            plt.plot(spot_coords[:,0],spot_coords[:,1],'rx',ms=12)
+            plt.plot(grid_coords[:,0],grid_coords[:,1],'b+',ms=12)
+            plt.plot(reg_coords[:,0],reg_coords[:,1],'g.',ms=10)
+
             write_name = image_name[:-4] + '_icp.jpg'
-            cv.imwrite(os.path.join(run_path, write_name), im_roi)
-
-            # well_path = os.path.join(run_path)
-            # os.makedirs(well_path, exist_ok=True)
-            # output_name = os.path.join(well_path, image_name[:-4])
-            # im_bg_overlay = np.stack([background, im_crop, background], axis=2)
-            #
-            # # This plot shows which spots have been assigned what index.
-            # plot_spot_assignment(od_well, i_well, bg_well,
-            #                      im_crop, props_placed_by_loc, bgprops_by_loc,
-            #                      image_name, output_name, params)
-            #
-            # #   save spots
-            # save_all_wells(props_array, spot_ids, well_path, image_name[:-4])
-            #
-            # #   save a composite of all spots, where spots are from source or from region prop
-            # save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=True)
-            # save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=False)
-            #
-            # stop2 = time.time()
-            # print(f"\ttime to save debug={stop2-stop}")
-
-    xlwriterOD.close()
+            figICP = plt.gcf()
+            figICP.savefig(os.path.join(run_path, write_name))
+            plt.close(figICP)
+            # cv.imwrite flips the color identity. Confusing to write the diagnostic plot and interpret.
+            # cv.imwrite(os.path.join(run_path, write_name), cv.cvtColor(im_roi, cv.COLOR_RGB2BGR))

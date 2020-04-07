@@ -98,7 +98,7 @@ def plot_spot_assignment(od_well, i_well, bg_well,
                          im_crop, props_by_loc,
                          bgprops_by_loc, image_name,
                          output_name, params):
-    plt.imshow(im_crop)
+    plt.imshow(im_crop,cmap='gray')
     plt.colorbar()
     for r in np.arange(params['rows']):
         for c in np.arange(params['columns']):
@@ -109,15 +109,15 @@ def plot_spot_assignment(od_well, i_well, bg_well,
                 print(spot_text + 'not found')
             else:
                 cenybg, cenxbg = bgprops_by_loc[(r, c)].centroid
-                plt.plot(cenx, ceny, 'w+')
-                plt.plot(cenxbg, cenybg, 'wx')
+                plt.plot(cenx, ceny, 'm+',ms=10)
+                plt.plot(cenxbg, cenybg, 'gx',ms=10)
                 spot_text = '(' + str(r) + ',' + str(c) + ')'
                 plt.text(cenx, ceny - 5, spot_text, va='bottom', ha='center', color='w')
                 plt.text(0, 0, image_name[:-4] + ',spot count=' + str(len(props_by_loc)))
     figcentroid = plt.gcf()
     centroids_debug = output_name + '_overlayCentroids.png'
     figcentroid.savefig(centroids_debug)
-    plt.show()
+    plt.close(figcentroid)
 
     plt.figure(figsize=(6, 1.5))
     plt.subplot(131)
@@ -138,4 +138,4 @@ def plot_spot_assignment(od_well, i_well, bg_well,
     figOD = plt.gcf()
     od_debug = output_name + '_od.png'
     figOD.savefig(od_debug)
-    plt.show()
+    plt.close(figOD)
