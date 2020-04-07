@@ -116,7 +116,7 @@ def plot_spot_assignment(od_well, i_well, bg_well,
                 plt.text(0, 0, image_name[:-4] + ',spot count=' + str(len(props_by_loc)))
     figcentroid = plt.gcf()
     centroids_debug = output_name + '_overlayCentroids.png'
-    figcentroid.savefig(centroids_debug)
+    figcentroid.savefig(centroids_debug, bbox_inches='tight')
     plt.close(figcentroid)
 
     plt.figure(figsize=(6, 1.5))
