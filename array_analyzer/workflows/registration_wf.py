@@ -5,13 +5,18 @@ import glob
 import time
 import skimage.io as io
 import pandas as pd
+import re
+import cv2 as cv
+import skimage.util as u
 
 import array_analyzer.extract.image_parser as image_parser
 import array_analyzer.extract.img_processing as img_processing
 import array_analyzer.extract.txt_parser as txt_parser
 from array_analyzer.load.debug_images import *
-from array_analyzer.transform.property_filters import *
+# from array_analyzer.transform.property_filters import *
 import array_analyzer.transform.point_registration as registration
+from array_analyzer.transform.array_generation import build_centroid_binary_blocks
+from array_analyzer.extract.img_processing import get_background
 
 FIDUCIALS = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
 FIDUCIALS_IDX = [0, 5, 6, 30, 35]
@@ -50,6 +55,12 @@ def point_registration(input_folder_, output_folder_, debug=False):
                   str(datetime.now().minute),
                   str(datetime.now().second)]),
     )
+    xlwriterOD = pd.ExcelWriter(os.path.join(run_path, 'ODs.xlsx'))
+    pdantigen = pd.DataFrame(antigen_array)
+    pdantigen.to_excel(xlwriterOD, sheet_name='antigens')
+    if debug:
+        xlwriter_int = pd.ExcelWriter(os.path.join(run_path, 'intensities.xlsx'))
+        xlwriter_bg = pd.ExcelWriter(os.path.join(run_path, 'backgrounds.xlsx'))
 
     if not os.path.isdir(run_path):
         os.mkdir(run_path)
@@ -108,7 +119,6 @@ def point_registration(input_folder_, output_folder_, debug=False):
             angle_mean=0.,
             nbr_particles=1000,
         )
-
         # Optimize estimated coordinates with iterative closest point
         t_matrix = registration.particle_filter(
             fiducial_coords=fiducial_coords,
@@ -135,25 +145,78 @@ def point_registration(input_folder_, output_folder_, debug=False):
             time.time() - start_time),
         )
 
+        # ==================================
+        # estimate background and compute OD
+        # todo: there is an issue here with how we compute backgrounds.  I believe it is a bitdepth and scaling issue
+        # im_crop_raw = im_crop_raw.astype('float64')
+        # im_crop_raw *= (255.0/im_crop_raw.max())
+        inv_crop = u.invert(im_crop_raw)
+        background = get_background(inv_crop, fit_order=2)
+        placed_spotmask = build_centroid_binary_blocks(reg_coords, inv_crop, params)
+
+        spot_props = image_parser.generate_props(placed_spotmask, intensity_image_=inv_crop)
+        bg_props = image_parser.generate_props(placed_spotmask, intensity_image_=background)
+
+        # unnecessary?  both receive the same spotmask
+        spot_labels = [p.label for p in spot_props]
+        bg_props = image_parser.select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
+
+        props_placed_by_loc = image_parser.generate_props_dict(spot_props,
+                                                               params['rows'],
+                                                               params['columns'],
+                                                               min_area=100)
+        bgprops_by_loc = image_parser.generate_props_dict(bg_props,
+                                                          params['rows'],
+                                                          params['columns'],
+                                                          min_area=100)
+
+        # spot_props_array = txt_parser.create_array(params['rows'], params['columns'], dtype=object)
+        # bgprops_array = txt_parser.create_array(params['rows'], params['columns'], dtype=object)
+        props_array_placed = image_parser.assign_props_to_array(props_array, props_placed_by_loc)
+        bgprops_array = image_parser.assign_props_to_array(bgprops_array, bgprops_by_loc)
+
+        od_well, int_well, bg_well = image_parser.compute_od(props_array_placed, bgprops_array)
+
+        pd_OD = pd.DataFrame(od_well)
+        pd_OD.to_excel(xlwriterOD, sheet_name=image_name[:-4])
+
+        # ==================================
+
         # SAVE FOR DEBUGGING
         if debug:
             well_path = os.path.join(run_path)
             os.makedirs(run_path, exist_ok=True)
             output_name = os.path.join(well_path, image_name[:-4])
 
+            # Save spot and background intensities.
+            pd_int = pd.DataFrame(int_well)
+            pd_int.to_excel(xlwriter_int, sheet_name=image_name[:-4])
+            pd_bg = pd.DataFrame(bg_well)
+            pd_bg.to_excel(xlwriter_bg, sheet_name=image_name[:-4])
+
             # Save mask of the well, cropped grayscale image, cropped spot segmentation.
             io.imsave(output_name + "_well_mask.png",
                       (255 * well_mask).astype('uint8'))
             io.imsave(output_name + "_crop.png",
-                      (255 * im_crop).astype('uint8'))
+                      (255 * inv_crop).astype('uint8'))
+            io.imsave(output_name + "_crop_binary.png",
+                      (255 * well_mask).astype('uint8'))
 
             # Evaluate accuracy of background estimation with green (image), magenta (background) overlay.
-            im_bg_overlay = np.stack([background, im_crop, background], axis=2)
+            im_bg_overlay = np.stack([background, inv_crop, background], axis=2)
             io.imsave(output_name + "_crop_bg_overlay.png",
                       (255 * im_bg_overlay).astype('uint8'))
 
+            # This plot shows which spots have been assigned what index.
+            plot_spot_assignment(od_well, int_well, bg_well,
+                                  inv_crop, props_placed_by_loc, bgprops_by_loc,
+                                  image_name, output_name, params)
+
+            # Save a composite of all spots, where spots are from source or from region prop
+            save_composite_spots(inv_crop, props_array_placed, well_path, image_name[:-4], from_source=True)
+
             # # Save image with spots
-            im_roi = im_crop.copy()
+            im_roi = inv_crop.copy()
             im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
             plt.imshow(im_roi)
             plt.plot(spot_coords[:,0],spot_coords[:,1],'rx',ms=12)
@@ -166,3 +229,7 @@ def point_registration(input_folder_, output_folder_, debug=False):
             plt.close(figICP)
             # cv.imwrite flips the color identity. Confusing to write the diagnostic plot and interpret.
             # cv.imwrite(os.path.join(run_path, write_name), cv.cvtColor(im_roi, cv.COLOR_RGB2BGR))
+    if debug:
+        xlwriter_int.close()
+        xlwriter_bg.close()
+    xlwriterOD.close()

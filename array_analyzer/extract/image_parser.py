@@ -563,7 +563,7 @@ def build_block_array(params_, pix_size=0.0049):
 
     # fix the pixel size, for now, in mm
     PIX_SIZE = pix_size
-    PIX_SIZE = 0.00185
+    # PIX_SIZE = 0.00185
 
     n_rows = params_['rows']
     n_cols = params_['columns']
