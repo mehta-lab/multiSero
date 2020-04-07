@@ -1,17 +1,18 @@
 # serology-COVID19
-Serological survey of antibody response to COVID-19 using ELISA and ELISA-arrays.
+Analysis tool for serological survey of antibody response to COVID-19 using ELISA and ELISA-arrays.
 
-This open-source repository provides tools to analyze antibody responses from the data acquired using ELISA assays in [conventional multi-well format](https://doi.org/10.1101/2020.03.17.20037713) and [ELISA-array format](https://doi.org/10.1101/2019.12.20.885285).
+This open-source repository provides tools to analyze antibody response from data acquired using ELISA assays in [conventional multi-well format](https://doi.org/10.1101/2020.03.17.20037713) and [ELISA-array format](https://doi.org/10.1101/2019.12.20.885285).
 The key goal is to enable rapid serological surveys of COVID-19 immunity. 
 
+The analysis pipeline takes as input image data and accompanying metadata from array printers, liquid handling robots, and ELISA readers.
+The pipeline computes optical density of wells or spots within each well.
+The binding strength of tested sera to antigens in the array is output to enable diagnostic decisions.
+The pipeline is structured to be broadly useful for analyzing serological data from a variety of imagers.
+
 # Status
-The code is still in infancy and is being rapidly developed. Present code is being written to analyze data from ELISA-arrays imaged with a variety of plate readers.
+The code is being rapidly developed. Present code is being written to analyze data from ELISA-arrays imaged with a variety of plate readers.
 * [SciReader CL2](https://www.scienion.com/products/scireaders/).
 * Open and configurable platform [Octopi](https://www.biorxiv.org/content/10.1101/684423v1) adapted for imaging multi-well plates.
-
-The code is structured to be broadly useful for other serological analyses, and imagers.
-
-# Structure
 
 Current version is written to analyze data acquired using ELISA-arrays. The code is divided in two major parts:
 
@@ -74,5 +75,9 @@ how well the algorithm identified spots.
 - <well_name>_spot-2-2.png
 - etc...
 
+# Workflow
+Steps in the analysis workflow are described in [WORKFLOW.md](docs/WORKFLOW.md)
 
+# Contributions
+We welcome bug reports, feature requests, and contributions to the code. Please see [CONTRIBUTING.md](docs/CONTRIBUTING.md) for most fruitful ways to contribute.
 
