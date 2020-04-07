@@ -89,19 +89,20 @@ def icp(source, target, max_iterate=50, matrix_diff=1.):
 
 def create_gaussian_particles(mean_point,
                               stds,
-                              scale_mean=1,
-                              angle_mean=0,
+                              scale_mean=1.,
+                              angle_mean=0.,
                               nbr_particles=100):
     """
     Create particles from parameters x, y, scale and angle given mean and std.
-    :param mean_point:
-    :param stds:
-    :param scale_mean:
-    :param angle_mean:
-    :param nbr_particles:
-    :return:
+    A particle is considered one set of parameters for a 2D translation matrix.
+
+    :param tuple mean_point: Mean offset in x and y
+    :param np.array stds: Standard deviations of x, y, angle and scale
+    :param float scale_mean: Mean scale of translation
+    :param float angle_mean: Mean angle of translation estimation
+    :param int nbr_particles: Number of particles
+    :return np.array particles: Set of particle coordinates (nbr particles x 4)
     """
-    # x, y, scale, angle
     particles = np.empty((nbr_particles, 4))
     particles[:, 0] = mean_point[0] + (np.random.randn(nbr_particles) * stds[0])
     particles[:, 1] = mean_point[1] + (np.random.randn(nbr_particles) * stds[1])
@@ -111,6 +112,12 @@ def create_gaussian_particles(mean_point,
 
 
 def get_translation_matrix(particle):
+    """
+    Create a 2D translation matrix from x, y, scale and angle.
+
+    :param np.array particle: The four parameters x, y, scale and angle
+    :return np.array t_matrix: 2D translation matrix (3 x 2)
+    """
 
     a = particle[3] * np.cos(particle[2] * np.pi / 180)
     b = particle[3] * np.sin(particle[2] * np.pi / 180)
@@ -124,18 +131,24 @@ def particle_filter(fiducial_coords,
                     particles,
                     stds,
                     max_iter=50,
-                    stop_criteria=.01):
+                    stop_criteria=.01,
+                    iter_decrease=.8):
     """
-    Particle filtering to determine best grid location
-    :param fiducial_coords:
-    :param spot_coords:
-    :param particles:
-    :param stds:
-    :param max_iter:
-    :param stop_criteria:
-    :return:
-    """
+    Particle filtering to determine best grid location.
+    Start with a number of randomly placed particles. Compute distances
+    to nearest neighbors among detected spots. Do importance sampling of
+    the particles and slightly distort them while iterating until convergence.
 
+    :param np.array fiducial_coords: Initial estimate of fiducial coordinates
+    :param np.array spot_coords: Coordinates of detected spots (nbr spots x 2)
+    :param np.array particles: Translation matrix parameters (nbr particles x 2)
+    :param np.array stds: Standard deviations of x, y, angle, scale
+    :param int max_iter: Maximum number of iterations
+    :param float stop_criteria: Absolute difference of distance between iterations
+    :param float iter_decrease: Reduce standard deviations each iterations to slow
+        down permutations
+    :return np.array t_matrix: Estimated 2D translation matrix
+    """
     # Pretrain spot coords
     dst = spot_coords.copy().astype(np.float32)
     knn = cv.ml.KNearest_create()
@@ -150,7 +163,7 @@ def particle_filter(fiducial_coords,
     min_dist_old = 10 ** 6
     for i in range(max_iter):
         # Reduce standard deviations a little every iteration
-        temp_stds = temp_stds * 0.8 ** i
+        temp_stds = temp_stds * iter_decrease ** i
 
         for p in range(nbr_particles):
             particle = particles[p]
@@ -161,7 +174,7 @@ def particle_filter(fiducial_coords,
 
             # Find nearest spots
             ret, results, neighbors, dist = knn.findNearest(trans_coords, 1)
-            dists[p] = sum(dist)  # np.linalg.norm(dist)
+            dists[p] = sum(dist)
 
         min_dist = np.min(dists)
         # print(min_dist)
@@ -182,7 +195,6 @@ def particle_filter(fiducial_coords,
         for c in range(4):
             distort = np.random.randn(nbr_particles)
             particles[:, c] = particles[:, c] + distort * temp_stds[c]
-
 
     # Return best particle
     particle = particles[dists == dists.min(), :][0]
