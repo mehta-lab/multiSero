@@ -491,8 +491,8 @@ def grid_from_centroids(props_, im, n_rows, n_cols, dist_flr=True):
                                               prop.centroid[0],
                                               int(bbox_width / 2),
                                               border_=0)
-            # prop.mean_intensity = np.mean(prop.intensity_image)
-            prop.mean_intensity = np.median(prop.intensity_image)
+            prop.mean_intensity = np.mean(prop.intensity_image)
+            # prop.mean_intensity = np.median(prop.intensity_image)
             # hardcode the bbox to be box of side = 40 around centroid
             int_shape = prop.intensity_image.shape
             prop.bbox = (int(round(prop.centroid[0]-(int_shape[0]/2))),

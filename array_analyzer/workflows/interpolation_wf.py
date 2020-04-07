@@ -167,18 +167,18 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
             pd_bg = pd.DataFrame(bg_well)
             pd_bg.to_excel(xlwriter_bg, sheet_name=image_name[:-4])
 
-            # Save mask of the well, cropped grayscale image, cropped spot segmentation.
-            io.imsave(output_name + "_well_mask.png",
-                      (255 * well_mask).astype('uint8'))
-            io.imsave(output_name + "_crop.png",
-                      (255 * im_crop).astype('uint8'))
-            io.imsave(output_name + "_crop_binary.png",
-                      (255 * spot_mask).astype('uint8'))
-
-            # Evaluate accuracy of background estimation with green (image), magenta (background) overlay.
-            im_bg_overlay = np.stack([background, im_crop, background], axis=2)
-            io.imsave(output_name + "_crop_bg_overlay.png",
-                      (255 * im_bg_overlay).astype('uint8'))
+            # # Save mask of the well, cropped grayscale image, cropped spot segmentation.
+            # io.imsave(output_name + "_well_mask.png",
+            #           (255 * well_mask).astype('uint8'))
+            # io.imsave(output_name + "_crop.png",
+            #           (255 * im_crop).astype('uint8'))
+            # io.imsave(output_name + "_crop_binary.png",
+            #           (255 * spot_mask).astype('uint8'))
+            #
+            # # Evaluate accuracy of background estimation with green (image), magenta (background) overlay.
+            # im_bg_overlay = np.stack([background, im_crop, background], axis=2)
+            # io.imsave(output_name + "_crop_bg_overlay.png",
+            #           (255 * im_bg_overlay).astype('uint8'))
 
             # # This plot shows which spots have been assigned what index.
             plot_spot_assignment(od_well, int_well, bg_well,
@@ -186,7 +186,7 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
                                   image_name, output_name, params)
             #
             # #   save spots
-            # # save_all_wells(spot_props_array, spot_ids, well_path, image_name[:-4])
+            # save_all_wells(spot_props_array, spot_ids, well_path, image_name[:-4])
             #
             # #   save a composite of all spots, where spots are from source or from region prop
             save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=True)
