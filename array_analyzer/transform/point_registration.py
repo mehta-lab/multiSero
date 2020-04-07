@@ -85,3 +85,107 @@ def icp(source, target, max_iterate=50, matrix_diff=1.):
             break
 
     return t_matrix[:2]
+
+
+def create_gaussian_particles(mean_point,
+                              stds,
+                              scale_mean=1,
+                              angle_mean=0,
+                              nbr_particles=100):
+    """
+    Create particles from parameters x, y, scale and angle given mean and std.
+    :param mean_point:
+    :param stds:
+    :param scale_mean:
+    :param angle_mean:
+    :param nbr_particles:
+    :return:
+    """
+    # x, y, scale, angle
+    particles = np.empty((nbr_particles, 4))
+    particles[:, 0] = mean_point[0] + (np.random.randn(nbr_particles) * stds[0])
+    particles[:, 1] = mean_point[1] + (np.random.randn(nbr_particles) * stds[1])
+    particles[:, 2] = angle_mean + (np.random.randn(nbr_particles) * stds[2])
+    particles[:, 3] = scale_mean + (np.random.randn(nbr_particles) * stds[3])
+    return particles
+
+
+def get_translation_matrix(particle):
+
+    a = particle[3] * np.cos(particle[2] * np.pi / 180)
+    b = particle[3] * np.sin(particle[2] * np.pi / 180)
+    t_matrix = np.array([[a, b, particle[0]],
+                        [-b, a, particle[1]]])
+    return t_matrix
+
+
+def particle_filter(fiducial_coords,
+                    spot_coords,
+                    particles,
+                    stds,
+                    max_iter=50,
+                    stop_criteria=.01):
+    """
+    Particle filtering to determine best grid location
+    :param fiducial_coords:
+    :param spot_coords:
+    :param particles:
+    :param stds:
+    :param max_iter:
+    :param stop_criteria:
+    :return:
+    """
+
+    # Pretrain spot coords
+    dst = spot_coords.copy().astype(np.float32)
+    knn = cv.ml.KNearest_create()
+    labels = np.array(range(dst.shape[0])).astype(np.float32)
+    knn.train(dst, cv.ml.ROW_SAMPLE, labels)
+
+    nbr_particles = particles.shape[0]
+    dists = np.zeros(nbr_particles)
+    temp_stds = stds.copy()
+
+    # Iterate until min dist doesn't change
+    min_dist_old = 10 ** 6
+    for i in range(max_iter):
+        # Reduce standard deviations a little every iteration
+        temp_stds = temp_stds * 0.8 ** i
+
+        for p in range(nbr_particles):
+            particle = particles[p]
+            # Generate transformation matrix
+            t_matrix = get_translation_matrix(particle)
+            trans_coords = cv.transform(np.array([fiducial_coords]), t_matrix)
+            trans_coords = trans_coords[0].astype(np.float32)
+
+            # Find nearest spots
+            ret, results, neighbors, dist = knn.findNearest(trans_coords, 1)
+            dists[p] = sum(dist)  # np.linalg.norm(dist)
+
+        min_dist = np.min(dists)
+        # print(min_dist)
+        # See if min dist is not decreasing anymore
+        if abs(min_dist_old - min_dist) < stop_criteria:
+            break
+        min_dist_old = min_dist
+        # Low distance should correspond to high probability
+        weights = 1 / dists
+        # Make weights sum to 1
+        weights = weights / sum(weights)
+
+        # Importance sampling
+        idxs = np.random.choice(nbr_particles, nbr_particles, p=weights)
+        particles = particles[idxs, :]
+
+        # Distort particles
+        for c in range(4):
+            distort = np.random.randn(nbr_particles)
+            particles[:, c] = particles[:, c] + distort * temp_stds[c]
+
+
+    # Return best particle
+    particle = particles[dists == dists.min(), :][0]
+    # Generate transformation matrix
+    t_matrix = get_translation_matrix(particle)
+    return t_matrix
