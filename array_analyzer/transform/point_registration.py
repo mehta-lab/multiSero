@@ -80,7 +80,7 @@ def icp(source, target, max_iterate=50, matrix_diff=1.):
         # Estimate diff
         t_diff = sum(sum(abs(t_matrix[:2] - t_old[:2])))
         t_old = t_matrix
-        print(t_diff)
+
         if t_diff < matrix_diff:
             break
 

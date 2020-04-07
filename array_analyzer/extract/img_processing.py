@@ -239,3 +239,28 @@ def grid_estimation(im,
         spot_dist = np.median(spot_dist)
 
     return mean_point, spot_dist
+
+
+def crop_image_from_coords(im, grid_coords, margin=200):
+    """
+    Given image coordinates, crop image around them with a margin.
+
+    :param np.array im: 2D image
+    :param np.array grid_coords: Fitted grid coordinates which should be contained
+        in the cropped image (nbr points x 2)
+    :param int margin: How much margin around the coordinates
+    :return np.array im_roi: Cropped image
+    :return np.array grid_coords: Grid coordinates with new origin
+    """
+    im_shape = im.shape
+    x_min = int(max(margin, np.min(grid_coords[:, 0]) - margin))
+    x_max = int(min(im_shape[1] - margin, np.max(grid_coords[:, 0]) + margin))
+    y_min = int(max(margin, np.min(grid_coords[:, 1]) - margin))
+    y_max = int(min(im_shape[0] - margin, np.max(grid_coords[:, 1]) + margin))
+    im_crop = im[y_min:y_max, x_min:x_max]
+
+    # Update coordinates with new origin
+    crop_coords = grid_coords.copy()
+    crop_coords[:, 0] = crop_coords[:, 0] - x_min + 1
+    crop_coords[:, 1] = crop_coords[:, 1] - y_min + 1
+    return im_crop, crop_coords
