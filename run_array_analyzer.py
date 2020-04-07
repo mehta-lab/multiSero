@@ -69,12 +69,12 @@ if __name__ == "__main__":
     # Fluplate - blinded test imaged on scienion 4/4/2020
     input_path = f'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-04-04-14-18-32-COVID_April4_flusecondplate'
 
-    datadir=os.path.basename(os.path.normpath(input_path))
+    datadir = os.path.basename(os.path.normpath(input_path))
     # Write results to local folder, copy them to drive if useful.
     output_path = os.path.join(os.path.expanduser('~/Documents/images_local/'),datadir)
 
-    method = 'interp'  # 'fit' or 'interp'
+    method = 'fit'  # 'fit' or 'interp'
     flags = ['-i', input_path, '-o', output_path, '-d', '-m', method]
 
-    # main(flags)
-    main(sys.argv[1:])
+    main(flags)
+    # main(sys.argv[1:])
