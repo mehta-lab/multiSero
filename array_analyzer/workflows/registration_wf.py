@@ -95,7 +95,7 @@ def point_registration(input_folder_, output_folder_, debug=False):
         if nbr_grid_cols == 8:
             fiducials_idx = FIDUCIALS_IDX_8COLS
 
-        spot_coords = image_parser.get_spot_coords(
+        spot_coords = img_processing.get_spot_coords(
             image,
             min_area=250,
             min_thresh=0,
@@ -103,7 +103,7 @@ def point_registration(input_folder_, output_folder_, debug=False):
 
         # Initial estimate of spot center
         mean_point = tuple(np.mean(spot_coords, axis=0))
-        grid_coords = image_parser.create_reference_grid(
+        grid_coords = registration.create_reference_grid(
             mean_point=mean_point,
             nbr_grid_rows=nbr_grid_rows,
             nbr_grid_cols=nbr_grid_cols,
@@ -131,15 +131,16 @@ def point_registration(input_folder_, output_folder_, debug=False):
         # Crop image
         im_crop, crop_coords = img_processing.crop_image_from_coords(
             im=image,
-            grid_coords=reg_coords,
+            grid_coords=reg_coords
         )
 
         # Estimate and remove background
+        im_crop = im_crop.astype('float64')
+        im_crop *= 1.0/(im_crop.max())
         background = img_processing.get_background(im_crop, fit_order=2)
-        im_crop = (im_crop / background * np.mean(background)).astype(np.uint8)
 
         placed_spotmask = build_centroid_binary_blocks(
-            reg_coords,
+            crop_coords,
             im_crop,
             params,
         )
@@ -244,15 +245,18 @@ def point_registration(input_folder_, output_folder_, debug=False):
             print(f"Time to save debug images: {time.time()-srt} s")
 
             # # Save image with spots
-            im_roi = im_crop.copy()
+            im_roi = (255*im_crop.copy()).astype('uint8')
             im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
             plt.imshow(im_roi)
-            plt.plot(spot_coords[:, 0], spot_coords[:, 1], 'rx', ms=12)
-            plt.plot(grid_coords[:, 0], grid_coords[:, 1], 'b+', ms=12)
-            plt.plot(reg_coords[:, 0], reg_coords[:, 1], 'g.', ms=10)
+            # shift the spot and grid coords based on "crop"
+            dx = np.mean(reg_coords[:, 0] - crop_coords[:, 0])
+            dy = np.mean(reg_coords[:, 1] - crop_coords[:, 1])
+            plt.plot(spot_coords[:, 0]-dx, spot_coords[:, 1]-dy, 'rx', ms=8)
+            plt.plot(grid_coords[:, 0]-dx, grid_coords[:, 1]-dy, 'b+', ms=8)
+            plt.plot(crop_coords[:, 0], crop_coords[:, 1], 'g.', ms=8)
             write_name = image_name[:-4] + '_registration.jpg'
             figICP = plt.gcf()
-            figICP.savefig(os.path.join(run_path, write_name))
+            figICP.savefig(os.path.join(run_path, write_name), bbox_inches='tight')
             plt.close(figICP)
             # cv.imwrite flips the color identity. Confusing to write the diagnostic plot and interpret.
             # cv.imwrite(os.path.join(run_path, write_name), cv.cvtColor(im_roi, cv.COLOR_RGB2BGR))
