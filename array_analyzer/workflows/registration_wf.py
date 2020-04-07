@@ -147,14 +147,12 @@ def point_registration(input_folder_, output_folder_, debug=False):
 
         # ==================================
         # estimate background and compute OD
-        # todo: there is an issue here with how we compute backgrounds.  I believe it is a bitdepth and scaling issue
-        # im_crop_raw = im_crop_raw.astype('float64')
-        # im_crop_raw *= (255.0/im_crop_raw.max())
-        inv_crop = u.invert(im_crop_raw)
-        background = get_background(inv_crop, fit_order=2)
-        placed_spotmask = build_centroid_binary_blocks(reg_coords, inv_crop, params)
+        im_crop_raw = im_crop_raw.astype('float64')
+        im_crop_raw *= (1.0/im_crop_raw.max())
+        background = get_background(im_crop_raw, fit_order=2)
+        placed_spotmask = build_centroid_binary_blocks(reg_coords, im_crop_raw, params)
 
-        spot_props = image_parser.generate_props(placed_spotmask, intensity_image_=inv_crop)
+        spot_props = image_parser.generate_props(placed_spotmask, intensity_image_=im_crop_raw)
         bg_props = image_parser.generate_props(placed_spotmask, intensity_image_=background)
 
         # unnecessary?  both receive the same spotmask
@@ -184,6 +182,7 @@ def point_registration(input_folder_, output_folder_, debug=False):
 
         # SAVE FOR DEBUGGING
         if debug:
+            srt = time.time()
             well_path = os.path.join(run_path)
             os.makedirs(run_path, exist_ok=True)
             output_name = os.path.join(well_path, image_name[:-4])
@@ -198,25 +197,26 @@ def point_registration(input_folder_, output_folder_, debug=False):
             io.imsave(output_name + "_well_mask.png",
                       (255 * well_mask).astype('uint8'))
             io.imsave(output_name + "_crop.png",
-                      (255 * inv_crop).astype('uint8'))
+                      (255 * im_crop_raw).astype('uint8'))
             io.imsave(output_name + "_crop_binary.png",
                       (255 * well_mask).astype('uint8'))
 
             # Evaluate accuracy of background estimation with green (image), magenta (background) overlay.
-            im_bg_overlay = np.stack([background, inv_crop, background], axis=2)
+            im_bg_overlay = np.stack([background, im_crop_raw, background], axis=2)
             io.imsave(output_name + "_crop_bg_overlay.png",
                       (255 * im_bg_overlay).astype('uint8'))
 
             # This plot shows which spots have been assigned what index.
             plot_spot_assignment(od_well, int_well, bg_well,
-                                  inv_crop, props_placed_by_loc, bgprops_by_loc,
+                                  im_crop_raw, props_placed_by_loc, bgprops_by_loc,
                                   image_name, output_name, params)
 
             # Save a composite of all spots, where spots are from source or from region prop
-            save_composite_spots(inv_crop, props_array_placed, well_path, image_name[:-4], from_source=True)
+            save_composite_spots(im_crop_raw, props_array_placed, well_path, image_name[:-4], from_source=True)
+            print(f"Time to save debug images: {time.time()-srt} s")
 
             # # Save image with spots
-            im_roi = inv_crop.copy()
+            im_roi = im_crop.copy()
             im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
             plt.imshow(im_roi)
             plt.plot(spot_coords[:,0],spot_coords[:,1],'rx',ms=12)
