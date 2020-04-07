@@ -15,7 +15,11 @@ import array_analyzer.transform.point_registration as registration
 
 FIDUCIALS = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
 FIDUCIALS_IDX = [0, 5, 6, 30, 35]
+FIDUCIALS_IDX_8COLS = [0, 7, 8, 40, 47]
 SCENION_SPOT_DIST = 82
+# The expected standard deviations could be estimated from training data
+# Just winging it for now
+STDS = np.array([100, 100, .1, .001])  # x, y, angle, scale
 
 
 def point_registration(input_folder_, output_folder_, debug=False):
@@ -47,8 +51,6 @@ def point_registration(input_folder_, output_folder_, debug=False):
                   str(datetime.now().second)]),
     )
 
-
-
     if not os.path.isdir(run_path):
         os.mkdir(run_path)
 
@@ -77,6 +79,46 @@ def point_registration(input_folder_, output_folder_, debug=False):
             params['columns'],
             dtype=object,
         )
+
+        nbr_grid_rows, nbr_grid_cols = props_array.shape
+        fiducials_idx = FIDUCIALS_IDX
+        if nbr_grid_cols == 8:
+            fiducials_idx = FIDUCIALS_IDX_8COLS
+
+        spot_coords = image_parser.get_spot_coords(
+            image,
+            min_area=250,
+            min_thresh=0,
+        )
+
+        # Initial estimate of spot center
+        mean_point = tuple(np.mean(spot_coords, axis=0))
+        grid_coords = image_parser.create_reference_grid(
+            mean_point=mean_point,
+            nbr_grid_rows=nbr_grid_rows,
+            nbr_grid_cols=nbr_grid_cols,
+            spot_dist=SCENION_SPOT_DIST,
+        )
+        fiducial_coords = grid_coords[fiducials_idx, :]
+
+        particles = registration.create_gaussian_particles(
+            mean_point=(0, 0),
+            stds=STDS,
+            scale_mean=1.,
+            angle_mean=0.,
+            nbr_particles=1000,
+        )
+
+        # Optimize estimated coordinates with iterative closest point
+        t_matrix = registration.particle_filter(
+            fiducial_coords=fiducial_coords,
+            spot_coords=spot_coords,
+            particles=particles,
+            stds=STDS,
+        )
+        # Transform grid coordinates
+        grid_coords = np.squeeze(cv.transform(np.array([grid_coords]), t_matrix))
+
         # finding center of well and cropping
         cx, cy, r, well_mask = image_parser.find_well_border(
             image,
@@ -87,55 +129,6 @@ def point_registration(input_folder_, output_folder_, debug=False):
         # Estimate and remove background
         background = img_processing.get_background(im_crop, fit_order=2)
         im_crop = (im_crop / background * np.mean(background)).astype(np.uint8)
-
-        nbr_grid_rows, nbr_grid_cols = props_array.shape
-        spot_coords = img_processing.get_spot_coords(
-            im_crop,
-            min_area=1000,
-            min_thresh=25,
-        )
-        # Initial estimate of spot center
-        mean_point, spot_dist = img_processing.grid_estimation(
-            im=im_crop,
-            spot_coords=spot_coords,
-        )
-        if spot_dist is None:
-            spot_dist = SCENION_SPOT_DIST
-        grid_coords = registration.create_reference_grid(
-            mean_point=mean_point,
-            nbr_grid_rows=nbr_grid_rows,
-            nbr_grid_cols=nbr_grid_cols,
-            spot_dist=SCENION_SPOT_DIST,
-        )
-        # Register grid to spots using iterative closest point
-        t_matrix = registration.icp(
-            source=grid_coords[FIDUCIALS_IDX],
-            target=spot_coords,
-        )
-        if t_matrix is None:
-            # Registration failed, try mean instead
-            mean_point = tuple(np.mean(spot_coords, axis=0))
-            grid_coords = registration.create_reference_grid(
-                mean_point=mean_point,
-                nbr_grid_rows=nbr_grid_rows,
-                nbr_grid_cols=nbr_grid_cols,
-                spot_dist=SCENION_SPOT_DIST,
-            )
-            t_matrix = registration.icp(
-                source=grid_coords[FIDUCIALS_IDX],
-                target=spot_coords,
-            )
-        if t_matrix is not None:
-            # Transform coordinates
-            reg_coords = np.squeeze(cv.transform(
-                np.array([grid_coords]),
-                t_matrix),
-            )
-        else:
-            print("ICP failed, using initial estimate")
-            reg_coords = grid_coords
-
-
 
         print("Time to register grid to {}: {:.3f} s".format(
             image_name,
@@ -167,7 +160,7 @@ def point_registration(input_folder_, output_folder_, debug=False):
             plt.plot(grid_coords[:,0],grid_coords[:,1],'b+',ms=12)
             plt.plot(reg_coords[:,0],reg_coords[:,1],'g.',ms=10)
 
-            write_name = image_name[:-4] + '_icp.jpg'
+            write_name = image_name[:-4] + '_registration.jpg'
             figICP = plt.gcf()
             figICP.savefig(os.path.join(run_path, write_name))
             plt.close(figICP)
