@@ -4,6 +4,7 @@ from datetime import datetime
 import glob
 import time
 import skimage.io as io
+import skimage.util as u
 import pandas as pd
 import re
 import cv2 as cv
@@ -135,9 +136,9 @@ def point_registration(input_folder_, output_folder_, debug=False):
         )
 
         # Estimate and remove background
-        im_crop = im_crop.astype('float64')
-        im_crop *= 1.0/(im_crop.max())
         background = img_processing.get_background(im_crop, fit_order=2)
+        im_crop = (im_crop / background * np.mean(background)).astype(np.uint8)
+        im_crop = u.invert(im_crop)
 
         placed_spotmask = build_centroid_binary_blocks(
             crop_coords,
@@ -221,7 +222,7 @@ def point_registration(input_folder_, output_folder_, debug=False):
             # Evaluate accuracy of background estimation with green (image), magenta (background) overlay.
             im_bg_overlay = np.stack([background, im_crop, background], axis=2)
             io.imsave(output_name + "_crop_bg_overlay.png",
-                      (255 * im_bg_overlay).astype('uint8'))
+                      im_bg_overlay.astype('uint8'))
 
             # This plot shows which spots have been assigned what index.
             plot_spot_assignment(
