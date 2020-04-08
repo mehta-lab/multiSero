@@ -1,22 +1,21 @@
-# bchhun, {2020-04-02}
-
+import cv2 as cv
 from datetime import datetime
 import glob
-import time
-import skimage.io as io
-import skimage.util as u
+import matplotlib.pyplot as plt
+import numpy as np
+import os
 import pandas as pd
 import re
-import cv2 as cv
+import skimage.io as io
 import skimage.util as u
+import time
 
 import array_analyzer.extract.image_parser as image_parser
 import array_analyzer.extract.img_processing as img_processing
 import array_analyzer.extract.txt_parser as txt_parser
-from array_analyzer.load.debug_images import *
-# from array_analyzer.transform.property_filters import *
+import array_analyzer.load.debug_images as debug_plots
 import array_analyzer.transform.point_registration as registration
-from array_analyzer.transform.array_generation import build_centroid_binary_blocks
+import array_analyzer.transform.array_generation as array_gen
 
 FIDUCIALS = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
 FIDUCIALS_IDX = [0, 5, 6, 30, 35]
@@ -27,9 +26,17 @@ SCENION_SPOT_DIST = 82
 STDS = np.array([100, 100, .1, .001])  # x, y, angle, scale
 
 
-def point_registration(input_folder_, output_folder_, debug=False):
+def point_registration(input_folder, output_folder, debug=False):
+    """
+    For each image in input directory, detect spots using particle filtering
+    to register fiducial spots to blobs detected in the image.
 
-    xml_path = glob.glob(input_folder_ + '/*.xml')
+    :param str input_folder: Input directory containing images and an xml file
+        with parameters
+    :param str output_folder: Directory where output is written to
+    :param bool debug: For saving debug plots
+    """
+    xml_path = glob.glob(input_folder + '/*.xml')
     if len(xml_path) > 1 or not xml_path:
         raise IOError("Did not find unique xml")
     xml_path = xml_path[0]
@@ -48,7 +55,7 @@ def point_registration(input_folder_, output_folder_, debug=False):
 
     # save a sub path for this processing run
     run_path = os.path.join(
-        output_folder_,
+        output_folder,
         '_'.join([str(datetime.now().month),
                   str(datetime.now().day),
                   str(datetime.now().hour),
@@ -66,19 +73,20 @@ def point_registration(input_folder_, output_folder_, debug=False):
         os.mkdir(run_path)
 
     # ================
-    # loop over images => good place for multiproc?  careful with columns in report
+    # loop over images
     # ================
-    images = [file for file in os.listdir(input_folder_) if '.png' in file or '.tif' in file or '.jpg' in file]
+    images = [file for file in os.listdir(input_folder)
+              if '.png' in file or '.tif' in file or '.jpg' in file]
 
     # remove any images that are not images of wells.
-    wellimages = [file for file in images if re.match(r'[A-P][0-9]{1,2}', file)]
+    well_images = [file for file in images if re.match(r'[A-P][0-9]{1,2}', file)]
 
     # sort by letter, then by number (with '10' coming AFTER '9')
-    wellimages.sort(key=lambda x: (x[0], int(x[1:-4])))
+    well_images.sort(key=lambda x: (x[0], int(x[1:-4])))
 
-    for image_name in wellimages:
+    for image_name in well_images:
         start_time = time.time()
-        image = image_parser.read_gray_im(os.path.join(input_folder_, image_name))
+        image = image_parser.read_gray_im(os.path.join(input_folder, image_name))
 
         props_array = txt_parser.create_array(
             params['rows'],
@@ -136,11 +144,15 @@ def point_registration(input_folder_, output_folder_, debug=False):
         )
 
         # Estimate and remove background
-        background = img_processing.get_background(im_crop, fit_order=2)
-        im_crop = (im_crop / background * np.mean(background)).astype(np.uint8)
+        background = img_processing.get_background(
+            im_crop,
+            fit_order=2,
+            normalize=True,
+        )
+        im_crop = im_crop / background
         im_crop = u.invert(im_crop)
 
-        placed_spotmask = build_centroid_binary_blocks(
+        placed_spotmask = array_gen.build_centroid_binary_blocks(
             crop_coords,
             im_crop,
             params,
@@ -200,7 +212,7 @@ def point_registration(input_folder_, output_folder_, debug=False):
 
         # SAVE FOR DEBUGGING
         if debug:
-            srt = time.time()
+            start_time = time.time()
             well_path = os.path.join(run_path)
             os.makedirs(run_path, exist_ok=True)
             output_name = os.path.join(well_path, image_name[:-4])
@@ -212,12 +224,10 @@ def point_registration(input_folder_, output_folder_, debug=False):
             pd_bg.to_excel(xlwriter_bg, sheet_name=image_name[:-4])
 
             # Save mask of the well, cropped grayscale image, cropped spot segmentation.
-            # io.imsave(output_name + "_well_mask.png",
-            #           (255 * well_mask).astype('uint8'))
+            io.imsave(output_name + "_well_mask.png",
+                      (255 * placed_spotmask).astype('uint8'))
             io.imsave(output_name + "_crop.png",
                       (255 * im_crop).astype('uint8'))
-            # io.imsave(output_name + "_crop_binary.png",
-            #           (255 * well_mask).astype('uint8'))
 
             # Evaluate accuracy of background estimation with green (image), magenta (background) overlay.
             im_bg_overlay = np.stack([background, im_crop, background], axis=2)
@@ -225,7 +235,7 @@ def point_registration(input_folder_, output_folder_, debug=False):
                       im_bg_overlay.astype('uint8'))
 
             # This plot shows which spots have been assigned what index.
-            plot_spot_assignment(
+            debug_plots.plot_spot_assignment(
                 od_well, int_well,
                 bg_well,
                 im_crop,
@@ -236,14 +246,14 @@ def point_registration(input_folder_, output_folder_, debug=False):
                 params,
             )
             # Save a composite of all spots, where spots are from source or from region prop
-            save_composite_spots(
+            debug_plots.save_composite_spots(
                 im_crop,
                 props_array_placed,
                 well_path,
                 image_name[:-4],
                 from_source=True,
             )
-            print(f"Time to save debug images: {time.time()-srt} s")
+            print(f"Time to save debug images: {time.time()-start_time} s")
 
             # # Save image with spots
             im_roi = (255*im_crop.copy()).astype('uint8')
@@ -259,9 +269,8 @@ def point_registration(input_folder_, output_folder_, debug=False):
             figICP = plt.gcf()
             figICP.savefig(os.path.join(run_path, write_name), bbox_inches='tight')
             plt.close(figICP)
-            # cv.imwrite flips the color identity. Confusing to write the diagnostic plot and interpret.
-            # cv.imwrite(os.path.join(run_path, write_name), cv.cvtColor(im_roi, cv.COLOR_RGB2BGR))
-    if debug:
-        xlwriter_int.close()
-        xlwriter_bg.close()
+
+            xlwriter_int.close()
+            xlwriter_bg.close()
+
     xlwriterOD.close()

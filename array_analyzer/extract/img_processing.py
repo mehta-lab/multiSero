@@ -119,9 +119,13 @@ def create_multiotsu_mask(input_image, n_class, fg_class, str_elem_size=3):
     return mask
 
 
-def get_background(img, fit_order):
-    bg_estimator = BackgroundEstimator2D(block_size=128)
-    background = bg_estimator.get_background(img, order=fit_order, normalize=False)
+def get_background(img, fit_order, normalize=False, block_size=128):
+    bg_estimator = BackgroundEstimator2D(block_size=block_size)
+    background = bg_estimator.get_background(
+        img,
+        order=fit_order,
+        normalize=normalize,
+    )
     return background
 
 
