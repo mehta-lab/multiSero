@@ -3,6 +3,7 @@
 import numpy as np
 import itertools
 
+
 class BackgroundEstimator2D:
     """Estimates flat field image"""
 
