@@ -1,5 +1,7 @@
 ## Method: segmentation and array placement
 
+![Workflow Schematic](Workflow%20Schematic.png)
+
 1) Read array image data and metadata
 2) Identify the center of the well, crop it out
 3) Identify the spots in the array.
@@ -12,6 +14,7 @@
 Current pipeline assumes one image per well named by the well-index (`A1,A2,A3,...`).
 
 Well A1 (Flu Experiment)
+
 ![Well A1](https://drive.google.com/uc?export=view&id=1utiSZF_jnIDFAuDYZ2TvZS7BjwmBqOQh)
 
 
@@ -71,10 +74,14 @@ a block onto each spot
 
 The above steps can be repeated for estimated background levels
 
-### 4) Generating a report
-- The information from each spot in step #3 above is summarized as an Optical Density (OD) in the following images and report
+### 4) Measure spot intensities and convert to OD measurements
 
-    ![A1_OD](https://drive.google.com/uc?export=view&id=1ChcSAJeCkkT4PBBMezBOa60jwkbDqpyZ)
+The information from each spot in step #3 above is summarized as an Optical Density (OD) in the following images and report
+
+![A1_OD](https://drive.google.com/uc?export=view&id=1ChcSAJeCkkT4PBBMezBOa60jwkbDqpyZ)
+    
+    
+### 5) Generating a report
     
     Antigen worksheet of report
     ```text
