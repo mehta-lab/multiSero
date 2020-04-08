@@ -77,7 +77,7 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
 
         # finding center of well and cropping
         cx, cy, r, well_mask = find_well_border(image, detmethod='region', segmethod='otsu')
-        im_crop = crop_image(image, cx, cy, r, border_=0)
+        im_crop, _ = crop_image(image, cx, cy, r, border_=0)
 
         # find center of spots from crop
         spot_mask = thresh_and_binarize(im_crop, method='bright_spots')
@@ -190,7 +190,7 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
             #
             # #   save a composite of all spots, where spots are from source or from region prop
             save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=True)
-            # save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=False)
+            save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=False)
 
             stop2 = time.time()
             print(f"\ttime to save debug={stop2-stop}")

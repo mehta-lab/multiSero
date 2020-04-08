@@ -7,6 +7,7 @@ import numpy as np
 import re
 import itertools
 import math
+import pandas as pd
 from types import SimpleNamespace
 from scipy import spatial, stats
 
@@ -18,7 +19,6 @@ from skimage.filters import threshold_minimum, median, gaussian, threshold_local
 from skimage.filters import threshold_minimum, threshold_otsu
 from skimage.transform import hough_circle, hough_circle_peaks
 from skimage.feature import canny
-from skimage.morphology import binary_closing, binary_dilation, selem, disk, binary_opening
 from skimage.morphology import binary_closing, binary_dilation, selem, disk, binary_opening
 from skimage.segmentation import clear_border
 from scipy.ndimage import binary_fill_holes
@@ -71,7 +71,7 @@ def read_gray_im(im_path):
     return im
 
 
-def thresh_and_binarize(image_, method='rosin', invert=True):
+def thresh_and_binarize(image_, method='rosin', invert=True, min_size=10, thr_percent=95):
     """
     receives greyscale np.ndarray image
         inverts the intensities
@@ -105,8 +105,8 @@ def thresh_and_binarize(image_, method='rosin', invert=True):
         spots = create_unimodal_mask(image_, str_elem_size=3)
 
     elif method == 'bright_spots':
-        spots = image_ > np.percentile(image_, 95)
-        str_elem = disk(10)
+        spots = image_ > np.percentile(image_, thr_percent)
+        str_elem = disk(min_size)
         # spots = binary_closing(spots, str_elem)
         spots = binary_opening(spots, str_elem)
         spots = clear_border(spots)
@@ -168,7 +168,7 @@ def find_well_border(image, segmethod='bimodal', detmethod='region'):
     return cx, cy, radii, well_mask
 
 
-def crop_image(arr, cx_, cy_, radius_, border_=200):
+def crop_image(arr, cx_, cy_, radius_, border_=200, last_pix=False):
     """
     crop the supplied image to include only the well and its spots
 
@@ -181,12 +181,19 @@ def crop_image(arr, cx_, cy_, radius_, border_=200):
     """
     cx_ = int(np.rint(cx_))
     cy_ = int(np.rint(cy_))
-    crop = arr[
-           cy_ - (radius_ - border_): cy_ + (radius_ - border_),
-           cx_ - (radius_ - border_): cx_ + (radius_ - border_)
-           ]
-
-    return crop
+    radius_ = int(radius_)
+    if last_pix:
+        bbox = [cy_ - (radius_ - border_),
+                cx_ - (radius_ - border_),
+                cy_ + (radius_ - border_) + 1,
+                cx_ + (radius_ - border_) + 1]
+    else:
+        bbox = [cy_ - (radius_ - border_),
+                cx_ - (radius_ - border_),
+                cy_ + (radius_ - border_),
+                cx_ + (radius_ - border_)]
+    crop = arr[bbox[0]:bbox[2], bbox[1]:bbox[3]]
+    return crop, bbox
 
 
 def clean_spot_binary(arr, kx=10, ky=10):
@@ -219,7 +226,11 @@ def generate_spot_background(spotmask, distance=3, annulus=5):
     return spot_background
 
 
-def generate_props(mask, intensity_image_=None):
+def generate_props(mask,
+                   intensity_image_=None,
+                   dataframe=False,
+                   properties=
+                   ['label', 'centroid', 'mean_intensity', 'intensity_image', 'area', 'bbox']):
     """
     converts binarized image into a list of region-properties using scikit-image
         first generates labels for the cleaned (binary_closing) binary image
@@ -229,11 +240,17 @@ def generate_props(mask, intensity_image_=None):
         binary version of cropped image
     :param intensity_image_: np.ndarray
         intensity image corresponding to this binary
+    :param dataframe: bool
+        return pandas dataframe instead of list of prop objects if true
     :return: list
         of skimage region-props object
     """
     labels = measure.label(mask)
-    props = measure.regionprops(labels, intensity_image=intensity_image_)
+    if dataframe:
+        props = measure.regionprops_table(labels, intensity_image=intensity_image_, properties=properties)
+        props = pd.DataFrame(props)
+    else:
+        props = measure.regionprops(labels, intensity_image=intensity_image_)
     return props
 
 
@@ -390,7 +407,6 @@ def find_fiducials_markers(props_,
     return cent_map
 
 
-# def grid_from_centroids(props_, im, n_rows, n_cols, min_area=100, im_height=2048, im_width=2048):
 def grid_from_centroids(props_, im, n_rows, n_cols, dist_flr=True):
     """
     based on the region props, creates a dictionary of format:
@@ -409,11 +425,13 @@ def grid_from_centroids(props_, im, n_rows, n_cols, dist_flr=True):
         of format (cent_x, cent_y): prop
     """
     centroids = np.array([prop.weighted_centroid for prop in props_])
-    bbox_area = np.array([prop.bbox_area for prop in props_])
+    bbox_areas = np.array([prop.bbox_area for prop in props_])
+    areas = np.array([prop.area for prop in props_])
     # calculate mean bbox width for cropping undetected spots
-    bbox_area_mean = np.mean(bbox_area)
-    bbox_width = bbox_height = np.sqrt(bbox_area_mean)
-
+    bbox_area_mean = np.mean(bbox_areas)
+    area_mean = np.mean(areas)
+    # bbox_width = bbox_height = int(np.sqrt(bbox_area_mean))
+    bbox_width = bbox_height = int(1.5 * np.sqrt(area_mean / np.pi))
 
     y_min_idx = np.argmin(centroids[:, 0])
     y_min = centroids[y_min_idx, 0]
@@ -478,30 +496,56 @@ def grid_from_centroids(props_, im, n_rows, n_cols, dist_flr=True):
     #     raise AttributeError("generate props array failed\n"
     #                          "duplicate spots found in one position\n")
     # Add missing spots
+    label = 0
     for grid_id in grid_ids:
         if grid_id not in grid_ids_detected:
             # make mock regionprop objects to hold the properties
-            prop = MockRegionprop(label=props_[-1].label)
-            prop.centroid = (grid_id[0]/(n_rows - 1) * y_range + y_min,
-                             grid_id[1]/(n_cols - 1) * x_range + x_min)
-            prop.label += 1
-            prop.mean_intensity = 1
-            prop.intensity_image = crop_image(im,
-                                              prop.centroid[1],
-                                              prop.centroid[0],
-                                              int(bbox_width / 2),
-                                              border_=0)
-            prop.mean_intensity = np.mean(prop.intensity_image)
-            # prop.mean_intensity = np.median(prop.intensity_image)
-            # hardcode the bbox to be box of side = 40 around centroid
-            int_shape = prop.intensity_image.shape
-            prop.bbox = (int(round(prop.centroid[0]-(int_shape[0]/2))),
-                         int(round(prop.centroid[1]-(int_shape[1]/2))),
-                         int(round(prop.centroid[0]+(int_shape[0]/2))),
-                         int(round(prop.centroid[1]+(int_shape[1]/2))))
+
+            grid_coords = [grid_id[0]/(n_rows - 1) * y_range + y_min,
+                             grid_id[1]/(n_cols - 1) * x_range + x_min]
+            # make bounding boxes larger to account for interpolation errors
+            im_1spot_lg, bbox_lg = crop_image(im,
+                                    grid_coords[1],
+                                    grid_coords[0],
+                                    2 * bbox_width,
+                                    border_=0,
+                                    last_pix=True)
+            im_1spot, bbox = crop_image(im,
+                              grid_coords[1],
+                              grid_coords[0],
+                              bbox_width / 2,
+                              border_=0,
+                              last_pix=True)
+
+            prop = MockRegionprop(label=label)
+            mask_1spot = disk(int(bbox_width / 2), dtype=np.bool_)
+            prop.centroid = grid_coords
+            prop.mean_intensity = np.mean(im_1spot[mask_1spot])
+            prop.intensity_image = im_1spot * mask_1spot
+            prop.bbox = bbox
+
+            mask_1spot = thresh_and_binarize(im_1spot_lg, method='bright_spots', invert=True, min_size=10, thr_percent=90)
+
+            if np.any(mask_1spot):
+                prop_df = generate_props(mask_1spot, intensity_image_=im_1spot_lg, dataframe=True)
+                # select the object with max area
+                if len(prop_df.index) > 1:
+                    prop_df = prop_df.loc[[prop_df['area'].idxmax()]]
+                    prop_df.reset_index(drop=True, inplace=True)
+
+                if len(prop_df.index) == 1:
+                    prop.mean_intensity = prop_df.at[0, 'mean_intensity']
+                    prop.intensity_image = prop_df.at[0, 'intensity_image']
+                    prop.centroid = [bbox_lg[0] + prop_df.at[0, 'centroid-0'],
+                                     bbox_lg[1] + prop_df.at[0, 'centroid-1']]
+                    prop.bbox = [bbox_lg[0] + prop_df.at[0, 'bbox-0'],
+                                 bbox_lg[1] + prop_df.at[0, 'bbox-1'],
+                                 bbox_lg[0] + prop_df.at[0, 'bbox-2'],
+                                 bbox_lg[1] + prop_df.at[0, 'bbox-3']
+                                 ]
 
             cent_map[grid_id] = prop
-
+            label += 1
     return cent_map
 
 
