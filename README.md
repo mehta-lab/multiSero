@@ -21,16 +21,16 @@ The image data can be acquired with diversity of imagers and plate readers:
 
 The project will also have tools for combining data from different types of assays for interpretation of antibody binding.
 
-# Overview of pipeline
+## Overview of pipeline
 
 <img src="docs/Workflow%20Schematic.png" width="600">
 
-# Status
+## Status
 The code is being rapidly developed. 
 Current code is validated for analysis of ELISA-arrays imaged with Scienion reader and is being refined for antigen arrays imaged with Octopi.
 
 
-# Usage
+## Usage
 
 ```bash
 
@@ -58,9 +58,9 @@ how well the algorithm identified spots.
 Collection of jupyter notebooks in 
 **notebooks_interpretation** show how to use ODs to evaluate antibody binding. 
 
-# Workflow
+## Workflow
 Steps in the analysis workflow are described in [workflow](docs/workflow.md)
 
-# Contributions
+## Contributions
 We welcome bug reports, feature requests, and contributions to the code. Please see  [this](docs/contributing.md) page for most fruitful ways to contribute.
 
