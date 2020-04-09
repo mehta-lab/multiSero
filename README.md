@@ -23,7 +23,7 @@ The project will also have tools for combining data from different types of assa
 
 # Overview of pipeline
 
-![Schematic](docs/Workflow%20Schematic.png)
+<img src="docs/Workflow%20Schematic.png" width="600">
 
 # Status
 The code is being rapidly developed. 
