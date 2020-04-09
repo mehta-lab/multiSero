@@ -1,6 +1,9 @@
 ## Method: segmentation and array placement
 
+### Overview
+
 ![Workflow Schematic](Workflow%20Schematic.png)
+
 
 1) Read array image data and metadata
 2) Identify the center of the well, crop it out
@@ -18,7 +21,7 @@ Well A1 (Flu Experiment)
 ![Well A1](https://drive.google.com/uc?export=view&id=1utiSZF_jnIDFAuDYZ2TvZS7BjwmBqOQh)
 
 
-#### Exampel metadata
+#### Example metadata
 
 - the .xml is read and parsed into separate dictionries
 - contains print array info such as rows, columns, pitch, spot diameter
