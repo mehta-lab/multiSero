@@ -144,12 +144,10 @@ def point_registration(input_folder, output_folder, debug=False):
         )
 
         # Estimate and remove background
-        im_crop = im_crop.astype('float64')
-        im_crop /= 255.0
+        im_crop = im_crop/np.iinfo(im_crop.dtype).max
         background = img_processing.get_background(
             im_crop,
             fit_order=2,
-            normalize=False,
         )
 
         placed_spotmask = array_gen.build_centroid_binary_blocks(
