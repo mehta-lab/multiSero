@@ -230,7 +230,8 @@ def generate_props(mask,
                    intensity_image_=None,
                    dataframe=False,
                    properties=
-                   ['label', 'centroid', 'mean_intensity', 'intensity_image', 'area', 'bbox']):
+                   ('label', 'centroid', 'mean_intensity',
+                    'intensity_image', 'image', 'area', 'bbox')):
     """
     converts binarized image into a list of region-properties using scikit-image
         first generates labels for the cleaned (binary_closing) binary image
@@ -407,7 +408,7 @@ def find_fiducials_markers(props_,
     return cent_map
 
 
-def grid_from_centroids(props_, im, n_rows, n_cols, dist_flr=True):
+def grid_from_centroids(props_, im_int, background, n_rows, n_cols, dist_flr=True):
     """
     based on the region props, creates a dictionary of format:
         key = (centroid_x, centroid_y)
@@ -481,6 +482,7 @@ def grid_from_centroids(props_, im, n_rows, n_cols, dist_flr=True):
     grid_ids = list(itertools.product(range(n_rows), range(n_cols)))
     grid_ids_detected = []
     cent_map = {}
+    cent_map_bg = {}
     # for prop in props_:
     #         cen_y, cen_x = prop.weighted_centroid
     #         # convert the centroid position to an integer that maps to array indices
@@ -504,49 +506,69 @@ def grid_from_centroids(props_, im, n_rows, n_cols, dist_flr=True):
             grid_coords = [grid_id[0]/(n_rows - 1) * y_range + y_min,
                              grid_id[1]/(n_cols - 1) * x_range + x_min]
             # make bounding boxes larger to account for interpolation errors
-            im_1spot_lg, bbox_lg = crop_image(im,
+            im_1spot_lg, bbox_lg = crop_image(im_int,
                                     grid_coords[1],
                                     grid_coords[0],
                                     2 * bbox_width,
                                     border_=0,
                                     last_pix=True)
-            im_1spot, bbox = crop_image(im,
+
+            bg_1spot_lg, _ = crop_image(background,
+                                      grid_coords[1],
+                                      grid_coords[0],
+                                      2 * bbox_width,
+                                      border_=0,
+                                      last_pix=True)
+            im_1spot, bbox = crop_image(im_int,
                               grid_coords[1],
                               grid_coords[0],
                               bbox_width / 2,
                               border_=0,
                               last_pix=True)
 
-            prop = MockRegionprop(label=label)
-            mask_1spot = disk(int(bbox_width / 2), dtype=np.bool_)
-            prop.centroid = grid_coords
-            prop.mean_intensity = np.mean(im_1spot[mask_1spot])
-            prop.intensity_image = im_1spot * mask_1spot
-            prop.bbox = bbox
+            bg_1spot, _ = crop_image(background,
+                                        grid_coords[1],
+                                        grid_coords[0],
+                                        bbox_width / 2,
+                                        border_=0,
+                                        last_pix=True)
 
-            mask_1spot = thresh_and_binarize(im_1spot_lg, method='bright_spots', invert=True, min_size=10, thr_percent=90)
+            prop_int = MockRegionprop(intensity_image=im_1spot,
+                                  centroid=grid_coords,
+                                  label=label,
+                                  bbox=bbox)
 
+            prop_bg = MockRegionprop(intensity_image=bg_1spot,
+                                      centroid=grid_coords,
+                                      label=label,
+                                     bbox=bbox)
+
+            mask_1spot = thresh_and_binarize(im_1spot_lg, method='bright_spots', invert=True, min_size=10, thr_percent=92)
             if np.any(mask_1spot):
-                prop_df = generate_props(mask_1spot, intensity_image_=im_1spot_lg, dataframe=True)
-                # select the object with max area
-                if len(prop_df.index) > 1:
-                    prop_df = prop_df.loc[[prop_df['area'].idxmax()]]
-                    prop_df.reset_index(drop=True, inplace=True)
+                for prop, im in zip([prop_int, prop_bg], [im_1spot_lg, bg_1spot_lg]):
+                    prop_df = generate_props(mask_1spot, intensity_image_=im, dataframe=True)
+                    # select the object with max area
+                    if len(prop_df.index) > 1:
+                        prop_df = prop_df.loc[[prop_df['area'].idxmax()]]
+                        prop_df.reset_index(drop=True, inplace=True)
 
-                if len(prop_df.index) == 1:
-                    prop.mean_intensity = prop_df.at[0, 'mean_intensity']
-                    prop.intensity_image = prop_df.at[0, 'intensity_image']
-                    prop.centroid = [bbox_lg[0] + prop_df.at[0, 'centroid-0'],
-                                     bbox_lg[1] + prop_df.at[0, 'centroid-1']]
-                    prop.bbox = [bbox_lg[0] + prop_df.at[0, 'bbox-0'],
-                                 bbox_lg[1] + prop_df.at[0, 'bbox-1'],
-                                 bbox_lg[0] + prop_df.at[0, 'bbox-2'],
-                                 bbox_lg[1] + prop_df.at[0, 'bbox-3']
-                                 ]
+                    if len(prop_df.index) == 1:
+                        prop.mean_intensity = prop_df.at[0, 'mean_intensity']
+                        prop.intensity_image = prop_df.at[0, 'intensity_image']
+                        prop.image = prop_df.at[0, 'image']
+                        prop.median_intensity = np.median(prop.intensity_image[prop.image])
+                        prop.centroid = [bbox_lg[0] + prop_df.at[0, 'centroid-0'],
+                                         bbox_lg[1] + prop_df.at[0, 'centroid-1']]
+                        prop.bbox = [bbox_lg[0] + prop_df.at[0, 'bbox-0'],
+                                     bbox_lg[1] + prop_df.at[0, 'bbox-1'],
+                                     bbox_lg[0] + prop_df.at[0, 'bbox-2'],
+                                     bbox_lg[1] + prop_df.at[0, 'bbox-3']
+                                     ]
 
-            cent_map[grid_id] = prop
+            cent_map[grid_id] = prop_int
+            cent_map_bg[grid_id] = prop_bg
             label += 1
-    return cent_map
+    return cent_map, cent_map_bg
 
 
 def assign_props_to_array(arr, cent_map_):
@@ -751,8 +773,10 @@ def compute_od(props_array,bgprops_array):
     for r in np.arange(n_rows):
         for c in np.arange(n_cols):
             if props_array[r,c] is not None:
-                i_spot[r,c]=props_array[r,c].mean_intensity
-                i_bg[r,c]=bgprops_array[r,c].mean_intensity
+                # i_spot[r,c]=props_array[r,c].mean_intensity
+                # i_bg[r,c]=bgprops_array[r,c].mean_intensity
+                i_spot[r, c] = props_array[r, c].median_intensity
+                i_bg[r, c] = bgprops_array[r, c].median_intensity
     od_norm = np.log10(i_bg / i_spot)
     # Optical density is affected by Beer-Lambert law, i.e. I = I0*e^-{c*thickness). I0/I = e^{c*thickness).
 

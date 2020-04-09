@@ -40,10 +40,10 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
     run_path = output_folder_ + os.sep + f'{datetime.now().month}_{datetime.now().day}_{datetime.now().hour}_{datetime.now().minute}_{datetime.now().second}'
 
     # Write an excel file that can be read into jupyter notebook with minimal parsing.
-    xlwriterOD = pd.ExcelWriter(os.path.join(run_path, 'ODs.xlsx'))
+    xlwriterOD = pd.ExcelWriter(os.path.join(run_path, 'python_median_ODs.xlsx'))
     if debug:
-        xlwriter_int = pd.ExcelWriter(os.path.join(run_path, 'intensities.xlsx'))
-        xlwriter_bg = pd.ExcelWriter(os.path.join(run_path, 'backgrounds.xlsx'))
+        xlwriter_int = pd.ExcelWriter(os.path.join(run_path, 'python_median_intensities.xlsx'))
+        xlwriter_bg = pd.ExcelWriter(os.path.join(run_path, 'python_median_backgrounds.xlsx'))
 
     if not os.path.isdir(run_path):
         os.mkdir(run_path)
@@ -128,19 +128,21 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
             spot_labels = [p.label for p in spot_props]
             bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
 
-            props_placed_by_loc = grid_from_centroids(spot_props,
-                                               im_crop,
-                                               params['rows'],
-                                               params['columns'],
-                                               )
+            props_placed_by_loc, bgprops_by_loc = \
+                grid_from_centroids(spot_props,
+                                   im_crop,
+                                   background,
+                                   params['rows'],
+                                   params['columns'],
+                                   )
             # This call to generate_props_dict is excessive.
             # Both spot_props and bgprops can be assigned locations in previous call.
 
-            bgprops_by_loc = grid_from_centroids(bg_props,
-                                                 background,
-                                                 params['rows'],
-                                                 params['columns'],
-                                                 )
+            # bgprops_by_loc = grid_from_centroids(bg_props,
+            #                                      background,
+            #                                      params['rows'],
+            #                                      params['columns'],
+            #                                      )
         props_array_placed = assign_props_to_array(spot_props_array, props_placed_by_loc)
         bgprops_array = assign_props_to_array(bgprops_array, bgprops_by_loc)
 
