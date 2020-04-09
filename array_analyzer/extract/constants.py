@@ -2,6 +2,8 @@
 The constants.py namespace contains constants used throughout the repo
 
 """
+
+# constants parsed from .xml file
 params = {
     'rows': None,
     'columns': None,
@@ -20,3 +22,17 @@ layout = dict()
 fiducials = dict()
 spots = dict()
 replicates = dict()
+
+# array-constants
+SPOT_ID_ARRAY = None
+SPOT_TYPE_ARRAY = None
+ANTIGEN_ARRAY = None
+FIDUCIAL_ARRAY = None
+
+# constants needed for workflows
+
+FIDUCIALS = []
+FIDUCIALS_IDX = []
+FIDUCIALS_IDX_8COLS = []
+SCENION_SPOT_DIST = []
+STDS = []
