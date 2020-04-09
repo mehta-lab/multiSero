@@ -30,7 +30,8 @@ The code is being rapidly developed.
 Current code is validated for analysis of ELISA-arrays imaged with Scienion reader and is being refined for antigen arrays imaged with Octopi.
 
 
-the script "run_array_analyzer.py" can be run from command line
+## Usage
+The script "run_array_analyzer.py" can be run from command line
 
 ```buildoutcfg
 python run_array_analyzer.py --input <input dir> --output <output dir> --method <'interp' or 'fit'> --debug
@@ -57,5 +58,5 @@ Collection of jupyter notebooks in
 Steps in the analysis workflow are described in [workflow](docs/workflow.md)
 
 ## Contributions
-We welcome bug reports, feature requests, and contributions to the code. Please see  [this](docs/contributing.md) page for most fruitful ways to contribute.
+We welcome bug reports, feature requests, and contributions to the code. Please see  [this](docs/CONTRIBUTING.md) page for most fruitful ways to contribute.
 
