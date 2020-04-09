@@ -144,13 +144,11 @@ def point_registration(input_folder, output_folder, debug=False):
         )
 
         # Estimate and remove background
+        im_crop = im_crop/np.iinfo(im_crop.dtype).max
         background = img_processing.get_background(
             im_crop,
             fit_order=2,
-            normalize=True,
         )
-        im_crop = im_crop / background
-        im_crop = u.invert(im_crop)
 
         placed_spotmask = array_gen.build_centroid_binary_blocks(
             crop_coords,
@@ -225,14 +223,14 @@ def point_registration(input_folder, output_folder, debug=False):
 
             # Save mask of the well, cropped grayscale image, cropped spot segmentation.
             io.imsave(output_name + "_well_mask.png",
-                      (255 * placed_spotmask).astype('uint8'))
+                      (np.iinfo(placed_spotmask.dtype).max * placed_spotmask).astype('uint8'))
             io.imsave(output_name + "_crop.png",
-                      (255 * im_crop).astype('uint8'))
+                      (np.iinfo(im_crop.dtype).max * im_crop).astype('uint8'))
 
             # Evaluate accuracy of background estimation with green (image), magenta (background) overlay.
             im_bg_overlay = np.stack([background, im_crop, background], axis=2)
             io.imsave(output_name + "_crop_bg_overlay.png",
-                      im_bg_overlay.astype('uint8'))
+                      (np.iinfo(im_bg_overlay.dtype).max * im_bg_overlay).astype('uint8'))
 
             # This plot shows which spots have been assigned what index.
             debug_plots.plot_spot_assignment(
@@ -256,7 +254,7 @@ def point_registration(input_folder, output_folder, debug=False):
             print(f"Time to save debug images: {time.time()-start_time} s")
 
             # # Save image with spots
-            im_roi = (255*im_crop.copy()).astype('uint8')
+            im_roi = (np.iinfo(im_crop.dtype).max*im_crop.copy()).astype('uint8')
             im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
             plt.imshow(im_roi)
             # shift the spot and grid coords based on "crop"
