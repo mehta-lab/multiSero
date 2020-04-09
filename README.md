@@ -30,18 +30,13 @@ The code is being rapidly developed.
 Current code is validated for analysis of ELISA-arrays imaged with Scienion reader and is being refined for antigen arrays imaged with Octopi.
 
 
-## Usage
+the script "run_array_analyzer.py" can be run from command line
 
-```bash
-
-    python run_array_imager.py -i <input_folder> -o <output_folder> -m <method>
-
-    (where <method> is one of "fit" or "interp")
-    (Optionally, you can add a flag "-d" for debug, which writes diagnostic images.)
-
+```buildoutcfg
+python run_array_analyzer.py --input <input dir> --output <output dir> --method <'interp' or 'fit'> --debug
 ```
 
-This will look for .xml file in the "input_folder" (must be exactly 1) and grab all .png, .jpg, and .tiff images there.
+This will look for .xml file in the input directory (must be exactly 1) and grab all .png, .jpg, and .tiff images there.
 
 Next it will extract the spots and create a subfolder for the specific processing run named "run_hour_min_sec".
 
