@@ -1,10 +1,13 @@
 import cv2 as cv
+from datetime import datetime
+import glob
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
 import re
 import skimage.io as io
+import skimage.util as u
 import time
 
 import array_analyzer.extract.image_parser as image_parser
@@ -72,8 +75,7 @@ def point_registration(input_folder, output_folder, debug=False):
         xlwriter_int = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'intensities.xlsx'))
         xlwriter_bg = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'backgrounds.xlsx'))
 
-    # if not os.path.isdir(run_path):
-    #     os.mkdir(run_path)
+    os.makedirs(c.RUN_PATH, exist_ok=True)
 
     # ================
     # loop over images
@@ -226,14 +228,14 @@ def point_registration(input_folder, output_folder, debug=False):
 
             # Save mask of the well, cropped grayscale image, cropped spot segmentation.
             io.imsave(output_name + "_well_mask.png",
-                      (np.iinfo(placed_spotmask.dtype).max * placed_spotmask).astype('uint8'))
+                      (255 * placed_spotmask).astype('uint8'))
             io.imsave(output_name + "_crop.png",
-                      (np.iinfo(im_crop.dtype).max * im_crop).astype('uint8'))
+                      (255 * im_crop).astype('uint8'))
 
             # Evaluate accuracy of background estimation with green (image), magenta (background) overlay.
             im_bg_overlay = np.stack([background, im_crop, background], axis=2)
             io.imsave(output_name + "_crop_bg_overlay.png",
-                      (np.iinfo(im_bg_overlay.dtype).max * im_bg_overlay).astype('uint8'))
+                      (255 * im_bg_overlay).astype('uint8'))
 
             # This plot shows which spots have been assigned what index.
             debug_plots.plot_spot_assignment(
