@@ -7,7 +7,6 @@ import os
 import pandas as pd
 import re
 import skimage.io as io
-import skimage.util as u
 import time
 
 import array_analyzer.extract.image_parser as image_parser
@@ -69,8 +68,7 @@ def point_registration(input_folder, output_folder, debug=False):
         xlwriter_int = pd.ExcelWriter(os.path.join(run_path, 'intensities.xlsx'))
         xlwriter_bg = pd.ExcelWriter(os.path.join(run_path, 'backgrounds.xlsx'))
 
-    if not os.path.isdir(run_path):
-        os.mkdir(run_path)
+    os.makedirs(run_path, exist_ok=True)
 
     # ================
     # loop over images
