@@ -1,7 +1,7 @@
 import argparse
 import os
 
-import array_analyzer.workflows.registration_wf as registration_wf
+import array_analyzer.workflows.registration_workflow as registration_wf
 import array_analyzer.workflows.interpolation_wf as interpolation_wf
 
 

@@ -252,7 +252,7 @@ def point_registration(input_folder, output_folder, debug=False):
             print(f"Time to save debug images: {time.time()-start_time} s")
 
             # # Save image with spots
-            im_roi = (np.iinfo(im_crop.dtype).max*im_crop.copy()).astype('uint8')
+            im_roi = 255 * im_crop.copy().astype('uint8')
             im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
             plt.imshow(im_roi)
             # shift the spot and grid coords based on "crop"
