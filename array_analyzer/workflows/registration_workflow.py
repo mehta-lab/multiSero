@@ -1,13 +1,10 @@
 import cv2 as cv
-from datetime import datetime
-import glob
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
 import re
 import skimage.io as io
-import skimage.util as u
 import time
 
 import array_analyzer.extract.image_parser as image_parser
@@ -16,11 +13,13 @@ import array_analyzer.extract.txt_parser as txt_parser
 import array_analyzer.load.debug_images as debug_plots
 import array_analyzer.transform.point_registration as registration
 import array_analyzer.transform.array_generation as array_gen
+import array_analyzer.extract.constants as c
+from array_analyzer.extract.metadata import MetaData
 
-FIDUCIALS = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
-FIDUCIALS_IDX = [0, 5, 6, 30, 35]
-FIDUCIALS_IDX_8COLS = [0, 7, 8, 40, 47]
-SCENION_SPOT_DIST = 82
+# FIDUCIALS = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
+# FIDUCIALS_IDX = [0, 5, 6, 30, 35]
+# FIDUCIALS_IDX_8COLS = [0, 7, 8, 40, 47]
+# SCENION_SPOT_DIST = 82
 # The expected standard deviations could be estimated from training data
 # Just winging it for now
 STDS = np.array([100, 100, .1, .001])  # x, y, angle, scale
@@ -36,41 +35,45 @@ def point_registration(input_folder, output_folder, debug=False):
     :param str output_folder: Directory where output is written to
     :param bool debug: For saving debug plots
     """
-    xml_path = glob.glob(input_folder + '/*.xml')
-    if len(xml_path) > 1 or not xml_path:
-        raise IOError("Did not find unique xml")
-    xml_path = xml_path[0]
+    # xml_path = glob.glob(input_folder + '/*.xml')
+    # if len(xml_path) > 1 or not xml_path:
+    #     raise IOError("Did not find unique xml")
+    # xml_path = xml_path[0]
 
     # parsing .xml
-    fiduc, spots, repl, params = txt_parser.create_xml_dict(xml_path)
+    # fiduc, spots, repl, params = txt_parser.create_xml_dict(xml_path)
 
     # creating our arrays
-    spot_ids = txt_parser.create_array(params['rows'], params['columns'])
-    antigen_array = txt_parser.create_array(params['rows'], params['columns'])
+    # spot_ids = txt_parser.create_array(params['rows'], params['columns'])
+    # antigen_array = txt_parser.create_array(params['rows'], params['columns'])
 
     # adding .xml info to these arrays
-    spot_ids = txt_parser.populate_array_id(spot_ids, spots)
+    # spot_ids = txt_parser.populate_array_id(spot_ids, spots)
 
-    antigen_array = txt_parser.populate_array_antigen(antigen_array, spot_ids, repl)
+    # antigen_array = txt_parser.populate_array_antigen(antigen_array, spot_ids, repl)
 
     # save a sub path for this processing run
-    run_path = os.path.join(
-        output_folder,
-        '_'.join([str(datetime.now().month),
-                  str(datetime.now().day),
-                  str(datetime.now().hour),
-                  str(datetime.now().minute),
-                  str(datetime.now().second)]),
-    )
-    xlwriterOD = pd.ExcelWriter(os.path.join(run_path, 'ODs.xlsx'))
-    pdantigen = pd.DataFrame(antigen_array)
-    pdantigen.to_excel(xlwriterOD, sheet_name='antigens')
-    if debug:
-        xlwriter_int = pd.ExcelWriter(os.path.join(run_path, 'intensities.xlsx'))
-        xlwriter_bg = pd.ExcelWriter(os.path.join(run_path, 'backgrounds.xlsx'))
+    # run_path = os.path.join(
+    #     output_folder,
+    #     '_'.join([str(datetime.now().month),
+    #               str(datetime.now().day),
+    #               str(datetime.now().hour),
+    #               str(datetime.now().minute),
+    #               str(datetime.now().second)]),
+    # )
 
-    if not os.path.isdir(run_path):
-        os.mkdir(run_path)
+    MetaData(input_folder, output_folder)
+
+    xl_writer_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'ODs.xlsx'))
+    pdantigen = pd.DataFrame(c.ANTIGEN_ARRAY)
+    pdantigen.to_excel(xl_writer_od, sheet_name='antigens')
+
+    if debug:
+        xlwriter_int = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'intensities.xlsx'))
+        xlwriter_bg = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'backgrounds.xlsx'))
+
+    # if not os.path.isdir(run_path):
+    #     os.mkdir(run_path)
 
     # ================
     # loop over images
@@ -89,20 +92,20 @@ def point_registration(input_folder, output_folder, debug=False):
         image = image_parser.read_gray_im(os.path.join(input_folder, image_name))
 
         props_array = txt_parser.create_array(
-            params['rows'],
-            params['columns'],
+            c.params['rows'],
+            c.params['columns'],
             dtype=object,
         )
         bgprops_array = txt_parser.create_array(
-            params['rows'],
-            params['columns'],
+            c.params['rows'],
+            c.params['columns'],
             dtype=object,
         )
 
         nbr_grid_rows, nbr_grid_cols = props_array.shape
-        fiducials_idx = FIDUCIALS_IDX
-        if nbr_grid_cols == 8:
-            fiducials_idx = FIDUCIALS_IDX_8COLS
+        fiducials_idx = c.FIDUCIALS_IDX
+        # if nbr_grid_cols == 8:
+        #     fiducials_idx = FIDUCIALS_IDX_8COLS
 
         spot_coords = img_processing.get_spot_coords(
             image,
@@ -116,7 +119,7 @@ def point_registration(input_folder, output_folder, debug=False):
             mean_point=mean_point,
             nbr_grid_rows=nbr_grid_rows,
             nbr_grid_cols=nbr_grid_cols,
-            spot_dist=SCENION_SPOT_DIST,
+            spot_dist=c.SCENION_SPOT_DIST,
         )
         fiducial_coords = grid_coords[fiducials_idx, :]
 
@@ -153,7 +156,7 @@ def point_registration(input_folder, output_folder, debug=False):
         placed_spotmask = array_gen.build_centroid_binary_blocks(
             crop_coords,
             im_crop,
-            params,
+            c.params,
         )
         spot_props = image_parser.generate_props(
             placed_spotmask,
@@ -174,14 +177,14 @@ def point_registration(input_folder, output_folder, debug=False):
         )
         props_placed_by_loc = image_parser.generate_props_dict(
             spot_props,
-            params['rows'],
-            params['columns'],
+            c.params['rows'],
+            c.params['columns'],
             min_area=100,
         )
         bgprops_by_loc = image_parser.generate_props_dict(
             bg_props,
-            params['rows'],
-            params['columns'],
+            c.params['rows'],
+            c.params['columns'],
             min_area=100,
         )
 
@@ -199,7 +202,7 @@ def point_registration(input_folder, output_folder, debug=False):
         )
 
         pd_OD = pd.DataFrame(od_well)
-        pd_OD.to_excel(xlwriterOD, sheet_name=image_name[:-4])
+        pd_OD.to_excel(xl_writer_od, sheet_name=image_name[:-4])
 
         print("Time to register grid to {}: {:.3f} s".format(
             image_name,
@@ -211,8 +214,8 @@ def point_registration(input_folder, output_folder, debug=False):
         # SAVE FOR DEBUGGING
         if debug:
             start_time = time.time()
-            well_path = os.path.join(run_path)
-            os.makedirs(run_path, exist_ok=True)
+            well_path = os.path.join(c.RUN_PATH)
+            os.makedirs(c.RUN_PATH, exist_ok=True)
             output_name = os.path.join(well_path, image_name[:-4])
 
             # Save spot and background intensities.
@@ -241,7 +244,7 @@ def point_registration(input_folder, output_folder, debug=False):
                 bgprops_by_loc,
                 image_name,
                 output_name,
-                params,
+                c.params,
             )
             # Save a composite of all spots, where spots are from source or from region prop
             debug_plots.save_composite_spots(
@@ -265,10 +268,10 @@ def point_registration(input_folder, output_folder, debug=False):
             plt.plot(crop_coords[:, 0], crop_coords[:, 1], 'g.', ms=8)
             write_name = image_name[:-4] + '_registration.jpg'
             figICP = plt.gcf()
-            figICP.savefig(os.path.join(run_path, write_name), bbox_inches='tight')
+            figICP.savefig(os.path.join(c.RUN_PATH, write_name), bbox_inches='tight')
             plt.close(figICP)
 
             xlwriter_int.close()
             xlwriter_bg.close()
 
-    xlwriterOD.close()
+    xl_writer_od.close()

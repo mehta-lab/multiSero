@@ -1,9 +1,11 @@
 """
 The constants.py namespace contains constants used throughout the repo
-
+    These values are assigned at the start of analysis using the "metadata.MetaData" class
+    Set the values by populating the .xml or .csv file as per documentation
 """
 
-# constants parsed from .xml file
+# constants parsed from metadata
+#   the constants below are all dictionaries
 params = {
     'rows': None,
     'columns': None,
@@ -24,15 +26,21 @@ spots = dict()
 replicates = dict()
 
 # array-constants
+#   the constants below are all np.ndarrays whose elements are "U100" strings
 SPOT_ID_ARRAY = None
 SPOT_TYPE_ARRAY = None
-ANTIGEN_ARRAY = None
 FIDUCIAL_ARRAY = None
+ANTIGEN_ARRAY = None
 
 # constants needed for workflows
-
+#   the constants below are lists of tuples, lists of integers, or simply integers
 FIDUCIALS = []
 FIDUCIALS_IDX = []
 FIDUCIALS_IDX_8COLS = []
-SCENION_SPOT_DIST = []
+SCENION_SPOT_DIST = int()
 STDS = []
+
+# constants for saving
+RUN_PATH = ''
+
+# hardware parameters

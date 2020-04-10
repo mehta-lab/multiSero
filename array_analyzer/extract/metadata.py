@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from datetime import datetime
 
 import array_analyzer.extract.txt_parser as txt_parser
 import array_analyzer.extract.constants as c
@@ -35,6 +36,12 @@ class MetaData:
         self._create_fiducials_array()
         self._create_antigen_array()
 
+        self._calculate_fiduc_coords()
+        self._calculate_fiduc_idx()
+        self._calc_scienion_spot_dist()
+
+        self._set_run_path(output_folder_)
+
     def _create_spot_id_array(self):
         self.spot_ids = np.empty(shape=(c.params['rows'], c.params['columns']), dtype='U100')
         c.SPOT_ID_ARRAY = txt_parser.populate_array_id(self.spot_ids, c.spots)
@@ -56,19 +63,60 @@ class MetaData:
         self.antigen_array = np.empty(shape=(c.params['rows'], c.params['columns']), dtype='U100')
         c.ANTIGEN_ARRAY = txt_parser.populate_array_antigen(self.antigen_array, c.SPOT_ID_ARRAY, c.replicates)
 
-    def _calc_fiducial_coords(self):
+    def _calculate_fiduc_coords(self):
         """
-        fiducials are defined as ""
+        calculate and set the fiducial coordinates like:
+            FIDUCIALS = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
+            fiducial coordinates are labeled as "Reference, Diagnostic"
         :return:
         """
+        x, y = np.where(c.FIDUCIAL_ARRAY == 'Reference, Diagnostic')
+        c.FIDUCIALS = list(zip(x, y))
 
-    # calculate and set the fiducial coordinates like:
-    # FIDUCIALS = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
-    def calc_fiduc_coords(self):
-        pass
+    def _calculate_fiduc_idx(self):
+        """
+        calculate fiducial index like
+            FIDUCIALS_IDX = [0, 5, 6, 30, 35]
+            FIDUCIALS_IDX_8COLS = [0, 7, 8, 40, 47]
+        :return:
+        """
+        c.FIDUCIALS_IDX = list(np.where(c.FIDUCIAL_ARRAY.flatten() == 'Reference, Diagnostic')[0])
 
-    # spot distance for ICP (in pixels?)
-    def calc_scienion_spot_dist(self):
-        # use vpitch, hpitch, pixel size in params to calculate and set spot dist
-        pass
+    def _calc_scienion_spot_dist(self):
+        """
+        calculate distance between spots in pixels for the scienion camera
+        :return:
+        """
+        v_pitch_mm = c.params['v_pitch']
+        h_pitch_mm = c.params['h_pitch']
+        pix_size = c.params['pixel_size_scienion']
 
+        v_pitch_pix = v_pitch_mm/pix_size
+        h_pitch_pix = h_pitch_mm/pix_size
+        c.SCENION_SPOT_DIST = np.mean([v_pitch_pix, h_pitch_pix]).astype('uint8')
+
+    def _calc_octopi_spot_dist(self):
+        """
+        calculate distance between spots in pixels for the octopi camera
+        :return:
+        """
+        v_pitch_mm = c.params['v_pitch']
+        h_pitch_mm = c.params['h_pitch']
+        pix_size = c.params['pixel_size_octopi']
+
+        v_pitch_pix = v_pitch_mm / pix_size
+        h_pitch_pix = h_pitch_mm / pix_size
+        c.SCENION_SPOT_DIST = np.mean([v_pitch_pix, h_pitch_pix]).astype('uint8')
+
+    # set filesaving run_path
+    def _set_run_path(self, output_folder):
+        c.RUN_PATH = os.path.join(
+            output_folder,
+            '_'.join([str(datetime.now().month),
+                      str(datetime.now().day),
+                      str(datetime.now().hour),
+                      str(datetime.now().minute),
+                      str(datetime.now().second)]),
+        )
+        if not os.path.isdir(c.RUN_PATH):
+            os.mkdir(c.RUN_PATH)
