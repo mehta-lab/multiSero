@@ -15,6 +15,7 @@ import skimage.io as io
 import matplotlib.pyplot as plt
 import pandas as pd
 
+SCENION_SPOT_DIST = 82
 
 def interp(input_folder_, output_folder_, method='interp', debug=False):
 
@@ -60,10 +61,10 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
     wellimages.sort(key=lambda x: (x[0], int(x[1:-4])))
 
     # wellimages = ['H10.png','H11.png','H12.png']
-    # wellimages = ['B8.png', 'B9.png', 'B10.png']
+    # wellimages = ['B8.png', 'D5.png']
     # wellimages = ['A12.png', 'A11.png', 'A8.png', 'A1.png']
-    # wellimages = ['A9.png']
-    # wellimages = ['E5.png']
+    # wellimages = ['A4.png']
+    # wellimages = ['E11.png']
     well_path = None
     output_name = None
 
@@ -85,6 +86,24 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
 
 
         spot_props = generate_props(spot_mask, intensity_image_=im_crop)
+
+        if debug:
+            well_path = os.path.join(run_path)
+            os.makedirs(run_path, exist_ok=True)
+            output_name = os.path.join(well_path, image_name[:-4])
+
+            # # Save mask of the well, cropped grayscale image, cropped spot segmentation.
+            io.imsave(output_name + "_well_mask.png",
+                      (255 * well_mask).astype('uint8'))
+            io.imsave(output_name + "_crop.png",
+                      (255 * im_crop).astype('uint8'))
+            io.imsave(output_name + "_crop_binary.png",
+                      (255 * spot_mask).astype('uint8'))
+
+            # Evaluate accuracy of background estimation with green (image), magenta (background) overlay.
+            im_bg_overlay = np.stack([background, im_crop, background], axis=2)
+            io.imsave(output_name + "_crop_bg_overlay.png",
+                      (255 * im_bg_overlay).astype('uint8'))
 
         if method == 'fit':
             spot_props = select_props(spot_props, attribute="area", condition="greater_than", condition_value=300)
@@ -120,11 +139,11 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
                                                  min_area=100)
         elif method == 'interp':
             bg_props = generate_props(spot_mask, intensity_image_=background)
-            eccentricities = np.array([prop.eccentricity for prop in spot_props])
-            eccent_ub = eccentricities.mean() + 2 * eccentricities.std()
+            # eccentricities = np.array([prop.eccentricity for prop in spot_props])
+            # eccent_ub = eccentricities.mean() + 2.5 * eccentricities.std()
             # spot_props = select_props(spot_props, attribute="area", condition="greater_than", condition_value=300)
-            spot_props = select_props(spot_props, attribute="eccentricity", condition="less_than",
-                                      condition_value=eccent_ub)
+            # spot_props = select_props(spot_props, attribute="eccentricity", condition="less_than",
+            #                           condition_value=eccent_ub)
             spot_labels = [p.label for p in spot_props]
             bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
 
@@ -159,28 +178,11 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
 
         # SAVE FOR DEBUGGING
         if debug:
-            well_path = os.path.join(run_path)
-            os.makedirs(run_path, exist_ok=True)
-            output_name = os.path.join(well_path, image_name[:-4])
-
             # Save spot and background intensities.
             pd_int = pd.DataFrame(int_well)
             pd_int.to_excel(xlwriter_int, sheet_name=image_name[:-4])
             pd_bg = pd.DataFrame(bg_well)
             pd_bg.to_excel(xlwriter_bg, sheet_name=image_name[:-4])
-
-            # # Save mask of the well, cropped grayscale image, cropped spot segmentation.
-            # io.imsave(output_name + "_well_mask.png",
-            #           (255 * well_mask).astype('uint8'))
-            # io.imsave(output_name + "_crop.png",
-            #           (255 * im_crop).astype('uint8'))
-            # io.imsave(output_name + "_crop_binary.png",
-            #           (255 * spot_mask).astype('uint8'))
-            #
-            # # Evaluate accuracy of background estimation with green (image), magenta (background) overlay.
-            # im_bg_overlay = np.stack([background, im_crop, background], axis=2)
-            # io.imsave(output_name + "_crop_bg_overlay.png",
-            #           (255 * im_bg_overlay).astype('uint8'))
 
             # # This plot shows which spots have been assigned what index.
             plot_spot_assignment(od_well, int_well, bg_well,

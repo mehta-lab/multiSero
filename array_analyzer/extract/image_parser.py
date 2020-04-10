@@ -145,7 +145,7 @@ def find_well_border(image, segmethod='bimodal', detmethod='region'):
 
         # let's assume ONE circle for now (take only props[0])
         props = select_props(props, attribute="area", condition="greater_than", condition_value=10**5)
-        props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.6)
+        props = select_props(props, attribute="eccentricity", condition="less_than", condition_value=0.5)
         well_mask[labels != props[0].label] = 0
         cy, cx = props[0].centroid # notice that the coordinate order is different from hough.
         radii = int((props[0].minor_axis_length + props[0].major_axis_length)/ 4 / np.sqrt(2))
@@ -408,7 +408,7 @@ def find_fiducials_markers(props_,
     return cent_map
 
 
-def grid_from_centroids(props_, im_int, background, n_rows, n_cols, dist_flr=True):
+def grid_from_centroids(props_, im_int, background, n_rows, n_cols, dist_flr=True, grid_spacing=82):
     """
     based on the region props, creates a dictionary of format:
         key = (centroid_x, centroid_y)
@@ -442,40 +442,90 @@ def grid_from_centroids(props_, im_int, background, n_rows, n_cols, dist_flr=Tru
     x_min = centroids[x_min_idx, 1]
     x_max_idx = np.argmax(centroids[:, 1])
     x_max = centroids[x_max_idx, 1]
-    # apply nearest neighbor distance filter to remove false points if >= 10 points are detected
-    if dist_flr and centroids.shape[0] >= 10:
-        y_sort_ids = np.argsort(centroids[:, 0])
-        x_sort_ids = np.argsort(centroids[:, 1])
+
+    margin = 0.05 * grid_spacing
+    y_min_idx = 0
+    y_max_idx = len(props_) - 1
+    x_min_idx = 0
+    x_max_idx = len(props_) - 1
+    y_sort_ids = np.argsort(centroids[:, 0])
+    x_sort_ids = np.argsort(centroids[:, 1])
+    y_spacing = (y_max - y_min) / (n_rows - 1)
+    x_spacing = (x_max - x_min) / (n_cols - 1)
+    # update the x, y bound to match the expected grid_spacing
+    while y_spacing - grid_spacing > margin:
+        y_min_idx_new = y_min_idx + 1
+        y_min_new = centroids[y_sort_ids[y_min_idx_new], 0]
+        y_max_idx_new = y_max_idx - 1
+        y_max_new = centroids[y_sort_ids[y_max_idx_new], 0]
+        if np.abs((y_max - y_min_new) / (n_rows - 1) - grid_spacing) < \
+                np.abs((y_max_new - y_min) / (n_rows - 1) - grid_spacing):
+            y_min_idx = y_min_idx_new
+            y_min = y_min_new
+        else:
+            y_max_idx = y_max_idx_new
+            y_max = y_max_new
+        y_spacing = (y_max - y_min) / (n_rows - 1)
+
+    while x_spacing - grid_spacing > margin:
+        x_min_idx_new = x_min_idx + 1
+        x_min_new = centroids[x_sort_ids[x_min_idx_new], 1]
+        x_max_idx_new = x_max_idx - 1
+        x_max_new = centroids[x_sort_ids[x_max_idx_new], 1]
+        if np.abs((x_max - x_min_new) / (n_cols - 1) - grid_spacing) < \
+                np.abs((x_max_new - x_min) / (n_cols - 1) - grid_spacing):
+            x_min_idx = x_min_idx_new
+            x_min = x_min_new
+        else:
+            x_max_idx = x_max_idx_new
+            x_max = x_max_new
+        x_spacing = (x_max - x_min) / (n_cols - 1)
+    # If apporach 1 fails, try nearest neighbor distance filter to remove spurious spots
+    if grid_spacing - y_spacing > margin or grid_spacing - x_spacing > margin:
+        # y_sort_ids = np.argsort(centroids[:, 0])
+        # x_sort_ids = np.argsort(centroids[:, 1])
         dist_tree = spatial.cKDTree(centroids)
         dist, ids = dist_tree.query(centroids, k=2)
         dist = dist[:, 1]
         dist_median = np.median(dist)
+        # dist_median = grid_spacing
         dist_std = 0.8 * dist.std()
-        if dist_std > 5:
+        # if dist_std > 5:
+        if grid_spacing - y_spacing > margin:
             y_min_idx = 0
+
             while dist[y_sort_ids[y_min_idx]] > dist_median + dist_std or \
                     dist[y_sort_ids[y_min_idx]] < dist_median - dist_std:
                 y_min_idx += 1
+                if y_min_idx >= len(props_) - 1:
+                    break
             y_min = centroids[y_sort_ids[y_min_idx], 0]
-
-            y_max_idx = len(ids) - 1
+            y_max_idx = len(props_) - 1
             while dist[y_sort_ids[y_max_idx]] > dist_median + dist_std or \
                     dist[y_sort_ids[y_max_idx]] < dist_median - dist_std:
                 y_max_idx -= 1
+                if y_max_idx == 0:
+                    break
             y_max = centroids[y_sort_ids[y_max_idx], 0]
+            y_spacing = (y_max - y_min) / (n_rows - 1)
 
+        if grid_spacing - x_spacing > margin:
             x_min_idx = 0
             while dist[x_sort_ids[x_min_idx]] > dist_median + dist_std or \
                     dist[x_sort_ids[x_min_idx]] < dist_median - dist_std:
                 x_min_idx += 1
+                if x_min_idx >= len(props_) - 1:
+                    break
             x_min = centroids[x_sort_ids[x_min_idx], 1]
 
-            x_max_idx = len(ids) - 1
+            x_max_idx = len(props_) - 1
             while dist[x_sort_ids[x_max_idx]] > dist_median + dist_std or \
                     dist[x_sort_ids[x_max_idx]] < dist_median - dist_std:
                 x_max_idx -= 1
+                if x_max_idx == 0:
+                    break
             x_max = centroids[x_sort_ids[x_max_idx], 1]
-
+            x_spacing = (x_max - x_min) / (n_cols - 1)
     # scaled max-x, max-y
     y_range = y_max - y_min
     x_range = x_max - x_min
