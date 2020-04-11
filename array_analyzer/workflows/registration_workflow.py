@@ -1,19 +1,16 @@
 import cv2 as cv
-from datetime import datetime
-import glob
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
 import re
 import skimage.io as io
-import skimage.util as u
 import time
 
 import array_analyzer.extract.image_parser as image_parser
 import array_analyzer.extract.img_processing as img_processing
 import array_analyzer.extract.txt_parser as txt_parser
-import array_analyzer.load.debug_images as debug_plots
+import array_analyzer.load.debug_plots as debug_plots
 import array_analyzer.transform.point_registration as registration
 import array_analyzer.transform.array_generation as array_gen
 import array_analyzer.extract.constants as c
@@ -38,34 +35,10 @@ def point_registration(input_folder, output_folder, debug=False):
     :param str output_folder: Directory where output is written to
     :param bool debug: For saving debug plots
     """
-    # xml_path = glob.glob(input_folder + '/*.xml')
-    # if len(xml_path) > 1 or not xml_path:
-    #     raise IOError("Did not find unique xml")
-    # xml_path = xml_path[0]
-
-    # parsing .xml
-    # fiduc, spots, repl, params = txt_parser.create_xml_dict(xml_path)
-
-    # creating our arrays
-    # spot_ids = txt_parser.create_array(params['rows'], params['columns'])
-    # antigen_array = txt_parser.create_array(params['rows'], params['columns'])
-
-    # adding .xml info to these arrays
-    # spot_ids = txt_parser.populate_array_id(spot_ids, spots)
-
-    # antigen_array = txt_parser.populate_array_antigen(antigen_array, spot_ids, repl)
-
-    # save a sub path for this processing run
-    # run_path = os.path.join(
-    #     output_folder,
-    #     '_'.join([str(datetime.now().month),
-    #               str(datetime.now().day),
-    #               str(datetime.now().hour),
-    #               str(datetime.now().minute),
-    #               str(datetime.now().second)]),
-    # )
 
     MetaData(input_folder, output_folder)
+
+    os.makedirs(c.RUN_PATH, exist_ok=True)
 
     xl_writer_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'ODs.xlsx'))
     pdantigen = pd.DataFrame(c.ANTIGEN_ARRAY)
@@ -74,8 +47,6 @@ def point_registration(input_folder, output_folder, debug=False):
     if debug:
         xlwriter_int = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'intensities.xlsx'))
         xlwriter_bg = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'backgrounds.xlsx'))
-
-    os.makedirs(c.RUN_PATH, exist_ok=True)
 
     # ================
     # loop over images
@@ -259,7 +230,7 @@ def point_registration(input_folder, output_folder, debug=False):
             print(f"Time to save debug images: {time.time()-start_time} s")
 
             # # Save image with spots
-            im_roi = (np.iinfo(im_crop.dtype).max*im_crop.copy()).astype('uint8')
+            im_roi = (255 * im_crop.copy()).astype('uint8')
             im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
             plt.imshow(im_roi)
             # shift the spot and grid coords based on "crop"

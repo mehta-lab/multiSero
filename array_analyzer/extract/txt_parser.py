@@ -1,6 +1,7 @@
 # bchhun, {2020-03-22}
 
 import numpy as np
+import csv
 import xmltodict
 from xml.parsers.expat import ExpatError
 import xml.etree.ElementTree as ET
@@ -50,20 +51,50 @@ def create_xml_dict(path_):
     # replicates
     repl = doc['configuration']['well_configurations']['configuration']['array']['spots']['multiplet']
 
-    params = dict()
-    params['rows'] = int(layout['@rows'])
-    params['columns'] = int(layout['@cols'])
-    params['v_pitch'] = float(layout['@vspace'])
-    params['h_pitch'] = float(layout['@hspace'])
-    params['spot_width'] = float(layout['@expected_diameter'])
-    params['bg_offset'] = float(layout['@background_offset'])
-    params['bg_thickness'] = float(layout['@background_thickness'])
-    params['max_diam'] = float(layout['@max_diameter'])
-    params['min_diam'] = float(layout['@min_diameter'])
+    array_params = dict()
+    array_params['rows'] = int(layout['@rows'])
+    array_params['columns'] = int(layout['@cols'])
+    array_params['v_pitch'] = float(layout['@vspace'])
+    array_params['h_pitch'] = float(layout['@hspace'])
+    array_params['spot_width'] = float(layout['@expected_diameter'])
+    array_params['bg_offset'] = float(layout['@background_offset'])
+    array_params['bg_thickness'] = float(layout['@background_thickness'])
+    array_params['max_diam'] = float(layout['@max_diameter'])
+    array_params['min_diam'] = float(layout['@min_diameter'])
 
     # todo: add param for different imaging conditions (magnificaiton, camera pixel size, etc..)
-    params['pixel_size_scienion'] = 0.0049  # scienion camera
-    params['pixel_size_octopi'] = 0.00185  # octopi camera
+    array_params['pixel_size_scienion'] = 0.0049  # scienion camera
+    array_params['pixel_size_octopi'] = 0.00185  # octopi camera
+
+    return fiduc, spots, repl, array_params
+
+
+def create_csv_dict(path_):
+    """
+    Looks for three .csv files:
+        "array_parameters.csv" contains array printing parameters as well as hardware parameters
+        "array_format_type.csv" contains fiducial and control names, locations
+        "array_format_antigen.csv" contains specific antigen names for only diagnostic spots
+    Then, parses the .csvs and creates the four dictionaries:
+    :param path_:
+    :return:
+    """
+    # check for all .csv files
+    # assign names to each of the types == params, spot types, antigens
+    fiduc = dict()
+    repl = dict()
+    array_params = dict()
+
+    # load each file using this context
+    # for params:
+    with open(path_, newline='') as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=',')
+        for row in csv_reader:
+            print(row[0])
+            if "Parameter" in str(row[0]):
+                continue
+            else:
+                array_params[row[0]] = row[1]
 
     return fiduc, spots, repl, params
 

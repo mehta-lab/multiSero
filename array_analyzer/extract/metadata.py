@@ -9,6 +9,11 @@ import array_analyzer.extract.constants as c
 class MetaData:
 
     def __init__(self, input_folder_, output_folder_):
+        """
+
+        :param input_folder_:
+        :param output_folder_:
+        """
         xml = [f for f in os.listdir(input_folder_) if '.xml' in f]
         if len(xml) > 1:
             raise IOError("more than one .xml file found, aborting")
@@ -17,6 +22,7 @@ class MetaData:
         # parsing .xml
         fiduc_, spots_, repl_, params_ = txt_parser.create_xml_dict(xml_path)
 
+        # setting constants
         c.fiducials = fiduc_
         c.spots = spots_
         c.replicates = repl_
@@ -31,11 +37,13 @@ class MetaData:
         c.params['max_diam'] = params_['max_diam']
         c.params['min_diam'] = params_['min_diam']
 
+        # setting constant arrays
         self._create_spot_id_array()
         self._create_spot_type_array()
         self._create_fiducials_array()
         self._create_antigen_array()
 
+        # setting location of fiducials and other useful parameters
         self._calculate_fiduc_coords()
         self._calculate_fiduc_idx()
         self._calc_scienion_spot_dist()
