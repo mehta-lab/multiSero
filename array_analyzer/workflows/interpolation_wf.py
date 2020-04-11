@@ -181,15 +181,26 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
                       (255 * im_bg_overlay).astype('uint8'))
 
             # # This plot shows which spots have been assigned what index.
-            plot_spot_assignment(od_well, int_well, bg_well,
-                                  im_crop, props_placed_by_loc, bgprops_by_loc,
-                                  image_name, output_name, params)
+            plot_centroid_overlay(
+                im_crop,
+                params,
+                props_by_loc,
+                bgprops_by_loc,
+                output_name,
+            )
+            plot_od(
+                od_well,
+                int_well,
+                bg_well,
+                output_name,
+            )
+
             #
             # #   save spots
             # # save_all_wells(spot_props_array, spot_ids, well_path, image_name[:-4])
             #
             # #   save a composite of all spots, where spots are from source or from region prop
-            save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=True)
+            save_composite_spots(im_crop, props_array_placed, output_name, from_source=True)
             # save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=False)
 
             stop2 = time.time()

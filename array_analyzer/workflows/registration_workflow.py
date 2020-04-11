@@ -61,14 +61,14 @@ def point_registration(input_folder, output_folder, debug=False):
                   str(datetime.now().minute),
                   str(datetime.now().second)]),
     )
+    os.makedirs(run_path, exist_ok=True)
+
     xlwriterOD = pd.ExcelWriter(os.path.join(run_path, 'ODs.xlsx'))
     pdantigen = pd.DataFrame(antigen_array)
     pdantigen.to_excel(xlwriterOD, sheet_name='antigens')
     if debug:
         xlwriter_int = pd.ExcelWriter(os.path.join(run_path, 'intensities.xlsx'))
         xlwriter_bg = pd.ExcelWriter(os.path.join(run_path, 'backgrounds.xlsx'))
-
-    os.makedirs(run_path, exist_ok=True)
 
     # ================
     # loop over images
@@ -105,7 +105,6 @@ def point_registration(input_folder, output_folder, debug=False):
         spot_coords = img_processing.get_spot_coords(
             image,
             min_area=250,
-            min_thresh=0,
         )
 
         # Initial estimate of spot center
@@ -141,12 +140,14 @@ def point_registration(input_folder, output_folder, debug=False):
             grid_coords=reg_coords
         )
 
-        # Estimate and remove background
-        im_crop = im_crop/np.iinfo(im_crop.dtype).max
+        # # Estimate and remove background
         background = img_processing.get_background(
             im_crop,
             fit_order=2,
+            normalize=True,
         )
+        # im_crop = im_crop / background
+        im_crop = im_crop / np.iinfo(im_crop.dtype).max
 
         placed_spotmask = array_gen.build_centroid_binary_blocks(
             crop_coords,
@@ -205,66 +206,44 @@ def point_registration(input_folder, output_folder, debug=False):
         )
 
         # ==================================
-
         # SAVE FOR DEBUGGING
         if debug:
             start_time = time.time()
-            well_path = os.path.join(run_path)
-            os.makedirs(run_path, exist_ok=True)
-            output_name = os.path.join(well_path, image_name[:-4])
-
             # Save spot and background intensities.
             pd_int = pd.DataFrame(int_well)
             pd_int.to_excel(xlwriter_int, sheet_name=image_name[:-4])
             pd_bg = pd.DataFrame(bg_well)
             pd_bg.to_excel(xlwriter_bg, sheet_name=image_name[:-4])
+            output_name = os.path.join(run_path, image_name[:-4])
 
-            # Save mask of the well, cropped grayscale image, cropped spot segmentation.
-            io.imsave(output_name + "_well_mask.png",
-                      (255 * placed_spotmask).astype('uint8'))
-            io.imsave(output_name + "_crop.png",
-                      (255 * im_crop).astype('uint8'))
-
-            # Evaluate accuracy of background estimation with green (image), magenta (background) overlay.
-            im_bg_overlay = np.stack([background, im_crop, background], axis=2)
-            io.imsave(output_name + "_crop_bg_overlay.png",
-                      (255 * im_bg_overlay).astype('uint8'))
-
-            # This plot shows which spots have been assigned what index.
-            debug_plots.plot_spot_assignment(
-                od_well, int_well,
-                bg_well,
-                im_crop,
-                props_placed_by_loc,
-                bgprops_by_loc,
-                image_name,
-                output_name,
-                params,
-            )
             # Save a composite of all spots, where spots are from source or from region prop
+            debug_plots.plot_od(
+                od_well,
+                int_well,
+                bg_well,
+                output_name,
+            )
             debug_plots.save_composite_spots(
                 im_crop,
                 props_array_placed,
-                well_path,
-                image_name[:-4],
+                output_name,
                 from_source=True,
             )
-            print(f"Time to save debug images: {time.time()-start_time} s")
 
             # # Save image with spots
-            im_roi = 255 * im_crop.copy().astype('uint8')
+            im_roi = image.copy()
             im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
             plt.imshow(im_roi)
-            # shift the spot and grid coords based on "crop"
-            dx = np.mean(reg_coords[:, 0] - crop_coords[:, 0])
-            dy = np.mean(reg_coords[:, 1] - crop_coords[:, 1])
-            plt.plot(spot_coords[:, 0]-dx, spot_coords[:, 1]-dy, 'rx', ms=8)
-            plt.plot(grid_coords[:, 0]-dx, grid_coords[:, 1]-dy, 'b+', ms=8)
-            plt.plot(crop_coords[:, 0], crop_coords[:, 1], 'g.', ms=8)
-            write_name = image_name[:-4] + '_registration.jpg'
-            figICP = plt.gcf()
-            figICP.savefig(os.path.join(run_path, write_name), bbox_inches='tight')
-            plt.close(figICP)
+            plt.plot(spot_coords[:, 0], spot_coords[:, 1], 'rx', ms=5)
+            plt.plot(grid_coords[fiducials_idx, 0], grid_coords[fiducials_idx, 1], 'b+', ms=5)
+            plt.plot(reg_coords[:, 0], reg_coords[:, 1], 'g.', ms=5)
+            plt.axis('off')
+            fig_save = plt.gcf()
+            fig_save.savefig(output_name + '_registration.jpg', bbox_inches='tight')
+            plt.close(fig_save)
+            print("Time to save debug images: {:.3f} s".format(
+                time.time() - start_time),
+            )
 
             xlwriter_int.close()
             xlwriter_bg.close()

@@ -66,15 +66,17 @@ def create_composite_spots(target_array_, region_props_array_, intensity_image_=
     return target_array_
 
 
-def save_composite_spots(source_array_, region_props_array_, output_folder, well_name, from_source=False):
+def save_composite_spots(source_array_,
+                         region_props_array_,
+                         output_name,
+                         from_source=False):
     """
 
     :param source_array_: np.ndarray
         image representing original image data
     :param region_props_array_: np.ndarray
         region props describing segmented spots from image data
-    :param output_folder: str
-    :param well_name: str
+    :param str output_name: Path plus well name, no extension
         well name of format "A1, A2 ... C2, C3"
     :param from_source: bool
         True : images are extracted from source array
@@ -86,20 +88,23 @@ def save_composite_spots(source_array_, region_props_array_, output_folder, well
 
     if from_source:
         t = create_composite_spots(t, region_props_array_, source_array_)
-        si.io.imsave(output_folder + os.sep + well_name + f"_composite_spots_img.png",
+        si.io.imsave(output_name + f"_composite_spots_img.png",
                      (255 * t).astype('uint8'))
     else:
         t = create_composite_spots(t, region_props_array_)
-        si.io.imsave(output_folder + os.sep + well_name + f"_composite_spots_prop.png",
+        si.io.imsave(output_name + f"_composite_spots_prop.png",
                      (255 * t).astype('uint8'))
 
 
-def plot_spot_assignment(od_well, i_well, bg_well,
-                         im_crop, props_by_loc,
-                         bgprops_by_loc, image_name,
-                         output_name, params):
-    plt.imshow(im_crop,cmap='gray')
+def plot_centroid_overlay(im_crop,
+                          params,
+                          props_by_loc,
+                          bgprops_by_loc,
+                          output_name):
+
+    plt.imshow(im_crop, cmap='gray')
     plt.colorbar()
+    im_name = os.path.basename(output_name)
     for r in np.arange(params['rows']):
         for c in np.arange(params['columns']):
             try:
@@ -109,15 +114,22 @@ def plot_spot_assignment(od_well, i_well, bg_well,
                 print(spot_text + 'not found')
             else:
                 cenybg, cenxbg = bgprops_by_loc[(r, c)].centroid
-                plt.plot(cenx, ceny, 'm+',ms=10)
-                plt.plot(cenxbg, cenybg, 'gx',ms=10)
+                plt.plot(cenx, ceny, 'm+', ms=10)
+                plt.plot(cenxbg, cenybg, 'gx', ms=10)
                 spot_text = '(' + str(r) + ',' + str(c) + ')'
                 plt.text(cenx, ceny - 5, spot_text, va='bottom', ha='center', color='w')
-                plt.text(0, 0, image_name[:-4] + ',spot count=' + str(len(props_by_loc)))
+                plt.text(0, 0, im_name + ',spot count=' + str(len(props_by_loc)))
+
     figcentroid = plt.gcf()
     centroids_debug = output_name + '_overlayCentroids.png'
     figcentroid.savefig(centroids_debug, bbox_inches='tight')
     plt.close(figcentroid)
+
+
+def plot_od(od_well,
+            i_well,
+            bg_well,
+            output_name):
 
     plt.figure(figsize=(6, 1.5))
     plt.subplot(131)

@@ -131,7 +131,7 @@ def particle_filter(fiducial_coords,
                     particles,
                     stds,
                     max_iter=50,
-                    stop_criteria=.01,
+                    stop_criteria=.001,
                     iter_decrease=.8):
     """
     Particle filtering to determine best grid location.
@@ -165,6 +165,9 @@ def particle_filter(fiducial_coords,
         # Reduce standard deviations a little every iteration
         temp_stds = temp_stds * iter_decrease ** i
 
+        # im_roi = image.copy()
+        # im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
+
         for p in range(nbr_particles):
             particle = particles[p]
             # Generate transformation matrix
@@ -172,12 +175,20 @@ def particle_filter(fiducial_coords,
             trans_coords = cv.transform(np.array([fiducial_coords]), t_matrix)
             trans_coords = trans_coords[0].astype(np.float32)
 
+            # for c in range(trans_coords.shape[0]):
+            #     coord = tuple(trans_coords[c, :].astype(np.int))
+            #     cv.circle(im_roi, coord, 2, (0, 0, 255), 10)
+
             # Find nearest spots
             ret, results, neighbors, dist = knn.findNearest(trans_coords, 1)
             dists[p] = sum(dist)
 
+        # plt.imshow(im_roi)
+        # plt.axis('off')
+        # plt.show()
+
         min_dist = np.min(dists)
-        # print(min_dist)
+        print(min_dist)
         # See if min dist is not decreasing anymore
         if abs(min_dist_old - min_dist) < stop_criteria:
             break
