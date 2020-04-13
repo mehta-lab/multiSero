@@ -25,9 +25,7 @@ def well_analysis(input_folder_, output_folder_, method='segmentation', debug=Fa
     if not os.path.isdir(run_path):
         os.mkdir(run_path)
 
-    # ================
-    # loop over images => good place for multiproc?  careful with columns in report
-    # ================
+    # get well directories
     well_dirs = [d
                  for d in os.listdir(input_folder_)
                  if re.match(r'[A-P][0-9]{1,2}-Site_0', d)]
@@ -39,11 +37,13 @@ def well_analysis(input_folder_, output_folder_, method='segmentation', debug=Fa
     int_well = []
     for well_dir in well_dirs:
 
+        # read image
         well_image_dir = [file for file in os.listdir(os.path.join(input_folder_, well_dir))
                           if '.png' in file or '.tif' in file or '.jpg' in file][0]
         image, image_name = read_to_grey(os.path.join(input_folder_, well_dir), well_image_dir)
         print(well_dir)
 
+        # measure intensity
         if method == 'segmentation':
             # segment well using otsu thresholding
             well_mask = get_well_mask(image, segmethod='otsu')
@@ -51,8 +51,8 @@ def well_analysis(input_folder_, output_folder_, method='segmentation', debug=Fa
 
         elif method == 'crop':
             # get intensity at square crop in the middle of the image
-            radius = 50
             img_size = image.shape
+            radius = np.floor(0.1 * np.min(img_size)).astype('int')
             cx = np.floor(img_size[1]/2).astype('int')
             cy = np.floor(img_size[0]/2).astype('int')
             im_crop = crop_image(image, cx, cy, radius, border_=0)
@@ -78,9 +78,9 @@ def well_analysis(input_folder_, output_folder_, method='segmentation', debug=Fa
             io.imsave(output_name + "_masked_image.png",
                       (img_/256).astype('uint8'))
 
-    # df_int = pd.DataFrame({'Well': pd.Series([well_dir.split(sep='-')[0] for well_dir in well_dirs]),
-    #                        'Intensity': pd.Series(int_well)})
     df_int = pd.DataFrame(np.reshape(int_well, (8, 12)), index=list(string.ascii_uppercase[:8]), columns=range(1,13))
+
+    # save intensity data
     plate_info.update({'intensity': df_int})
     for k, v in plate_info.items():
         v.to_excel(xlwriter_int, sheet_name=k)
