@@ -117,6 +117,29 @@ def thresh_and_binarize(image_, method='rosin', invert=True):
     return spots
 
 
+def get_well_mask(image_, segmethod='rosin'):
+
+    well_mask = ~thresh_and_binarize(image_, method=segmethod, invert=True)
+
+    # Now remove small objects.
+    str_elem_size = 3
+    str_elem = disk(str_elem_size)
+    well_mask = binary_opening(well_mask, str_elem)
+
+    labels = measure.label(well_mask)
+    props = measure.regionprops(labels)
+
+    props = select_props(props, attribute="area", condition="greater_than", condition_value=10 ** 5)
+    well_mask[labels != props[0].label] = 0
+
+    return well_mask
+
+def get_well_intensity(image_, mask_):
+
+    well_int = np.median(image_[mask_])
+
+    return well_int
+
 def find_well_border(image, segmethod='bimodal', detmethod='region'):
     """
     finds the border of the well to motivate future cropping around spots

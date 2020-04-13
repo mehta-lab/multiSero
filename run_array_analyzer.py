@@ -3,6 +3,7 @@ import os
 
 import array_analyzer.workflows.registration_wf as registration_wf
 import array_analyzer.workflows.interpolation_wf as interpolation_wf
+import array_analyzer.workflows.well_wf as well_wf
 
 
 def parse_args():
@@ -25,7 +26,14 @@ def parse_args():
         help="Output directory path",
     )
     parser.add_argument(
-        '-m', '--method',
+        '-f', '--format',
+        type=str,
+        choices=['well', 'array'],
+        default='array',
+        help="Experiment format: well plate or printed arrays",
+    )
+    parser.add_argument(
+        '-ad', '--array_detection',
         type=str,
         choices=['interp', 'fit'],
         default='interp',
@@ -42,7 +50,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def run_workflow(input_dir, output_dir, method, debug=False):
+def run_workflow(input_dir, output_dir, format, array_detection, debug=False):
     """
     For each image in input directory, run either interpolation (default)
     or registration of fiducials workflow.
@@ -50,7 +58,8 @@ def run_workflow(input_dir, output_dir, method, debug=False):
 
     :param str input_dir: Input directory path
     :param str output_dir: Output directory path
-    :param str method: interp (interpolation) or fit (registration of fiducials)
+    :param str format: array or well
+    :param str array_detection: interp (interpolation) or fit (registration of fiducials)
     :param bool debug: Write debug plots to output directory
     """
 
@@ -59,18 +68,24 @@ def run_workflow(input_dir, output_dir, method, debug=False):
 
     os.makedirs(output_dir, exist_ok=True)
 
-    if method == 'fit':
-        registration_wf.point_registration(
+    if format == 'array':
+        if array_detection == 'fit':
+            registration_wf.point_registration(
+                input_dir,
+                output_dir,
+                debug=debug,
+            )
+        elif array_detection == 'interp':
+            interpolation_wf.interp(
+                input_dir,
+                output_dir,
+                method='interp',
+                debug=debug,
+            )
+    elif format == 'well':
+        well_wf.well_analysis(
             input_dir,
             output_dir,
-            debug=debug,
-        )
-    else:
-        # TODO: method will never be anything other than interp here
-        interpolation_wf.interp(
-            input_dir,
-            output_dir,
-            method='interp',
             debug=debug,
         )
 
@@ -80,6 +95,7 @@ if __name__ == '__main__':
     run_workflow(
         input_dir=args.input,
         output_dir=args.output,
-        method=args.method,
+        format=args.format,
+        array_detection=args.array_detection,
         debug=args.debug,
     )
