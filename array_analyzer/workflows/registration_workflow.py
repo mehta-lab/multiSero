@@ -156,41 +156,47 @@ def point_registration(input_folder, output_folder, debug=False):
         # im_crop = im_crop / background
         im_crop = im_crop / np.iinfo(im_crop.dtype).max
 
-        placed_spotmask = array_gen.build_centroid_binary_blocks(
-            crop_coords,
-            im_crop,
-            params,
-        )
-        spot_props = image_parser.generate_props(
-            placed_spotmask,
-            intensity_image_=im_crop,
-        )
-        bg_props = image_parser.generate_props(
-            placed_spotmask,
-            intensity_image_=background,
-        )
-
-        # unnecessary?  both receive the same spotmask
-        spot_labels = [p.label for p in spot_props]
-        bg_props = image_parser.select_props(
-            bg_props,
-            attribute="label",
-            condition="is_in",
-            condition_value=spot_labels,
-        )
-        props_placed_by_loc = image_parser.generate_props_dict(
-            spot_props,
-            params['rows'],
-            params['columns'],
-            min_area=100,
-        )
-        bgprops_by_loc = image_parser.generate_props_dict(
-            bg_props,
-            params['rows'],
-            params['columns'],
-            min_area=100,
-        )
-
+        # placed_spotmask = array_gen.build_centroid_binary_blocks(
+        #     crop_coords,
+        #     im_crop,
+        #     params,
+        # )
+        # spot_props = image_parser.generate_props(
+        #     placed_spotmask,
+        #     intensity_image_=im_crop,
+        # )
+        # bg_props = image_parser.generate_props(
+        #     placed_spotmask,
+        #     intensity_image_=background,
+        # )
+        #
+        # # unnecessary?  both receive the same spotmask
+        # spot_labels = [p.label for p in spot_props]
+        # bg_props = image_parser.select_props(
+        #     bg_props,
+        #     attribute="label",
+        #     condition="is_in",
+        #     condition_value=spot_labels,
+        # )
+        # props_placed_by_loc = image_parser.generate_props_dict(
+        #     spot_props,
+        #     params['rows'],
+        #     params['columns'],
+        #     min_area=100,
+        # )
+        # bgprops_by_loc = image_parser.generate_props_dict(
+        #     bg_props,
+        #     params['rows'],
+        #     params['columns'],
+        #     min_area=100,
+        # )
+        props_placed_by_loc, bgprops_by_loc = \
+            array_gen.coord_to_spot_int(
+                coords=crop_coords,
+                im_int=im_crop,
+                background=background,
+                params=params
+            )
         props_array_placed = image_parser.assign_props_to_array(
             props_array,
             props_placed_by_loc,
@@ -235,6 +241,13 @@ def point_registration(input_folder, output_folder, debug=False):
                 props_array_placed,
                 output_name,
                 from_source=True,
+            )
+
+            debug_plots.save_composite_spots(
+                im_crop,
+                props_array_placed,
+                output_name,
+                from_source=False,
             )
 
             # # Save image with spots

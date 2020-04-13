@@ -1,10 +1,6 @@
 # bchhun, {2020-04-02}
 
-import sys, getopt, os
-
-from array_analyzer.extract.image_parser import *
 from array_analyzer.extract.txt_parser import *
-from array_analyzer.load.xlsx_report import *
 from array_analyzer.extract.img_processing import *
 from array_analyzer.load.debug_images import *
 from array_analyzer.transform.property_filters import *
@@ -12,7 +8,6 @@ from array_analyzer.transform.property_filters import *
 import time
 from datetime import datetime
 import skimage.io as io
-import matplotlib.pyplot as plt
 import pandas as pd
 
 SCENION_SPOT_DIST = 82

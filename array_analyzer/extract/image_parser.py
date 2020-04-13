@@ -1,30 +1,23 @@
 # bchhun, {2020-03-22}
 
 import os
-from copy import copy
 import cv2 as cv
 import numpy as np
-import re
 import itertools
 import math
 import pandas as pd
 from types import SimpleNamespace
-from scipy import spatial, stats
+from scipy import spatial
 
 import skimage.io as io
-import skimage.util as u
 
 from skimage.color import rgb2grey
-from skimage.filters import threshold_minimum, median, gaussian, threshold_local
-from skimage.filters import threshold_minimum, threshold_otsu
 from skimage.transform import hough_circle, hough_circle_peaks
 from skimage.feature import canny
 from skimage.morphology import binary_closing, binary_dilation, selem, disk, binary_opening
-from skimage.segmentation import clear_border
-from scipy.ndimage import binary_fill_holes
 from skimage import measure
 
-from .img_processing import create_unimodal_mask, create_otsu_mask
+from .img_processing import crop_image, thresh_and_binarize
 from ..utils.mock_regionprop import MockRegionprop
 
 """
@@ -69,52 +62,6 @@ def read_gray_im(im_path):
     except IOError as e:
         raise("Can't read image", e)
     return im
-
-
-def thresh_and_binarize(image_, method='rosin', invert=True, min_size=10, thr_percent=95):
-    """
-    receives greyscale np.ndarray image
-        inverts the intensities
-        thresholds on the minimum peak
-        converts the image into binary about that threshold
-
-    :param image_: np.ndarray
-    :param method: str
-        'bimodal' or 'unimodal'
-    :return: spots threshold_min on this image
-    """
-
-    if invert:
-        image_ = u.invert(image_)
-
-    if method == 'bimodal':
-        thresh = threshold_minimum(image_, nbins=512)
-
-        spots = copy(image_)
-        spots[image_ < thresh] = 0
-        spots[image_ >= thresh] = 1
-
-    elif method == 'otsu':
-        spots = create_otsu_mask(image_, scale=1)
-
-    # elif method == 'multi_otsu':
-    #     n_class = 3
-    #     spots = create_multiotsu_mask(image_, n_class=n_class, fg_class=n_class - 1)
-
-    elif method == 'rosin':
-        spots = create_unimodal_mask(image_, str_elem_size=3)
-
-    elif method == 'bright_spots':
-        spots = image_ > np.percentile(image_, thr_percent)
-        str_elem = disk(min_size)
-        # spots = binary_closing(spots, str_elem)
-        spots = binary_opening(spots, str_elem)
-        spots = clear_border(spots)
-
-    else:
-        raise ModuleNotFoundError("not a supported method for thresh_and_binarize")
-
-    return spots
 
 
 def find_well_border(image, segmethod='bimodal', detmethod='region'):
@@ -166,34 +113,6 @@ def find_well_border(image, segmethod='bimodal', detmethod='region'):
         cx, cy, radii = None, None, None
 
     return cx, cy, radii, well_mask
-
-
-def crop_image(arr, cx_, cy_, radius_, border_=200, last_pix=False):
-    """
-    crop the supplied image to include only the well and its spots
-
-    :param arr: image
-    :param float cx_: Center x coordinate
-    :param float cy_: Center y coordinate
-    :param float radius_: Crop radius
-    :param int border_: Margin on each side in pixels
-    :return np.array crop: Cropped image
-    """
-    cx_ = int(np.rint(cx_))
-    cy_ = int(np.rint(cy_))
-    radius_ = int(radius_)
-    if last_pix:
-        bbox = [cy_ - (radius_ - border_),
-                cx_ - (radius_ - border_),
-                cy_ + (radius_ - border_) + 1,
-                cx_ + (radius_ - border_) + 1]
-    else:
-        bbox = [cy_ - (radius_ - border_),
-                cx_ - (radius_ - border_),
-                cy_ + (radius_ - border_),
-                cx_ + (radius_ - border_)]
-    crop = arr[bbox[0]:bbox[2], bbox[1]:bbox[3]]
-    return crop, bbox
 
 
 def clean_spot_binary(arr, kx=10, ky=10):
@@ -557,31 +476,31 @@ def grid_from_centroids(props_, im_int, background, n_rows, n_cols, dist_flr=Tru
                              grid_id[1]/(n_cols - 1) * x_range + x_min]
             # make bounding boxes larger to account for interpolation errors
             im_1spot_lg, bbox_lg = crop_image(im_int,
-                                    grid_coords[1],
-                                    grid_coords[0],
-                                    2 * bbox_width,
-                                    border_=0,
-                                    last_pix=True)
+                                              grid_coords[1],
+                                              grid_coords[0],
+                                              2 * bbox_width,
+                                              border_=0,
+                                              last_pix=True)
 
             bg_1spot_lg, _ = crop_image(background,
-                                      grid_coords[1],
-                                      grid_coords[0],
-                                      2 * bbox_width,
-                                      border_=0,
-                                      last_pix=True)
+                                        grid_coords[1],
+                                        grid_coords[0],
+                                        2 * bbox_width,
+                                        border_=0,
+                                        last_pix=True)
             im_1spot, bbox = crop_image(im_int,
-                              grid_coords[1],
-                              grid_coords[0],
-                              bbox_width / 2,
-                              border_=0,
-                              last_pix=True)
-
-            bg_1spot, _ = crop_image(background,
                                         grid_coords[1],
                                         grid_coords[0],
                                         bbox_width / 2,
                                         border_=0,
                                         last_pix=True)
+
+            bg_1spot, _ = crop_image(background,
+                                     grid_coords[1],
+                                     grid_coords[0],
+                                     bbox_width / 2,
+                                     border_=0,
+                                     last_pix=True)
 
             prop_int = MockRegionprop(intensity_image=im_1spot,
                                   centroid=grid_coords,
