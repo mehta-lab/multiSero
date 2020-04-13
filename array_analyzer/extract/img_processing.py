@@ -135,7 +135,9 @@ def get_spot_coords(im,
                     min_area=50,
                     max_area=10000,
                     min_circularity=0.1,
-                    min_convexity=0.5):
+                    min_convexity=0.5,
+                    minDistBetweenBlobs=10,
+                    minRepeatability = 2):
     """
     Use OpenCVs simple blob detector (thresholdings and grouping by properties)
     to detect all dark spots in the image
@@ -163,11 +165,16 @@ def get_spot_coords(im,
     # Filter by Convexity
     params.filterByConvexity = True
     params.minConvexity = min_convexity
+    params.minDistBetweenBlobs = minDistBetweenBlobs
+    params.minRepeatability = minRepeatability
+
 
     detector = cv.SimpleBlobDetector_create(params)
 
     # Normalize image
-    im_norm = ((im - im.min()) / (im.max() - im.min()) * 255).astype(np.uint8)
+    # im_norm = ((im - im.min()) / (im.max() - im.min()) * 255).astype(np.uint8)
+    # im_norm = im
+    im_norm = cv.GaussianBlur(im, (31, 31), 0)
     # Detect blobs
     keypoints = detector.detect(im_norm)
 

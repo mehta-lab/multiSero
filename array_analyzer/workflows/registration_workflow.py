@@ -22,7 +22,7 @@ FIDUCIALS_IDX_8COLS = [0, 7, 8, 40, 47]
 SCENION_SPOT_DIST = 82
 # The expected standard deviations could be estimated from training data
 # Just winging it for now
-STDS = np.array([100, 100, .1, .001])  # x, y, angle, scale
+STDS = np.array([500, 500, .1, .001])  # x, y, angle, scale
 
 
 def point_registration(input_folder, output_folder, debug=False):
@@ -81,7 +81,7 @@ def point_registration(input_folder, output_folder, debug=False):
 
     # sort by letter, then by number (with '10' coming AFTER '9')
     well_images.sort(key=lambda x: (x[0], int(x[1:-4])))
-
+    # well_images = ['H11.png', 'C12.png', 'D5.png', 'D6.png', 'D7.png', 'D8.png']
     for image_name in well_images:
         start_time = time.time()
         image = image_parser.read_gray_im(os.path.join(input_folder, image_name))
@@ -104,7 +104,13 @@ def point_registration(input_folder, output_folder, debug=False):
 
         spot_coords = img_processing.get_spot_coords(
             image,
-            min_area=250,
+            min_area=200,
+            min_thresh=0,
+            max_thresh=255,
+            min_circularity=0,
+            min_convexity=0,
+            minDistBetweenBlobs=10,
+            minRepeatability=2,
         )
 
         # Initial estimate of spot center
@@ -130,6 +136,7 @@ def point_registration(input_folder, output_folder, debug=False):
             spot_coords=spot_coords,
             particles=particles,
             stds=STDS,
+            stop_criteria=0.1
         )
         # Transform grid coordinates
         reg_coords = np.squeeze(cv.transform(np.array([grid_coords]), t_matrix))

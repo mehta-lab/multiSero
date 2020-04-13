@@ -130,8 +130,8 @@ def particle_filter(fiducial_coords,
                     spot_coords,
                     particles,
                     stds,
-                    max_iter=50,
-                    stop_criteria=.001,
+                    max_iter=100,
+                    stop_criteria=.01,
                     iter_decrease=.8):
     """
     Particle filtering to determine best grid location.
@@ -161,12 +161,15 @@ def particle_filter(fiducial_coords,
 
     # Iterate until min dist doesn't change
     min_dist_old = 10 ** 6
+    mean_dist_old = 10 ** 6
     for i in range(max_iter):
-        # Reduce standard deviations a little every iteration
-        temp_stds = temp_stds * iter_decrease ** i
 
         # im_roi = image.copy()
         # im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
+        # Distort particles
+        for c in range(4):
+            distort = np.random.randn(nbr_particles)
+            particles[:, c] = particles[:, c] + distort * temp_stds[c]
 
         for p in range(nbr_particles):
             particle = particles[p]
@@ -188,11 +191,15 @@ def particle_filter(fiducial_coords,
         # plt.show()
 
         min_dist = np.min(dists)
-        print(min_dist)
+        mean_dist = np.mean(dists)
+        print(min_dist, mean_dist)
         # See if min dist is not decreasing anymore
-        if abs(min_dist_old - min_dist) < stop_criteria:
+        # if abs(min_dist_old - min_dist) < stop_criteria:
+        #     break
+        # min_dist_old = min_dist
+        if abs(mean_dist_old - mean_dist) < stop_criteria:
             break
-        min_dist_old = min_dist
+        mean_dist_old = mean_dist
         # Low distance should correspond to high probability
         weights = 1 / dists
         # Make weights sum to 1
@@ -202,13 +209,15 @@ def particle_filter(fiducial_coords,
         idxs = np.random.choice(nbr_particles, nbr_particles, p=weights)
         particles = particles[idxs, :]
 
-        # Distort particles
-        for c in range(4):
-            distort = np.random.randn(nbr_particles)
-            particles[:, c] = particles[:, c] + distort * temp_stds[c]
+        # Reduce standard deviations a little every iteration
+        temp_stds = temp_stds * iter_decrease ** i
+
 
     # Return best particle
-    particle = particles[dists == dists.min(), :][0]
+    # particle = particles[dists == dists.min(), :][0]
+
+    # Return mean particle
+    particle = np.mean(particles, axis=0)
     # Generate transformation matrix
     t_matrix = get_translation_matrix(particle)
     return t_matrix
