@@ -79,9 +79,18 @@ def well_analysis(input_folder_, output_folder_, method='segmentation', debug=Fa
                       (img_/256).astype('uint8'))
 
     df_int = pd.DataFrame(np.reshape(int_well, (8, 12)), index=list(string.ascii_uppercase[:8]), columns=range(1,13))
-
-    # save intensity data
     plate_info.update({'intensity': df_int})
+
+    # compute optical density
+    sample_info = plate_info['sample']
+    blanks = np.any(np.dstack((sample_info == 'Blank', sample_info == 'blank', sample_info == 'BLANK')), axis=2)
+    if blanks.any():
+        # blank intensity is averaged over all blank wells
+        int_blank = np.mean(df_int.to_numpy()[blanks])
+        df_od = np.log10(int_blank / df_int)
+        plate_info.update({'od': df_od})
+
+    # save analysis results
     for k, v in plate_info.items():
         v.to_excel(xlwriter_int, sheet_name=k)
     xlwriter_int.close()
