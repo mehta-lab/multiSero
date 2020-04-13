@@ -6,6 +6,7 @@ import time
 from datetime import datetime
 import skimage.io as io
 import pandas as pd
+import string
 
 
 def well_analysis(input_folder_, output_folder_, debug=False):
@@ -13,6 +14,9 @@ def well_analysis(input_folder_, output_folder_, debug=False):
     start = time.time()
     # save a sub path for this processing run
     run_path = output_folder_ + os.sep + f'{datetime.now().month}_{datetime.now().day}_{datetime.now().hour}_{datetime.now().minute}_{datetime.now().second}'
+
+    # Read plate info
+    plate_info = pd.read_excel(os.path.join(input_folder_, 'Plate_Info.xlsx'), usecols='A:M', sheet_name=None, index_col=0)
 
     # Write an excel file that can be read into jupyter notebook with minimal parsing.
     xlwriter_int = pd.ExcelWriter(os.path.join(run_path, 'intensities.xlsx'))
@@ -63,9 +67,12 @@ def well_analysis(input_folder_, output_folder_, debug=False):
             io.imsave(output_name + "_masked_image.png",
                       (img_/256).astype('uint8'))
 
-    df_int = pd.DataFrame({'Well': pd.Series([well_dir.split(sep='-')[0] for well_dir in well_dirs]),
-                           'Intensity': pd.Series(int_well)})
-    df_int.to_excel(xlwriter_int)
+    # df_int = pd.DataFrame({'Well': pd.Series([well_dir.split(sep='-')[0] for well_dir in well_dirs]),
+    #                        'Intensity': pd.Series(int_well)})
+    df_int = pd.DataFrame(np.reshape(int_well, (8, 12)), index=list(string.ascii_uppercase[:8]), columns=range(1,13))
+    plate_info.update({'intensity': df_int})
+    for k, v in plate_info.items():
+        v.to_excel(xlwriter_int, sheet_name=k)
     xlwriter_int.close()
 
     stop = time.time()
