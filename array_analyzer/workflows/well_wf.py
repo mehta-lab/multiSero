@@ -9,9 +9,10 @@ import pandas as pd
 import string
 
 
-def well_analysis(input_folder_, output_folder_, debug=False):
+def well_analysis(input_folder_, output_folder_, method='segmentation', debug=False):
 
     start = time.time()
+
     # save a sub path for this processing run
     run_path = output_folder_ + os.sep + f'{datetime.now().month}_{datetime.now().day}_{datetime.now().hour}_{datetime.now().minute}_{datetime.now().second}'
 
@@ -35,10 +36,7 @@ def well_analysis(input_folder_, output_folder_, debug=False):
 
     # well_dirs = ['A7-Site_0']
 
-    well_path = None
-    output_name = None
     int_well = []
-
     for well_dir in well_dirs:
 
         well_image_dir = [file for file in os.listdir(os.path.join(input_folder_, well_dir))
@@ -46,9 +44,22 @@ def well_analysis(input_folder_, output_folder_, debug=False):
         image, image_name = read_to_grey(os.path.join(input_folder_, well_dir), well_image_dir)
         print(well_dir)
 
-        # get well intensity
-        well_mask = get_well_mask(image, segmethod='otsu')
-        int_well_ = get_well_intensity(image, well_mask)
+        if method == 'segmentation':
+            # segment well using otsu thresholding
+            well_mask = get_well_mask(image, segmethod='otsu')
+            int_well_ = get_well_intensity(image, well_mask)
+
+        elif method == 'crop':
+            # get intensity at square crop in the middle of the image
+            radius = 50
+            img_size = image.shape
+            cx = np.floor(img_size[1]/2).astype('int')
+            cy = np.floor(img_size[0]/2).astype('int')
+            im_crop = crop_image(image, cx, cy, radius, border_=0)
+
+            well_mask = np.ones_like(im_crop, dtype='bool')
+            int_well_ = get_well_intensity(im_crop, well_mask)
+
         int_well.append(int_well_)
 
         # SAVE FOR DEBUGGING

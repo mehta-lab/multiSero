@@ -26,18 +26,11 @@ def parse_args():
         help="Output directory path",
     )
     parser.add_argument(
-        '-f', '--format',
+        '-wf', '--workflow',
         type=str,
-        choices=['well', 'array'],
-        default='array',
-        help="Experiment format: well plate or printed arrays",
-    )
-    parser.add_argument(
-        '-ad', '--array_detection',
-        type=str,
-        choices=['interp', 'fit'],
-        default='interp',
-        help="Method for detected spots: interpolation or registration",
+        choices=['well_segmentation', 'well_crop', 'array_interp', 'array_fit'],
+        default='array_interp',
+        help="Analysis workflow",
     )
     parser.add_argument(
         '-d', '--debug',
@@ -50,7 +43,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def run_workflow(input_dir, output_dir, format, array_detection, debug=False):
+def run_workflow(input_dir, output_dir, workflow, debug=False):
     """
     For each image in input directory, run either interpolation (default)
     or registration of fiducials workflow.
@@ -59,7 +52,7 @@ def run_workflow(input_dir, output_dir, format, array_detection, debug=False):
     :param str input_dir: Input directory path
     :param str output_dir: Output directory path
     :param str format: array or well
-    :param str array_detection: interp (interpolation) or fit (registration of fiducials)
+    :param str method: interp (interpolation) or fit (registration of fiducials)
     :param bool debug: Write debug plots to output directory
     """
 
@@ -68,24 +61,31 @@ def run_workflow(input_dir, output_dir, format, array_detection, debug=False):
 
     os.makedirs(output_dir, exist_ok=True)
 
-    if format == 'array':
-        if array_detection == 'fit':
-            registration_wf.point_registration(
-                input_dir,
-                output_dir,
-                debug=debug,
-            )
-        elif array_detection == 'interp':
-            interpolation_wf.interp(
-                input_dir,
-                output_dir,
-                method='interp',
-                debug=debug,
-            )
-    elif format == 'well':
+    if workflow == 'array_interp':
+        interpolation_wf.interp(
+            input_dir,
+            output_dir,
+            method='interp',
+            debug=debug,
+        )
+    elif workflow == 'array_fit':
+        registration_wf.point_registration(
+            input_dir,
+            output_dir,
+            debug=debug,
+        )
+    elif workflow == 'well_segmentation':
         well_wf.well_analysis(
             input_dir,
             output_dir,
+            method='segmentation',
+            debug=debug,
+        )
+    elif workflow == 'well_crop':
+        well_wf.well_analysis(
+            input_dir,
+            output_dir,
+            method='crop',
             debug=debug,
         )
 
@@ -95,7 +95,6 @@ if __name__ == '__main__':
     run_workflow(
         input_dir=args.input,
         output_dir=args.output,
-        format=args.format,
-        array_detection=args.array_detection,
+        workflow=args.workflow,
         debug=args.debug,
     )
