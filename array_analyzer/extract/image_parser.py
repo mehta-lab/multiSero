@@ -119,7 +119,7 @@ def thresh_and_binarize(image_, method='rosin', invert=True):
 
 def get_well_mask(image_, segmethod='rosin'):
 
-    well_mask = ~thresh_and_binarize(image_, method=segmethod, invert=True)
+    well_mask = thresh_and_binarize(image_, method=segmethod, invert=False)
 
     # Now remove small objects.
     str_elem_size = 3
