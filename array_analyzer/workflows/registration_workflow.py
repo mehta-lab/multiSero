@@ -82,7 +82,10 @@ def point_registration(input_folder, output_folder, debug=False):
     # sort by letter, then by number (with '10' coming AFTER '9')
     well_images.sort(key=lambda x: (x[0], int(x[1:-4])))
     # well_images = ['H11.png', 'C12.png', 'D5.png', 'D6.png', 'D7.png', 'D8.png']
+    # well_images = ['C4.png']
     for image_name in well_images:
+        if debug:
+            output_name = os.path.join(run_path, image_name[:-4])
         start_time = time.time()
         image = image_parser.read_gray_im(os.path.join(input_folder, image_name))
 
@@ -146,50 +149,19 @@ def point_registration(input_folder, output_folder, debug=False):
             im=image,
             grid_coords=reg_coords
         )
-
+        im_crop = im_crop / np.iinfo(im_crop.dtype).max
         # # Estimate and remove background
         background = img_processing.get_background(
             im_crop,
             fit_order=2,
-            normalize=True,
+            normalize=False,
         )
-        # im_crop = im_crop / background
-        im_crop = im_crop / np.iinfo(im_crop.dtype).max
+        # Evaluate accuracy of background estimation with green (image), magenta (background) overlay.
+        if debug:
+            im_bg_overlay = np.stack([background, im_crop, background], axis=2)
+            io.imsave(output_name + "_crop_bg_overlay.png",
+                      (255 * im_bg_overlay).astype('uint8'))
 
-        # placed_spotmask = array_gen.build_centroid_binary_blocks(
-        #     crop_coords,
-        #     im_crop,
-        #     params,
-        # )
-        # spot_props = image_parser.generate_props(
-        #     placed_spotmask,
-        #     intensity_image_=im_crop,
-        # )
-        # bg_props = image_parser.generate_props(
-        #     placed_spotmask,
-        #     intensity_image_=background,
-        # )
-        #
-        # # unnecessary?  both receive the same spotmask
-        # spot_labels = [p.label for p in spot_props]
-        # bg_props = image_parser.select_props(
-        #     bg_props,
-        #     attribute="label",
-        #     condition="is_in",
-        #     condition_value=spot_labels,
-        # )
-        # props_placed_by_loc = image_parser.generate_props_dict(
-        #     spot_props,
-        #     params['rows'],
-        #     params['columns'],
-        #     min_area=100,
-        # )
-        # bgprops_by_loc = image_parser.generate_props_dict(
-        #     bg_props,
-        #     params['rows'],
-        #     params['columns'],
-        #     min_area=100,
-        # )
         props_placed_by_loc, bgprops_by_loc = \
             array_gen.coord_to_spot_int(
                 coords=crop_coords,
@@ -227,7 +199,7 @@ def point_registration(input_folder, output_folder, debug=False):
             pd_int.to_excel(xlwriter_int, sheet_name=image_name[:-4])
             pd_bg = pd.DataFrame(bg_well)
             pd_bg.to_excel(xlwriter_bg, sheet_name=image_name[:-4])
-            output_name = os.path.join(run_path, image_name[:-4])
+
 
             # Save a composite of all spots, where spots are from source or from region prop
             debug_plots.plot_od(
@@ -251,6 +223,25 @@ def point_registration(input_folder, output_folder, debug=False):
             )
 
             # # Save image with spots
+            debug_plots.plot_centroid_overlay(
+                im_crop,
+                params,
+                props_placed_by_loc,
+                bgprops_by_loc,
+                output_name,
+            )
+            # shift the spot and grid coords based on "crop"
+            dx = np.mean(reg_coords[:, 0] - crop_coords[:, 0])
+            dy = np.mean(reg_coords[:, 1] - crop_coords[:, 1])
+            plt.plot(spot_coords[:, 0] - dx, spot_coords[:, 1] - dy, 'rx', ms=8)
+            plt.plot(grid_coords[:, 0] - dx, grid_coords[:, 1] - dy, 'b+', ms=8)
+            plt.plot(crop_coords[:, 0], crop_coords[:, 1], 'g.', ms=8)
+            write_name = image_name[:-4] + '_registration.jpg'
+            figICP = plt.gcf()
+            figICP.savefig(os.path.join(run_path, write_name), bbox_inches='tight')
+            plt.close(figICP)
+
+
             im_roi = image.copy()
             im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
             plt.imshow(im_roi)
