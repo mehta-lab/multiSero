@@ -191,15 +191,11 @@ def particle_filter(fiducial_coords,
         # plt.show()
 
         min_dist = np.min(dists)
-        mean_dist = np.mean(dists)
-        print(min_dist, mean_dist)
         # See if min dist is not decreasing anymore
-        # if abs(min_dist_old - min_dist) < stop_criteria:
-        #     break
-        # min_dist_old = min_dist
-        if abs(mean_dist_old - mean_dist) < stop_criteria:
+        if abs(min_dist_old - min_dist) < stop_criteria:
             break
-        mean_dist_old = mean_dist
+        min_dist_old = min_dist
+
         # Low distance should correspond to high probability
         weights = 1 / dists
         # Make weights sum to 1
@@ -212,12 +208,9 @@ def particle_filter(fiducial_coords,
         # Reduce standard deviations a little every iteration
         temp_stds = temp_stds * iter_decrease ** i
 
-
     # Return best particle
-    # particle = particles[dists == dists.min(), :][0]
+    particle = particles[dists == dists.min(), :][0]
 
-    # Return mean particle
-    particle = np.mean(particles, axis=0)
     # Generate transformation matrix
     t_matrix = get_translation_matrix(particle)
     return t_matrix

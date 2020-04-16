@@ -140,8 +140,9 @@ def get_spot_coords(im,
                     max_area=10000,
                     min_circularity=0.1,
                     min_convexity=0.5,
-                    minDistBetweenBlobs=10,
-                    minRepeatability = 2):
+                    min_dist_between_blobs=10,
+                    min_repeatability=2,
+                    blur_sigma=31):
     """
     Use OpenCVs simple blob detector (thresholdings and grouping by properties)
     to detect all dark spots in the image
@@ -153,6 +154,11 @@ def get_spot_coords(im,
     :param float min_circularity: Minimum circularity of spots
     :param float min_convexity: Minimum convexity of spots
     :return np.array spot_coords: x, y coordinates of spot centroids (nbr spots x 2)
+    :param blur_sigma: sigma of Gaussian filter to blur the image
+    :param int min_repeatability: minimal number of times the same spot has to be detected
+        at different thresholds
+    :param float min_dist_between_blobs: minimal distance in pixels between two spots
+        for them to be called as different spots
     """
     params = cv.SimpleBlobDetector_Params()
 
@@ -169,16 +175,13 @@ def get_spot_coords(im,
     # Filter by Convexity
     params.filterByConvexity = True
     params.minConvexity = min_convexity
-    params.minDistBetweenBlobs = minDistBetweenBlobs
-    params.minRepeatability = minRepeatability
+    params.minDistBetweenBlobs = min_dist_between_blobs
+    params.minRepeatability = min_repeatability
 
 
     detector = cv.SimpleBlobDetector_create(params)
 
-    # Normalize image
-    # im_norm = ((im - im.min()) / (im.max() - im.min()) * 255).astype(np.uint8)
-    # im_norm = im
-    im_norm = cv.GaussianBlur(im, (31, 31), 0)
+    im_norm = cv.GaussianBlur(im, (blur_sigma, blur_sigma), 0)
     # Detect blobs
     keypoints = detector.detect(im_norm)
 
@@ -281,33 +284,25 @@ def crop_image_from_coords(im, grid_coords, margin=200):
     return im_crop, crop_coords
 
 
-def crop_image(arr, cx_, cy_, radius_, border_=200, last_pix=False):
+def crop_image_at_center(im, center, height, width):
     """
     crop the supplied image to include only the well and its spots
 
-    :param arr: image
-    :param float cx_: Center x coordinate
-    :param float cy_: Center y coordinate
-    :param float radius_: Crop radius
-    :param int border_: Margin on each side in pixels
+    :param im: image
+    :param float center_: Center (row, col) of the crop box
+    :param float height: height of the crop box
+    :param float width: width of the crop box
     :return np.array crop: Cropped image
     """
-    cx_ = int(np.rint(cx_))
-    cy_ = int(np.rint(cy_))
-    radius_ = int(radius_)
-    if last_pix:
-        bbox = [cy_ - (radius_ - border_),
-                cx_ - (radius_ - border_),
-                cy_ + (radius_ - border_) + 1,
-                cx_ + (radius_ - border_) + 1]
-    else:
-        bbox = [cy_ - (radius_ - border_),
-                cx_ - (radius_ - border_),
-                cy_ + (radius_ - border_),
-                cx_ + (radius_ - border_)]
-    crop = arr[bbox[0]:bbox[2], bbox[1]:bbox[3]]
+    cy, cx = center
+    im_h, im_w = im.shape
+    # truncate the bounding box when it exceeds image size
+    bbox = np.rint([max(cy - height / 2, 0),
+                   max(cx - width / 2, 0),
+                   min(cy + height / 2, im_h),
+                   min(cx + width / 2, im_w)]).astype(np.int32)
+    crop = im[bbox[0]:bbox[2], bbox[1]:bbox[3]]
     return crop, bbox
-
 
 def thresh_and_binarize(image_, method='rosin', invert=True, min_size=10, thr_percent=95):
     """
@@ -334,10 +329,6 @@ def thresh_and_binarize(image_, method='rosin', invert=True, min_size=10, thr_pe
 
     elif method == 'otsu':
         spots = create_otsu_mask(image_, scale=1)
-
-    # elif method == 'multi_otsu':
-    #     n_class = 3
-    #     spots = create_multiotsu_mask(image_, n_class=n_class, fg_class=n_class - 1)
 
     elif method == 'rosin':
         spots = create_unimodal_mask(image_, str_elem_size=3)

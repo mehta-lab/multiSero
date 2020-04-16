@@ -1,7 +1,7 @@
 # bchhun, {2020-04-06}
 
 import numpy as np
-from ..extract.img_processing import crop_image, thresh_and_binarize
+from ..extract.img_processing import crop_image_at_center, thresh_and_binarize
 from ..extract.image_parser import generate_props
 from ..utils.mock_regionprop import MockRegionprop
 
@@ -56,7 +56,7 @@ def build_centroid_binary_blocks(cent_list, image_, params_, return_type='region
     elif return_type == 'region':
         return target
 
-def coord_to_spot_int(coords, im_int, background, params):
+def get_spot_intensity(coords, im_int, background, params):
     """
     Extract signal and background intensity at each spot given the spot coordinate
     with the followling steps:
@@ -78,11 +78,11 @@ def coord_to_spot_int(coords, im_int, background, params):
 
     # values in mm
     spot_width = params['spot_width']
-    PIX_SIZE = params['pixel_size_scienion']
+    pix_size = params['pixel_size_scienion']
     n_rows = params['rows']
     n_cols = params['columns']
-
-    spot_size = int(0.6 * spot_width / PIX_SIZE)
+    # make spot size always odd
+    spot_size = 2 * int(0.3 * spot_width / pix_size) + 1
     bbox_width = bbox_height = spot_size
 
     y_min = np.min(coords[:, 0])
@@ -102,35 +102,29 @@ def coord_to_spot_int(coords, im_int, background, params):
         grid_x_idx = int(round((n_cols - 1) * ((cen_x - x_min) / x_range)))
         grid_id = (grid_y_idx, grid_x_idx)
         label = 0
-        coord = [grid_id[0]/(n_rows - 1) * y_range + y_min,
-                         grid_id[1]/(n_cols - 1) * x_range + x_min]
         # make bounding boxes larger to account for interpolation errors
-        im_1spot_lg, bbox_lg = crop_image(im_int,
-                                coord[1],
-                                coord[0],
-                                2 * bbox_width,
-                                border_=0,
-                                last_pix=True)
+        im_1spot_lg, bbox_lg = crop_image_at_center(im_int,
+                                                    coord,
+                                                    4 * bbox_height,
+                                                    4 * bbox_width,
+                                                    )
 
-        bg_1spot_lg, _ = crop_image(background,
-                                  coord[1],
-                                  coord[0],
-                                  2 * bbox_width,
-                                  border_=0,
-                                  last_pix=True)
-        im_1spot, bbox = crop_image(im_int,
-                          coord[1],
-                          coord[0],
-                          bbox_width / 2,
-                          border_=0,
-                          last_pix=True)
+        bg_1spot_lg, _ = crop_image_at_center(background,
+                                              coord,
+                                              4 * bbox_height,
+                                              4 * bbox_width,
+                                              )
+        im_1spot, bbox = crop_image_at_center(im_int,
+                                              coord,
+                                              bbox_height,
+                                              bbox_width,
+                                              )
 
-        bg_1spot, _ = crop_image(background,
-                                    coord[1],
-                                    coord[0],
-                                    bbox_width / 2,
-                                    border_=0,
-                                    last_pix=True)
+        bg_1spot, _ = crop_image_at_center(background,
+                                           coord,
+                                           bbox_height,
+                                           bbox_width,
+                                           )
 
         prop_int = MockRegionprop(intensity_image=im_1spot,
                               centroid=coord,

@@ -4,7 +4,8 @@ from array_analyzer.extract.txt_parser import *
 from array_analyzer.extract.img_processing import *
 from array_analyzer.load.debug_images import *
 from array_analyzer.transform.property_filters import *
-
+import array_analyzer.transform.array_generation as array_gen
+import re
 import time
 from datetime import datetime
 import skimage.io as io
@@ -72,8 +73,9 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
         bgprops_array = create_array(params['rows'], params['columns'], dtype=object)
 
         # finding center of well and cropping
-        cx, cy, r, well_mask = find_well_border(image, detmethod='region', segmethod='otsu')
-        im_crop, _ = crop_image(image, cx, cy, r, border_=0)
+        well_center, well_radi, well_mask = find_well_border(image, detmethod='region', segmethod='otsu')
+        im_crop, _ = \
+            crop_image_at_center(image, well_center, 2 * well_radi, 2 * well_radi)
 
         # find center of spots from crop
         spot_mask = thresh_and_binarize(im_crop, method='bright_spots')
@@ -100,69 +102,32 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
             io.imsave(output_name + "_crop_bg_overlay.png",
                       (255 * im_bg_overlay).astype('uint8'))
 
-        if method == 'fit':
-            spot_props = select_props(spot_props, attribute="area", condition="greater_than", condition_value=300)
-            fiducial_locations = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
-            pix_size = 0.0049 # in mm
-            props_by_loc = find_fiducials_markers(spot_props,
-                                                  fiducial_locations,
-                                                  params['rows'],
-                                                  params['columns'],
-                                                  params['v_pitch'],
-                                                  params['h_pitch'],
-                                                  im_crop.shape,
-                                                  pix_size)
+        bg_props = generate_props(spot_mask, intensity_image_=background)
+        # eccentricities = np.array([prop.eccentricity for prop in spot_props])
+        # eccent_ub = eccentricities.mean() + 2.5 * eccentricities.std()
+        # spot_props = select_props(spot_props, attribute="area", condition="greater_than", condition_value=300)
+        # spot_props = select_props(spot_props, attribute="eccentricity", condition="less_than",
+        #                           condition_value=eccent_ub)
+        spot_labels = [p.label for p in spot_props]
+        bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
 
-            spot_props_array = assign_props_to_array_2(spot_props_array, props_by_loc)
-
-            # use the spot_props_array to find fiducials, create a new spot_mask "placed" on the array
-            placed_spotmask = build_and_place_block_array(spot_props_array, spot_mask, params, return_type='region')
-
-            spot_props = generate_props(placed_spotmask, intensity_image_=im_crop)
-            bg_props = generate_props(placed_spotmask, intensity_image_=background)
-
-            spot_labels = [p.label for p in spot_props]
-            bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
-
-            props_placed_by_loc = generate_props_dict(spot_props,
-                                                      params['rows'],
-                                                      params['columns'],
-                                                      min_area=100)
-            bgprops_by_loc = generate_props_dict(bg_props,
-                                                 params['rows'],
-                                                 params['columns'],
-                                                 min_area=100)
-        elif method == 'interp':
-            bg_props = generate_props(spot_mask, intensity_image_=background)
-            # eccentricities = np.array([prop.eccentricity for prop in spot_props])
-            # eccent_ub = eccentricities.mean() + 2.5 * eccentricities.std()
-            # spot_props = select_props(spot_props, attribute="area", condition="greater_than", condition_value=300)
-            # spot_props = select_props(spot_props, attribute="eccentricity", condition="less_than",
-            #                           condition_value=eccent_ub)
-            spot_labels = [p.label for p in spot_props]
-            bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
-
-            props_placed_by_loc, bgprops_by_loc = \
-                grid_from_centroids(spot_props,
-                                   im_crop,
-                                   background,
-                                   params['rows'],
-                                   params['columns'],
-                                   )
-            # This call to generate_props_dict is excessive.
-            # Both spot_props and bgprops can be assigned locations in previous call.
-
-            # bgprops_by_loc = grid_from_centroids(bg_props,
-            #                                      background,
-            #                                      params['rows'],
-            #                                      params['columns'],
-            #                                      )
-        props_array_placed = assign_props_to_array(spot_props_array, props_placed_by_loc)
+        crop_coords = \
+            grid_from_centroids(spot_props,
+                               im_crop,
+                               background,
+                               params['rows'],
+                               params['columns'],
+                               )
+        props_by_loc, bgprops_by_loc = \
+            array_gen.get_spot_intensity(
+                coords=crop_coords,
+                im_int=im_crop,
+                background=background,
+                params=params
+            )
+        props_array_placed = assign_props_to_array(spot_props_array, props_by_loc)
         bgprops_array = assign_props_to_array(bgprops_array, bgprops_by_loc)
 
-        # todo: further calculations using bgprops, spot_props here
-        # TODO: compute spot and background intensities,
-        #  and then show them on a plate like graphic (visualize_elisa_spots).
         od_well, int_well, bg_well = compute_od(props_array_placed, bgprops_array)
 
         pd_OD = pd.DataFrame(od_well)
@@ -193,14 +158,9 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
                 bg_well,
                 output_name,
             )
-
-            #
-            # #   save spots
-            # save_all_wells(spot_props_array, spot_ids, well_path, image_name[:-4])
-            #
             # #   save a composite of all spots, where spots are from source or from region prop
-            save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=True)
-            save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=False)
+            save_composite_spots(im_crop, props_array_placed, output_name, from_source=True)
+            save_composite_spots(im_crop, props_array_placed, output_name, from_source=False)
 
             stop2 = time.time()
             print(f"\ttime to save debug={stop2-stop}")

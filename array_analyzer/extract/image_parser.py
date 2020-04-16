@@ -17,7 +17,7 @@ from skimage.feature import canny
 from skimage.morphology import binary_closing, binary_dilation, selem, disk, binary_opening
 from skimage import measure
 
-from .img_processing import crop_image, thresh_and_binarize
+from .img_processing import crop_image_at_center, thresh_and_binarize
 from ..utils.mock_regionprop import MockRegionprop
 
 """
@@ -112,7 +112,7 @@ def find_well_border(image, segmethod='bimodal', detmethod='region'):
     else:
         cx, cy, radii = None, None, None
 
-    return cx, cy, radii, well_mask
+    return [cy, cx], radii, well_mask
 
 
 def clean_spot_binary(arr, kx=10, ky=10):
@@ -351,7 +351,7 @@ def grid_from_centroids(props_, im_int, background, n_rows, n_cols, dist_flr=Tru
     bbox_area_mean = np.mean(bbox_areas)
     area_mean = np.mean(areas)
     # bbox_width = bbox_height = int(np.sqrt(bbox_area_mean))
-    bbox_width = bbox_height = int(1.5 * np.sqrt(area_mean / np.pi))
+    bbox_width = bbox_height = 2 * int(0.5 * np.sqrt(area_mean / np.pi)) + 1
 
     y_min_idx = np.argmin(centroids[:, 0])
     y_min = centroids[y_min_idx, 0]
@@ -449,95 +449,11 @@ def grid_from_centroids(props_, im_int, background, n_rows, n_cols, dist_flr=Tru
     y_range = y_max - y_min
     x_range = x_max - x_min
     grid_ids = list(itertools.product(range(n_rows), range(n_cols)))
-    grid_ids_detected = []
-    cent_map = {}
-    cent_map_bg = {}
-    # for prop in props_:
-    #         cen_y, cen_x = prop.weighted_centroid
-    #         # convert the centroid position to an integer that maps to array indices
-    #         grid_y_idx = int(round((n_rows - 1) * ((cen_y - y_min) / y_range)))
-    #         grid_x_idx = int(round((n_cols - 1) * ((cen_x - x_min) / x_range)))
-    #         grid_id = (grid_y_idx, grid_x_idx)
-    #         if grid_id in grid_ids:
-    #             grid_ids_detected.append(grid_id)
-    #             cent_map[grid_id] = prop
-
-    # if len(grid_ids_detected) != len(set(grid_ids_detected)):
-    #     print("ERROR, DUPLICATE ENTRIES")
-    #     raise AttributeError("generate props array failed\n"
-    #                          "duplicate spots found in one position\n")
-    # Add missing spots
-    label = 0
-    for grid_id in grid_ids:
-        if grid_id not in grid_ids_detected:
-            # make mock regionprop objects to hold the properties
-
-            grid_coords = [grid_id[0]/(n_rows - 1) * y_range + y_min,
-                             grid_id[1]/(n_cols - 1) * x_range + x_min]
-            # make bounding boxes larger to account for interpolation errors
-            im_1spot_lg, bbox_lg = crop_image(im_int,
-                                              grid_coords[1],
-                                              grid_coords[0],
-                                              2 * bbox_width,
-                                              border_=0,
-                                              last_pix=True)
-
-            bg_1spot_lg, _ = crop_image(background,
-                                        grid_coords[1],
-                                        grid_coords[0],
-                                        2 * bbox_width,
-                                        border_=0,
-                                        last_pix=True)
-            im_1spot, bbox = crop_image(im_int,
-                                        grid_coords[1],
-                                        grid_coords[0],
-                                        bbox_width / 2,
-                                        border_=0,
-                                        last_pix=True)
-
-            bg_1spot, _ = crop_image(background,
-                                     grid_coords[1],
-                                     grid_coords[0],
-                                     bbox_width / 2,
-                                     border_=0,
-                                     last_pix=True)
-
-            prop_int = MockRegionprop(intensity_image=im_1spot,
-                                  centroid=grid_coords,
-                                  label=label,
-                                  bbox=bbox)
-
-            prop_bg = MockRegionprop(intensity_image=bg_1spot,
-                                      centroid=grid_coords,
-                                      label=label,
-                                     bbox=bbox)
-
-            mask_1spot = thresh_and_binarize(im_1spot_lg, method='bright_spots', invert=True, min_size=10, thr_percent=92)
-            if np.any(mask_1spot):
-                for prop, im in zip([prop_int, prop_bg], [im_1spot_lg, bg_1spot_lg]):
-                    prop_df = generate_props(mask_1spot, intensity_image_=im, dataframe=True)
-                    # select the object with max area
-                    if len(prop_df.index) > 1:
-                        prop_df = prop_df.loc[[prop_df['area'].idxmax()]]
-                        prop_df.reset_index(drop=True, inplace=True)
-
-                    if len(prop_df.index) == 1:
-                        prop.mean_intensity = prop_df.at[0, 'mean_intensity']
-                        prop.intensity_image = prop_df.at[0, 'intensity_image']
-                        prop.image = prop_df.at[0, 'image']
-                        prop.median_intensity = np.median(prop.intensity_image[prop.image])
-                        prop.centroid = [bbox_lg[0] + prop_df.at[0, 'centroid-0'],
-                                         bbox_lg[1] + prop_df.at[0, 'centroid-1']]
-                        prop.bbox = [bbox_lg[0] + prop_df.at[0, 'bbox-0'],
-                                     bbox_lg[1] + prop_df.at[0, 'bbox-1'],
-                                     bbox_lg[0] + prop_df.at[0, 'bbox-2'],
-                                     bbox_lg[1] + prop_df.at[0, 'bbox-3']
-                                     ]
-
-            cent_map[grid_id] = prop_int
-            cent_map_bg[grid_id] = prop_bg
-            label += 1
-    return cent_map, cent_map_bg
+    coords = np.ndarray((len(grid_ids), 2))
+    for idx, grid_id in enumerate(grid_ids):
+        coords[idx, :] = [grid_id[0]/(n_rows - 1) * y_range + y_min,
+                grid_id[1]/(n_cols - 1) * x_range + x_min]
+    return coords
 
 
 def assign_props_to_array(arr, cent_map_):

@@ -112,8 +112,8 @@ def point_registration(input_folder, output_folder, debug=False):
             max_thresh=255,
             min_circularity=0,
             min_convexity=0,
-            minDistBetweenBlobs=10,
-            minRepeatability=2,
+            min_dist_between_blobs=10,
+            min_repeatability=2,
         )
 
         # Initial estimate of spot center
@@ -163,7 +163,7 @@ def point_registration(input_folder, output_folder, debug=False):
                       (255 * im_bg_overlay).astype('uint8'))
 
         props_placed_by_loc, bgprops_by_loc = \
-            array_gen.coord_to_spot_int(
+            array_gen.get_spot_intensity(
                 coords=crop_coords,
                 im_int=im_crop,
                 background=background,
@@ -222,7 +222,7 @@ def point_registration(input_folder, output_folder, debug=False):
                 from_source=False,
             )
 
-            # # Save image with spots
+            # Save image with spots
             debug_plots.plot_centroid_overlay(
                 im_crop,
                 params,
@@ -230,17 +230,6 @@ def point_registration(input_folder, output_folder, debug=False):
                 bgprops_by_loc,
                 output_name,
             )
-            # shift the spot and grid coords based on "crop"
-            dx = np.mean(reg_coords[:, 0] - crop_coords[:, 0])
-            dy = np.mean(reg_coords[:, 1] - crop_coords[:, 1])
-            plt.plot(spot_coords[:, 0] - dx, spot_coords[:, 1] - dy, 'rx', ms=8)
-            plt.plot(grid_coords[:, 0] - dx, grid_coords[:, 1] - dy, 'b+', ms=8)
-            plt.plot(crop_coords[:, 0], crop_coords[:, 1], 'g.', ms=8)
-            write_name = image_name[:-4] + '_registration.jpg'
-            figICP = plt.gcf()
-            figICP.savefig(os.path.join(run_path, write_name), bbox_inches='tight')
-            plt.close(figICP)
-
 
             im_roi = image.copy()
             im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
