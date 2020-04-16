@@ -22,7 +22,7 @@ FIDUCIALS_IDX_8COLS = [0, 7, 8, 40, 47]
 SCENION_SPOT_DIST = 82
 # The expected standard deviations could be estimated from training data
 # Just winging it for now
-STDS = np.array([100, 100, .1, .001])  # x, y, angle, scale
+STDS = np.array([500, 500, .1, .001])  # x, y, angle, scale
 
 
 def point_registration(input_folder, output_folder, debug=False):
@@ -81,8 +81,11 @@ def point_registration(input_folder, output_folder, debug=False):
 
     # sort by letter, then by number (with '10' coming AFTER '9')
     well_images.sort(key=lambda x: (x[0], int(x[1:-4])))
-
+    # well_images = ['H11.png', 'C12.png', 'D5.png', 'D6.png', 'D7.png', 'D8.png']
+    # well_images = ['C4.png']
     for image_name in well_images:
+        if debug:
+            output_name = os.path.join(run_path, image_name[:-4])
         start_time = time.time()
         image = image_parser.read_gray_im(os.path.join(input_folder, image_name))
 
@@ -104,7 +107,13 @@ def point_registration(input_folder, output_folder, debug=False):
 
         spot_coords = img_processing.get_spot_coords(
             image,
-            min_area=250,
+            min_area=200,
+            min_thresh=0,
+            max_thresh=255,
+            min_circularity=0,
+            min_convexity=0,
+            min_dist_between_blobs=10,
+            min_repeatability=2,
         )
 
         # Initial estimate of spot center
@@ -130,6 +139,7 @@ def point_registration(input_folder, output_folder, debug=False):
             spot_coords=spot_coords,
             particles=particles,
             stds=STDS,
+            stop_criteria=0.1
         )
         # Transform grid coordinates
         reg_coords = np.squeeze(cv.transform(np.array([grid_coords]), t_matrix))
@@ -139,51 +149,26 @@ def point_registration(input_folder, output_folder, debug=False):
             im=image,
             grid_coords=reg_coords
         )
-
+        im_crop = im_crop / np.iinfo(im_crop.dtype).max
         # # Estimate and remove background
         background = img_processing.get_background(
             im_crop,
             fit_order=2,
-            normalize=True,
+            normalize=False,
         )
-        # im_crop = im_crop / background
-        im_crop = im_crop / np.iinfo(im_crop.dtype).max
+        # Evaluate accuracy of background estimation with green (image), magenta (background) overlay.
+        if debug:
+            im_bg_overlay = np.stack([background, im_crop, background], axis=2)
+            io.imsave(output_name + "_crop_bg_overlay.png",
+                      (255 * im_bg_overlay).astype('uint8'))
 
-        placed_spotmask = array_gen.build_centroid_binary_blocks(
-            crop_coords,
-            im_crop,
-            params,
-        )
-        spot_props = image_parser.generate_props(
-            placed_spotmask,
-            intensity_image_=im_crop,
-        )
-        bg_props = image_parser.generate_props(
-            placed_spotmask,
-            intensity_image_=background,
-        )
-
-        # unnecessary?  both receive the same spotmask
-        spot_labels = [p.label for p in spot_props]
-        bg_props = image_parser.select_props(
-            bg_props,
-            attribute="label",
-            condition="is_in",
-            condition_value=spot_labels,
-        )
-        props_placed_by_loc = image_parser.generate_props_dict(
-            spot_props,
-            params['rows'],
-            params['columns'],
-            min_area=100,
-        )
-        bgprops_by_loc = image_parser.generate_props_dict(
-            bg_props,
-            params['rows'],
-            params['columns'],
-            min_area=100,
-        )
-
+        props_placed_by_loc, bgprops_by_loc = \
+            array_gen.get_spot_intensity(
+                coords=crop_coords,
+                im_int=im_crop,
+                background=background,
+                params=params
+            )
         props_array_placed = image_parser.assign_props_to_array(
             props_array,
             props_placed_by_loc,
@@ -214,7 +199,7 @@ def point_registration(input_folder, output_folder, debug=False):
             pd_int.to_excel(xlwriter_int, sheet_name=image_name[:-4])
             pd_bg = pd.DataFrame(bg_well)
             pd_bg.to_excel(xlwriter_bg, sheet_name=image_name[:-4])
-            output_name = os.path.join(run_path, image_name[:-4])
+
 
             # Save a composite of all spots, where spots are from source or from region prop
             debug_plots.plot_od(
@@ -230,7 +215,22 @@ def point_registration(input_folder, output_folder, debug=False):
                 from_source=True,
             )
 
-            # # Save image with spots
+            debug_plots.save_composite_spots(
+                im_crop,
+                props_array_placed,
+                output_name,
+                from_source=False,
+            )
+
+            # Save image with spots
+            debug_plots.plot_centroid_overlay(
+                im_crop,
+                params,
+                props_placed_by_loc,
+                bgprops_by_loc,
+                output_name,
+            )
+
             im_roi = image.copy()
             im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
             plt.imshow(im_roi)
