@@ -1,5 +1,6 @@
 # bchhun, {2020-03-26}
 
+import cv2 as cv
 import skimage as si
 import skimage.io
 import os
@@ -151,3 +152,29 @@ def plot_od(od_well,
     od_debug = output_name + '_od.png'
     figOD.savefig(od_debug)
     plt.close(figOD)
+
+
+def plot_registration(image,
+                      spot_coords,
+                      grid_coords,
+                      reg_coords,
+                      output_name,
+                      margin=100):
+
+    all_coords = np.vstack([spot_coords, grid_coords, reg_coords])
+    im_shape = image.shape
+    x_min = int(max(margin, np.min(all_coords[:, 0]) - margin))
+    x_max = int(min(im_shape[1] - margin, np.max(all_coords[:, 0]) + margin))
+    y_min = int(max(margin, np.min(all_coords[:, 1]) - margin))
+    y_max = int(min(im_shape[0] - margin, np.max(all_coords[:, 1]) + margin))
+    im_roi = image[y_min:y_max, x_min:x_max]
+
+    im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
+    plt.imshow(im_roi)
+    plt.plot(spot_coords[:, 0] - x_min + 1, spot_coords[:, 1] - y_min + 1, 'rx', ms=8)
+    plt.plot(grid_coords[:, 0] - x_min + 1, grid_coords[:, 1] - y_min + 1, 'b+', ms=8)
+    plt.plot(reg_coords[:, 0] - x_min + 1, reg_coords[:, 1] - y_min + 1, 'g.', ms=8)
+    plt.axis('off')
+    fig_save = plt.gcf()
+    fig_save.savefig(output_name + '_registration.png', bbox_inches='tight')
+    plt.close(fig_save)

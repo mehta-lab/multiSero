@@ -56,6 +56,7 @@ def build_centroid_binary_blocks(cent_list, image_, params_, return_type='region
     elif return_type == 'region':
         return target
 
+
 def get_spot_intensity(coords, im_int, background, params):
     """
     Extract signal and background intensity at each spot given the spot coordinate
@@ -64,6 +65,7 @@ def get_spot_intensity(coords, im_int, background, params):
     2. Segment 1 single spot from each image
     3. Get median intensity within the spot mask
     4. If segmentation in 2. returns no mask, use a circular mask with average spot size as the spot mask and do 3.
+
     :param coords: list or tuple
         [row, col] coordinates of spots
     :param im_int: ndarray
@@ -75,7 +77,6 @@ def get_spot_intensity(coords, im_int, background, params):
     :return: dict
         dictionary with format (row index, column index): prop
     """
-
     # values in mm
     spot_width = params['spot_width']
     pix_size = params['pixel_size_scienion']

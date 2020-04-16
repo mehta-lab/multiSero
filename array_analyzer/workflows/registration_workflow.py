@@ -55,7 +55,8 @@ def point_registration(input_folder, output_folder, debug=False):
     # save a sub path for this processing run
     run_path = os.path.join(
         output_folder,
-        '_'.join([str(datetime.now().month),
+        '_'.join([os.path.basename(os.path.normpath(input_folder)),
+                  str(datetime.now().month),
                   str(datetime.now().day),
                   str(datetime.now().hour),
                   str(datetime.now().minute),
@@ -63,9 +64,9 @@ def point_registration(input_folder, output_folder, debug=False):
     )
     os.makedirs(run_path, exist_ok=True)
 
-    xlwriterOD = pd.ExcelWriter(os.path.join(run_path, 'ODs.xlsx'))
+    xlwriter_od = pd.ExcelWriter(os.path.join(run_path, 'ODs.xlsx'))
     pdantigen = pd.DataFrame(antigen_array)
-    pdantigen.to_excel(xlwriterOD, sheet_name='antigens')
+    pdantigen.to_excel(xlwriter_od, sheet_name='antigens')
     if debug:
         xlwriter_int = pd.ExcelWriter(os.path.join(run_path, 'intensities.xlsx'))
         xlwriter_bg = pd.ExcelWriter(os.path.join(run_path, 'backgrounds.xlsx'))
@@ -81,11 +82,8 @@ def point_registration(input_folder, output_folder, debug=False):
 
     # sort by letter, then by number (with '10' coming AFTER '9')
     well_images.sort(key=lambda x: (x[0], int(x[1:-4])))
-    # well_images = ['H11.png', 'C12.png', 'D5.png', 'D6.png', 'D7.png', 'D8.png']
-    # well_images = ['C4.png']
+
     for image_name in well_images:
-        if debug:
-            output_name = os.path.join(run_path, image_name[:-4])
         start_time = time.time()
         image = image_parser.read_gray_im(os.path.join(input_folder, image_name))
 
@@ -156,19 +154,13 @@ def point_registration(input_folder, output_folder, debug=False):
             fit_order=2,
             normalize=False,
         )
-        # Evaluate accuracy of background estimation with green (image), magenta (background) overlay.
-        if debug:
-            im_bg_overlay = np.stack([background, im_crop, background], axis=2)
-            io.imsave(output_name + "_crop_bg_overlay.png",
-                      (255 * im_bg_overlay).astype('uint8'))
 
-        props_placed_by_loc, bgprops_by_loc = \
-            array_gen.get_spot_intensity(
-                coords=crop_coords,
-                im_int=im_crop,
-                background=background,
-                params=params
-            )
+        props_placed_by_loc, bgprops_by_loc = array_gen.get_spot_intensity(
+            coords=crop_coords,
+            im_int=im_crop,
+            background=background,
+            params=params,
+        )
         props_array_placed = image_parser.assign_props_to_array(
             props_array,
             props_placed_by_loc,
@@ -182,8 +174,8 @@ def point_registration(input_folder, output_folder, debug=False):
             bgprops_array,
         )
 
-        pd_OD = pd.DataFrame(od_well)
-        pd_OD.to_excel(xlwriterOD, sheet_name=image_name[:-4])
+        pd_od = pd.DataFrame(od_well)
+        pd_od.to_excel(xlwriter_od, sheet_name=image_name[:-4])
 
         print("Time to register grid to {}: {:.3f} s".format(
             image_name,
@@ -200,6 +192,11 @@ def point_registration(input_folder, output_folder, debug=False):
             pd_bg = pd.DataFrame(bg_well)
             pd_bg.to_excel(xlwriter_bg, sheet_name=image_name[:-4])
 
+            output_name = os.path.join(run_path, image_name[:-4])
+            # # Evaluate accuracy of background estimation with green (image), magenta (background) overlay.
+            # im_bg_overlay = np.stack([background, im_crop, background], axis=2)
+            # io.imsave(output_name + "_crop_bg_overlay.png",
+            #           (255 * im_bg_overlay).astype('uint8'))
 
             # Save a composite of all spots, where spots are from source or from region prop
             debug_plots.plot_od(
@@ -214,33 +211,14 @@ def point_registration(input_folder, output_folder, debug=False):
                 output_name,
                 from_source=True,
             )
-
-            debug_plots.save_composite_spots(
-                im_crop,
-                props_array_placed,
-                output_name,
-                from_source=False,
-            )
-
-            # Save image with spots
-            debug_plots.plot_centroid_overlay(
-                im_crop,
-                params,
-                props_placed_by_loc,
-                bgprops_by_loc,
+            debug_plots.plot_registration(
+                image,
+                spot_coords,
+                grid_coords[fiducials_idx, :],
+                reg_coords,
                 output_name,
             )
 
-            im_roi = image.copy()
-            im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
-            plt.imshow(im_roi)
-            plt.plot(spot_coords[:, 0], spot_coords[:, 1], 'rx', ms=5)
-            plt.plot(grid_coords[fiducials_idx, 0], grid_coords[fiducials_idx, 1], 'b+', ms=5)
-            plt.plot(reg_coords[:, 0], reg_coords[:, 1], 'g.', ms=5)
-            plt.axis('off')
-            fig_save = plt.gcf()
-            fig_save.savefig(output_name + '_registration.jpg', bbox_inches='tight')
-            plt.close(fig_save)
             print("Time to save debug images: {:.3f} s".format(
                 time.time() - start_time),
             )
@@ -248,4 +226,4 @@ def point_registration(input_folder, output_folder, debug=False):
             xlwriter_int.close()
             xlwriter_bg.close()
 
-    xlwriterOD.close()
+    xlwriter_od.close()

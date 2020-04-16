@@ -178,7 +178,6 @@ def get_spot_coords(im,
     params.minDistBetweenBlobs = min_dist_between_blobs
     params.minRepeatability = min_repeatability
 
-
     detector = cv.SimpleBlobDetector_create(params)
 
     im_norm = cv.GaussianBlur(im, (blur_sigma, blur_sigma), 0)

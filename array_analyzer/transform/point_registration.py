@@ -161,7 +161,6 @@ def particle_filter(fiducial_coords,
 
     # Iterate until min dist doesn't change
     min_dist_old = 10 ** 6
-    mean_dist_old = 10 ** 6
     for i in range(max_iter):
 
         # im_roi = image.copy()
