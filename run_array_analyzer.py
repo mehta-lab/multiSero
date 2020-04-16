@@ -4,6 +4,7 @@ import os
 import array_analyzer.workflows.registration_workflow as registration_wf
 import array_analyzer.workflows.interpolation_wf as interpolation_wf
 import array_analyzer.workflows.well_wf as well_wf
+import array_analyzer.extract.constants as c
 
 
 def parse_args():
@@ -38,6 +39,13 @@ def parse_args():
         action='store_true',
         help="Write debug plots of well and spots",
     )
+    parser.add_argument(
+        '-m', '--metadata',
+        type=str,
+        required=True,
+        choices=['xml', 'csv', 'xlsx'],
+        help="specify the file extension for the experiment metadata"
+    )
     parser.set_defaults(debug=False)
 
     return parser.parse_args()
@@ -51,8 +59,7 @@ def run_workflow(input_dir, output_dir, workflow, debug=False):
 
     :param str input_dir: Input directory path
     :param str output_dir: Output directory path
-    :param str format: array or well
-    :param str method: interp (interpolation) or fit (registration of fiducials)
+    :param str workflow: 'well_segmentation', 'well_crop', 'array_interp', 'array_fit'
     :param bool debug: Write debug plots to output directory
     """
 
@@ -92,6 +99,8 @@ def run_workflow(input_dir, output_dir, workflow, debug=False):
 
 if __name__ == '__main__':
     args = parse_args()
+    c.METADATA_EXTENSION = args.metadata
+
     run_workflow(
         input_dir=args.input,
         output_dir=args.output,

@@ -14,13 +14,39 @@ class MetaData:
         :param input_folder_:
         :param output_folder_:
         """
-        xml = [f for f in os.listdir(input_folder_) if '.xml' in f]
-        if len(xml) > 1:
-            raise IOError("more than one .xml file found, aborting")
-        xml_path = input_folder_ + os.sep + xml[0]
 
-        # parsing .xml
-        fiduc_, spots_, repl_, params_ = txt_parser.create_xml_dict(xml_path)
+        fiduc_, spots_, repl_, params_ = None, None, None, None
+        if c.METADATA_EXTENSION == 'xml':
+            # check that exactly one .xml is in the data folder
+            xml = [f for f in os.listdir(input_folder_) if '.xml' in f]
+            if len(xml) > 1:
+                raise IOError("more than one .xml file found, aborting")
+            xml_path = os.path.join(input_folder_, xml[0])
+
+            # parsing .xml
+            fiduc_, spots_, repl_, params_ = txt_parser.create_xml_dict(xml_path)
+
+        elif c.METADATA_EXTENSION == 'well':
+            self._set_run_path(output_folder_)
+            return
+
+        elif c.METADATA_EXTENSION == 'csv':
+            # check that three .csvs exist
+            three_csvs = ['array_format_antigen', 'array_format_type', 'array_parameters']
+            csvs = [f for f in os.listdir(input_folder_) if '.csv' in f]
+            if len(csvs) != 3:
+                raise IOError("incorrect number of .csv files found, aborting")
+            for target in three_csvs:
+                if True not in [target in file for file in csvs]:
+                    raise IOError(f".csv file with substring {target} is missing")
+
+            csv_paths = [os.path.join(input_folder_, one_csv) for one_csv in csvs]
+
+            # parsing .csv
+            fiduc_, _, repl_, params_ = txt_parser.create_csv_dict(csv_paths)
+
+        elif c.METADATA_EXTENSION == 'xlsx':
+            pass
 
         # setting constants
         c.fiducials = fiduc_

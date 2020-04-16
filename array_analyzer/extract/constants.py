@@ -4,6 +4,8 @@ The constants.py namespace contains constants used throughout the repo
     Set the values by populating the .xml or .csv file as per documentation
 """
 
+METADATA_EXTENSION = None
+
 # constants parsed from metadata
 #   the constants below are all dictionaries
 params = {

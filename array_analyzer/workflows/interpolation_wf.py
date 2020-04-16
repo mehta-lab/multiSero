@@ -17,6 +17,14 @@ import re
 
 
 def interp(input_folder_, output_folder_, method='interp', debug=False):
+    """
+
+    :param input_folder_:
+    :param output_folder_:
+    :param method:
+    :param debug:
+    :return:
+    """
 
     MetaData(input_folder_, output_folder_)
 

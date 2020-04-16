@@ -76,27 +76,48 @@ def create_csv_dict(path_):
         "array_format_type.csv" contains fiducial and control names, locations
         "array_format_antigen.csv" contains specific antigen names for only diagnostic spots
     Then, parses the .csvs and creates the four dictionaries:
-    :param path_:
+    :param path_: list
+        of strings to the .csv paths
     :return:
     """
-    # check for all .csv files
     # assign names to each of the types == params, spot types, antigens
-    fiduc = dict()
-    repl = dict()
+    fiduc = list()
+    csv_antigens = list()
     array_params = dict()
 
-    # load each file using this context
-    # for params:
-    with open(path_, newline='') as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=',')
-        for row in csv_reader:
-            print(row[0])
-            if "Parameter" in str(row[0]):
-                continue
-            else:
-                array_params[row[0]] = row[1]
+    for meta_csv in path_:
+        with open(meta_csv, newline='') as csv_file:
+            csv_reader = csv.reader(csv_file, delimiter=',')
+            for row in csv_reader:
+                # header row
+                if "Parameter" in str(row[0]) or '' in str(row[0]):
+                    continue
 
-    return fiduc, spots, repl, params
+                # parse params
+                elif "array_format_parameters" in meta_csv:
+                    array_params[row[0]] = row[1]
+
+                # parse fiducials
+                elif "array_format_type" in meta_csv:
+                    for col, value in enumerate(row[1:]):
+                        pos = {'@row': str(row[0]),
+                               '@col': str(col - 1),
+                               '@spot_type': str(value)}
+                        fiduc.append(pos)
+
+                # parse antigens
+                elif "array_format_antigen" in meta_csv:
+                    for col, value in enumerate(row[1:]):
+                        pos = {'@row': str(row[0]),
+                               '@col': str(col - 1),
+                               '@antigen': str(value)}
+                        csv_antigens.append(pos)
+
+    return fiduc, None, csv_antigens, array_params
+
+
+def create_xlsx_dict(path_):
+    pass
 
 
 def create_array(rows_, cols_, dtype='U100'):
@@ -148,9 +169,9 @@ def populate_array_spots_type(arr, spots, fiduc):
     :param arr: np.ndarray
         numpy array generated from "create_array"
     :param spots: dict
-        dict from "create_xml_dict"
-    :param fiduc: dict
-        dict from "create_xml_dict"
+        list of dict from "create_xml_dict"
+    :param fiduc: list
+        list of dict from "create_xml_dict"
     :return: np.ndarray
         populated array
     """
@@ -177,8 +198,8 @@ def populate_array_fiduc(arr, fiduc):
     assigns only fiducials to the positions of the array
     :param arr: np.ndarray
         target array
-    :param fiduc: dict
-        output of "create_xml_dict"
+    :param fiduc: list
+        list of dict output of "create_xml_dict"
     :return: np.ndarray
         modified target array
     """
@@ -215,3 +236,20 @@ def populate_array_antigen(arr, id_arr_, repl):
 
     return arr
 
+
+def populate_array_antigen_csv(arr, csv_antigens_):
+    """
+    populates an array with antigen
+        used for metadata obtained through .csv files
+    :param arr:
+    :param csv_antigens_: list
+        list of dictionaries whose keys define array coordinates and values
+    :return:
+    """
+    for antigen in csv_antigens_:
+        r = antigen['@row']
+        c = antigen['@col']
+        v = antigen['@antigen']
+        arr[r, c] = v
+
+    return arr
