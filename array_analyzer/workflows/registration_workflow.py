@@ -185,8 +185,8 @@ def point_registration(input_folder, output_folder, debug=False):
             bgprops_array,
         )
 
-        # pd_od = pd.DataFrame(od_well)
-        # pd_od.to_excel(xlwriter_od, sheet_name=image_name[:-4])
+        pd_od = pd.DataFrame(od_well)
+        pd_od.to_excel(xlwriter_od, sheet_name=image_name[:-4])
 
         print("Time to register grid to {}: {:.3f} s".format(
             image_name,
@@ -234,7 +234,7 @@ def point_registration(input_folder, output_folder, debug=False):
                 time.time() - start_time),
             )
 
-            # xlwriter_int.close()
-            # xlwriter_bg.close()
+            xlwriter_int.close()
+            xlwriter_bg.close()
 
     xlwriter_od.close()

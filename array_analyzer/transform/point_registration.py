@@ -201,7 +201,7 @@ def particle_filter(fiducial_coords,
         # plt.show()
 
         min_dist = np.min(dists)
-        print(min_dist)
+        # print(min_dist)
         # See if min dist is not decreasing anymore
         if abs(min_dist_old - min_dist) < stop_criteria:
             break
