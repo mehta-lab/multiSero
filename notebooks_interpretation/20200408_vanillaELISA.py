@@ -26,7 +26,7 @@ matplotlib.rc('font', **font)
 #%% Set paths
 
 data_folder = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_leica/20200408_VanillaELISA_Leica2.5x_2'
-data_file = os.path.join(data_folder, 'intensities.xlsx')
+data_file = os.path.join(data_folder, '4_20_14_37_24/intensities.xlsx')
 
 #%% Read the information as dataframe.
 
@@ -70,9 +70,9 @@ os.makedirs(fig_path, exist_ok=True)
 
 samplelist = ['Sample 1','Sample 2','Negative','Blank']
 selectsamples_exps = elisa_df[(elisa_df['sample'].isin(samplelist))]
-
+nColors=len(elisa_df['ab_dilution'].unique())
 g = sns.relplot(x="sample_dilution", y="od", hue="ab_dilution", col="sample", row='antibody', ci=None,
-                data=selectsamples_exps, estimator=np.nanmedian, kind='line')
+                data=selectsamples_exps, estimator=np.nanmedian, kind='line', palette=sns.color_palette("RdBu", n_colors=nColors))
 g.set(xscale="log",xlim=[1E-4,0.002])
 leg=g._legend
 leg.set_bbox_to_anchor((1.1,0.5))
@@ -81,8 +81,11 @@ plt.show()
 
 #%% Plot OD vs ab dilution per sample per antibody
 
+nColors=len(elisa_df['sample_dilution'].unique())
+# Color the lines by unique values of sample dilution.
+
 g = sns.relplot(x="ab_dilution", y="od", hue="sample_dilution", col="sample", row='antibody', ci=None,
-                data=selectsamples_exps, estimator=np.nanmedian, kind='line')
+                data=selectsamples_exps, estimator=np.nanmedian, kind='line', palette=sns.color_palette("RdBu", n_colors=nColors))
 g.set(xscale="log")
 leg=g._legend
 leg.set_bbox_to_anchor((1.1,0.5))
