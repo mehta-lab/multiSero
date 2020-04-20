@@ -143,7 +143,8 @@ def get_spot_coords(im,
                     min_convexity=0.5,
                     min_dist_between_blobs=10,
                     min_repeatability=2,
-                    blur_sigma=31):
+                    blur_sigma=31,
+                    tophat_size=35):
     """
     Use OpenCVs simple blob detector (thresholdings and grouping by properties)
     to detect all dark spots in the image
@@ -154,37 +155,39 @@ def get_spot_coords(im,
     :param int max_area: Maximum spot area in pixels
     :param float min_circularity: Minimum circularity of spots
     :param float min_convexity: Minimum convexity of spots
-    :return np.array spot_coords: x, y coordinates of spot centroids (nbr spots x 2)
-    :param blur_sigma: sigma of Gaussian filter to blur the image
-    :param int min_repeatability: minimal number of times the same spot has to be detected
-        at different thresholds
     :param float min_dist_between_blobs: minimal distance in pixels between two spots
         for them to be called as different spots
+    :param int min_repeatability: minimal number of times the same spot has to be detected
+        at different thresholds
+    :param blur_sigma: sigma of Gaussian filter to blur the image
+    :param int tophat_size: Size of black tophat filter
+    :return np.array spot_coords: x, y coordinates of spot centroids (nbr spots x 2)
     """
-    params = cv.SimpleBlobDetector_Params()
+    blob_params = cv.SimpleBlobDetector_Params()
 
     # Change thresholds
-    params.minThreshold = min_thresh
-    params.maxThreshold = max_thresh
+    blob_params.minThreshold = min_thresh
+    blob_params.maxThreshold = max_thresh
     # Filter by Area
-    params.filterByArea = True
-    params.minArea = min_area
-    params.maxArea = max_area
+    blob_params.filterByArea = True
+    blob_params.minArea = min_area
+    blob_params.maxArea = max_area
     # Filter by Circularity
-    params.filterByCircularity = True
-    params.minCircularity = min_circularity
+    blob_params.filterByCircularity = True
+    blob_params.minCircularity = min_circularity
     # Filter by Convexity
-    params.filterByConvexity = True
-    params.minConvexity = min_convexity
-    params.minDistBetweenBlobs = min_dist_between_blobs
-    params.minRepeatability = min_repeatability
-    params.blobColor = 255
+    blob_params.filterByConvexity = True
+    blob_params.minConvexity = min_convexity
+    blob_params.minDistBetweenBlobs = min_dist_between_blobs
+    blob_params.minRepeatability = min_repeatability
+    # This detects bright spots, which they are after top hat
+    blob_params.blobColor = 255
 
-    detector = cv.SimpleBlobDetector_create(params)
+    detector = cv.SimpleBlobDetector_create(blob_params)
 
     im_norm = cv.GaussianBlur(im, (blur_sigma, blur_sigma), 0)
-    # Top hat filter
-    im_norm = black_tophat(im_norm, size=(25, 25))
+    # Black top hat filter, turns spots bright
+    im_norm = black_tophat(im_norm, size=(tophat_size, tophat_size))
     im_norm = ((im_norm - im_norm.min()) / (im_norm.max() - im_norm.min()) * 255).astype(np.uint8)
     # Detect blobs
     keypoints = detector.detect(im_norm)

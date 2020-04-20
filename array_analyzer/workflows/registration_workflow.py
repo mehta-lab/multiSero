@@ -63,12 +63,16 @@ def point_registration(input_folder, output_folder, debug=False):
     )
     os.makedirs(run_path, exist_ok=True)
 
-    xlwriter_od = pd.ExcelWriter(os.path.join(run_path, 'ODs.xlsx'))
+    xlwriter_od = pd.ExcelWriter(os.path.join(run_path, 'intensitites_od.xlsx'))
     pdantigen = pd.DataFrame(antigen_array)
     pdantigen.to_excel(xlwriter_od, sheet_name='antigens')
     if debug:
-        xlwriter_int = pd.ExcelWriter(os.path.join(run_path, 'intensities.xlsx'))
-        xlwriter_bg = pd.ExcelWriter(os.path.join(run_path, 'backgrounds.xlsx'))
+        xlwriter_int = pd.ExcelWriter(
+            os.path.join(run_path, 'intensities_spots.xlsx'),
+        )
+        xlwriter_bg = pd.ExcelWriter(
+            os.path.join(run_path, 'intensities_backgrounds.xlsx'),
+        )
 
     # ================
     # loop over images
@@ -104,8 +108,8 @@ def point_registration(input_folder, output_folder, debug=False):
 
         spot_coords = img_processing.get_spot_coords(
             image,
-            min_area=200,
-            min_thresh=0,
+            min_area=250,
+            min_thresh=25,
             max_thresh=255,
             min_circularity=0,
             min_convexity=0,
@@ -137,9 +141,10 @@ def point_registration(input_folder, output_folder, debug=False):
             particles=particles,
             stds=STDS,
             stop_criteria=0.1,
+            debug=debug,
         )
         if min_dist > REG_DIST_THRESH:
-            print("Registration failed, remove outlier")
+            print("Registration failed, repeat with outlier removal")
             t_matrix, min_dist = registration.particle_filter(
                 fiducial_coords=fiducial_coords,
                 spot_coords=spot_coords,
@@ -147,25 +152,25 @@ def point_registration(input_folder, output_folder, debug=False):
                 stds=STDS,
                 stop_criteria=0.1,
                 remove_outlier=True,
+                debug=debug,
             )
-        # TODO: Flag bad fit if min_dist is still above threshold
+            # TODO: Flag bad fit if min_dist is still above threshold
 
         # Transform grid coordinates
         reg_coords = np.squeeze(cv.transform(np.array([grid_coords]), t_matrix))
-
         # Crop image
         im_crop, crop_coords = img_processing.crop_image_from_coords(
             im=image,
-            grid_coords=reg_coords
+            grid_coords=reg_coords,
         )
         im_crop = im_crop / np.iinfo(im_crop.dtype).max
-        # # Estimate and remove background
+        # Estimate and remove background
         background = img_processing.get_background(
             im_crop,
             fit_order=2,
             normalize=False,
         )
-
+        # Find spots near grid locations
         props_placed_by_loc, bgprops_by_loc = array_gen.get_spot_intensity(
             coords=crop_coords,
             im_int=im_crop,
@@ -184,7 +189,7 @@ def point_registration(input_folder, output_folder, debug=False):
             props_array_placed,
             bgprops_array,
         )
-
+        # Write ODs
         pd_od = pd.DataFrame(od_well)
         pd_od.to_excel(xlwriter_od, sheet_name=image_name[:-4])
 
@@ -197,19 +202,14 @@ def point_registration(input_folder, output_folder, debug=False):
         # SAVE FOR DEBUGGING
         if debug:
             start_time = time.time()
-            # Save spot and background intensities.
-            # pd_int = pd.DataFrame(int_well)
-            # pd_int.to_excel(xlwriter_int, sheet_name=image_name[:-4])
-            # pd_bg = pd.DataFrame(bg_well)
-            # pd_bg.to_excel(xlwriter_bg, sheet_name=image_name[:-4])
+            # Save spot and background intensities
+            pd_int = pd.DataFrame(int_well)
+            pd_int.to_excel(xlwriter_int, sheet_name=image_name[:-4])
+            pd_bg = pd.DataFrame(bg_well)
+            pd_bg.to_excel(xlwriter_bg, sheet_name=image_name[:-4])
 
             output_name = os.path.join(run_path, image_name[:-4])
-            # # Evaluate accuracy of background estimation with green (image), magenta (background) overlay.
-            # im_bg_overlay = np.stack([background, im_crop, background], axis=2)
-            # io.imsave(output_name + "_crop_bg_overlay.png",
-            #           (255 * im_bg_overlay).astype('uint8'))
-
-            # Save a composite of all spots, where spots are from source or from region prop
+            # Save OD plots, composite spots and registration
             debug_plots.plot_od(
                 od_well,
                 int_well,
@@ -229,11 +229,9 @@ def point_registration(input_folder, output_folder, debug=False):
                 reg_coords,
                 output_name,
             )
-
             print("Time to save debug images: {:.3f} s".format(
                 time.time() - start_time),
             )
-
             xlwriter_int.close()
             xlwriter_bg.close()
 

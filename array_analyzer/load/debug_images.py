@@ -122,7 +122,7 @@ def plot_centroid_overlay(im_crop,
                 plt.text(0, 0, im_name + ',spot count=' + str(len(props_by_loc)))
 
     figcentroid = plt.gcf()
-    centroids_debug = output_name + '_overlayCentroids.png'
+    centroids_debug = output_name + '_overlay_centroids.png'
     figcentroid.savefig(centroids_debug, bbox_inches='tight')
     plt.close(figcentroid)
 
@@ -160,6 +160,16 @@ def plot_registration(image,
                       reg_coords,
                       output_name,
                       margin=100):
+    """
+    Plots all detected spots, initial fiducial coordinates and registered grid.
+
+    :param np.array image: Input image
+    :param np.array spot_coords: Detected spot coordinates (nbr spots x 2)
+    :param np.array grid_coords: Initial estimate of fiducial coordinates
+    :param np.array reg_coords: Registered coordinates
+    :param str output_name: Path + well name, _registration.png will be added
+    :param int margin: Margin around spots to crop image before plotting
+    """
 
     all_coords = np.vstack([spot_coords, grid_coords, reg_coords])
     im_shape = image.shape
