@@ -163,12 +163,14 @@ def particle_filter(fiducial_coords,
     min_dist_old = 10 ** 6
     for i in range(max_iter):
 
-        # im_roi = image.copy()
+        # im_roi = im_norm.copy()
         # im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
-        # Distort particles
-        for c in range(4):
-            distort = np.random.randn(nbr_particles)
-            particles[:, c] = particles[:, c] + distort * temp_stds[c]
+        # for c in range(spot_coords.shape[0]):
+        #     coord = tuple(spot_coords[c, :].astype(np.int))
+        #     cv.circle(im_roi, coord, 2, (0, 0, 255), 10)
+        # plt.imshow(im_roi)
+        # plt.axis('off')
+        # plt.show()
 
         for p in range(nbr_particles):
             particle = particles[p]
@@ -190,6 +192,7 @@ def particle_filter(fiducial_coords,
         # plt.show()
 
         min_dist = np.min(dists)
+        print(min_dist)
         # See if min dist is not decreasing anymore
         if abs(min_dist_old - min_dist) < stop_criteria:
             break
@@ -206,6 +209,10 @@ def particle_filter(fiducial_coords,
 
         # Reduce standard deviations a little every iteration
         temp_stds = temp_stds * iter_decrease ** i
+        # Distort particles
+        for c in range(4):
+            distort = np.random.randn(nbr_particles)
+            particles[:, c] = particles[:, c] + distort * temp_stds[c]
 
     # Return best particle
     particle = particles[dists == dists.min(), :][0]

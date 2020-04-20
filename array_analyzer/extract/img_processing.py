@@ -5,6 +5,7 @@ import numpy as np
 
 from scipy.signal import find_peaks
 from scipy.ndimage.filters import gaussian_filter1d
+from scipy.ndimage.morphology import black_tophat
 from skimage import util as u
 from skimage.morphology import disk, ball, binary_opening, binary_erosion
 from skimage.filters import threshold_otsu, threshold_multiotsu, threshold_minimum
@@ -177,10 +178,15 @@ def get_spot_coords(im,
     params.minConvexity = min_convexity
     params.minDistBetweenBlobs = min_dist_between_blobs
     params.minRepeatability = min_repeatability
+    params.blobColor = 255
 
     detector = cv.SimpleBlobDetector_create(params)
 
+    blur_sigma = 25
     im_norm = cv.GaussianBlur(im, (blur_sigma, blur_sigma), 0)
+    # Top hat filter
+    im_norm = black_tophat(im_norm, size=(25, 25))
+    im_norm = ((im_norm - im_norm.min()) / (im_norm.max() - im_norm.min()) * 255).astype(np.uint8)
     # Detect blobs
     keypoints = detector.detect(im_norm)
 
@@ -302,6 +308,7 @@ def crop_image_at_center(im, center, height, width):
                    min(cx + width / 2, im_w)]).astype(np.int32)
     crop = im[bbox[0]:bbox[2], bbox[1]:bbox[3]]
     return crop, bbox
+
 
 def thresh_and_binarize(image_, method='rosin', invert=True, min_size=10, thr_percent=95):
     """

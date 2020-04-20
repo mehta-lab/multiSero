@@ -1,12 +1,10 @@
 import cv2 as cv
 from datetime import datetime
 import glob
-import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
 import re
-import skimage.io as io
 import time
 
 import array_analyzer.extract.image_parser as image_parser
@@ -174,8 +172,8 @@ def point_registration(input_folder, output_folder, debug=False):
             bgprops_array,
         )
 
-        pd_od = pd.DataFrame(od_well)
-        pd_od.to_excel(xlwriter_od, sheet_name=image_name[:-4])
+        # pd_od = pd.DataFrame(od_well)
+        # pd_od.to_excel(xlwriter_od, sheet_name=image_name[:-4])
 
         print("Time to register grid to {}: {:.3f} s".format(
             image_name,
@@ -187,10 +185,10 @@ def point_registration(input_folder, output_folder, debug=False):
         if debug:
             start_time = time.time()
             # Save spot and background intensities.
-            pd_int = pd.DataFrame(int_well)
-            pd_int.to_excel(xlwriter_int, sheet_name=image_name[:-4])
-            pd_bg = pd.DataFrame(bg_well)
-            pd_bg.to_excel(xlwriter_bg, sheet_name=image_name[:-4])
+            # pd_int = pd.DataFrame(int_well)
+            # pd_int.to_excel(xlwriter_int, sheet_name=image_name[:-4])
+            # pd_bg = pd.DataFrame(bg_well)
+            # pd_bg.to_excel(xlwriter_bg, sheet_name=image_name[:-4])
 
             output_name = os.path.join(run_path, image_name[:-4])
             # # Evaluate accuracy of background estimation with green (image), magenta (background) overlay.
@@ -223,7 +221,7 @@ def point_registration(input_folder, output_folder, debug=False):
                 time.time() - start_time),
             )
 
-            xlwriter_int.close()
-            xlwriter_bg.close()
+            # xlwriter_int.close()
+            # xlwriter_bg.close()
 
     xlwriter_od.close()
