@@ -182,7 +182,6 @@ def get_spot_coords(im,
 
     detector = cv.SimpleBlobDetector_create(params)
 
-    blur_sigma = 25
     im_norm = cv.GaussianBlur(im, (blur_sigma, blur_sigma), 0)
     # Top hat filter
     im_norm = black_tophat(im_norm, size=(25, 25))

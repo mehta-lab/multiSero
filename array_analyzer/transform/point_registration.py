@@ -132,7 +132,8 @@ def particle_filter(fiducial_coords,
                     stds,
                     max_iter=100,
                     stop_criteria=.01,
-                    iter_decrease=.8):
+                    iter_decrease=.8,
+                    remove_outlier=False):
     """
     Particle filtering to determine best grid location.
     Start with a number of randomly placed particles. Compute distances
@@ -147,7 +148,10 @@ def particle_filter(fiducial_coords,
     :param float stop_criteria: Absolute difference of distance between iterations
     :param float iter_decrease: Reduce standard deviations each iterations to slow
         down permutations
+    :param bool remove_outlier: If registration hasn't converged, remove worst fitted
+        spot when running particle filter
     :return np.array t_matrix: Estimated 2D translation matrix
+    :return float min_dist: Minimum total distance from fiducials to spots
     """
     # Pretrain spot coords
     dst = spot_coords.copy().astype(np.float32)
@@ -185,6 +189,11 @@ def particle_filter(fiducial_coords,
 
             # Find nearest spots
             ret, results, neighbors, dist = knn.findNearest(trans_coords, 1)
+            if remove_outlier:
+                # Remove worst fitted spot
+                remove_spot = np.where(np.squeeze(dist) != np.amax(dist))[0]
+                dist = dist[remove_spot]
+
             dists[p] = sum(dist)
 
         # plt.imshow(im_roi)
@@ -219,4 +228,4 @@ def particle_filter(fiducial_coords,
 
     # Generate transformation matrix
     t_matrix = get_translation_matrix(particle)
-    return t_matrix
+    return t_matrix, min_dist

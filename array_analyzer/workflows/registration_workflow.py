@@ -21,6 +21,7 @@ SCENION_SPOT_DIST = 82
 # The expected standard deviations could be estimated from training data
 # Just winging it for now
 STDS = np.array([500, 500, .1, .001])  # x, y, angle, scale
+REG_DIST_THRESH = 1000
 
 
 def point_registration(input_folder, output_folder, debug=False):
@@ -130,13 +131,25 @@ def point_registration(input_folder, output_folder, debug=False):
             nbr_particles=1000,
         )
         # Optimize estimated coordinates with iterative closest point
-        t_matrix = registration.particle_filter(
+        t_matrix, min_dist = registration.particle_filter(
             fiducial_coords=fiducial_coords,
             spot_coords=spot_coords,
             particles=particles,
             stds=STDS,
-            stop_criteria=0.1
+            stop_criteria=0.1,
         )
+        if min_dist > REG_DIST_THRESH:
+            print("Registration failed, remove outlier")
+            t_matrix, min_dist = registration.particle_filter(
+                fiducial_coords=fiducial_coords,
+                spot_coords=spot_coords,
+                particles=particles,
+                stds=STDS,
+                stop_criteria=0.1,
+                remove_outlier=True,
+            )
+        # TODO: Flag bad fit if min_dist is still above threshold
+
         # Transform grid coordinates
         reg_coords = np.squeeze(cv.transform(np.array([grid_coords]), t_matrix))
 
