@@ -17,8 +17,8 @@ from skimage.feature import canny
 from skimage.morphology import binary_closing, binary_dilation, selem, disk, binary_opening
 from skimage import measure
 
-from .img_processing import crop_image_at_center, thresh_and_binarize
-from ..utils.mock_regionprop import MockRegionprop
+from .img_processing import thresh_and_binarize
+from array_analyzer.transform.point_registration import icp
 
 """
 method is
@@ -63,6 +63,75 @@ def read_gray_im(im_path):
         raise("Can't read image", e)
     return im
 
+
+# def thresh_and_binarize(image_, method='rosin', invert=True):
+#     """
+#     receives greyscale np.ndarray image
+#         inverts the intensities
+#         thresholds on the minimum peak
+#         converts the image into binary about that threshold
+#
+#     :param image_: np.ndarray
+#     :param method: str
+#         'bimodal' or 'unimodal'
+#     :return: spots threshold_min on this image
+#     """
+#
+#     if invert:
+#         image_ = u.invert(image_)
+#
+#     if method == 'bimodal':
+#         thresh = threshold_minimum(image_, nbins=512)
+#
+#         spots = copy(image_)
+#         spots[image_ < thresh] = 0
+#         spots[image_ >= thresh] = 1
+#
+#     elif method == 'otsu':
+#         spots = create_otsu_mask(image_, scale=1)
+#
+#     # elif method == 'multi_otsu':
+#     #     n_class = 3
+#     #     spots = create_multiotsu_mask(image_, n_class=n_class, fg_class=n_class - 1)
+#
+#     elif method == 'rosin':
+#         spots = create_unimodal_mask(image_, str_elem_size=3)
+#
+#     elif method == 'bright_spots':
+#         spots = image_ > np.percentile(image_, 95)
+#         str_elem = disk(10)
+#         # spots = binary_closing(spots, str_elem)
+#         spots = binary_opening(spots, str_elem)
+#         spots = clear_border(spots)
+#
+#     else:
+#         raise ModuleNotFoundError("not a supported method for thresh_and_binarize")
+#
+#     return spots
+
+
+def get_well_mask(image_, segmethod='rosin'):
+
+    well_mask = thresh_and_binarize(image_, method=segmethod, invert=False)
+
+    # Now remove small objects.
+    str_elem_size = 3
+    str_elem = disk(str_elem_size)
+    well_mask = binary_opening(well_mask, str_elem)
+
+    labels = measure.label(well_mask)
+    props = measure.regionprops(labels)
+
+    props = select_props(props, attribute="area", condition="greater_than", condition_value=10 ** 5)
+    well_mask[labels != props[0].label] = 0
+
+    return well_mask
+
+def get_well_intensity(image_, mask_):
+
+    well_int = np.median(image_[mask_])
+
+    return well_int
 
 def find_well_border(image, segmethod='bimodal', detmethod='region'):
     """
@@ -113,6 +182,27 @@ def find_well_border(image, segmethod='bimodal', detmethod='region'):
         cx, cy, radii = None, None, None
 
     return [cy, cx], radii, well_mask
+
+
+def crop_image(arr, cx_, cy_, radius_, border_=200):
+    """
+    crop the supplied image to include only the well and its spots
+
+    :param arr: image
+    :param float cx_: Center x coordinate
+    :param float cy_: Center y coordinate
+    :param float radius_: Crop radius
+    :param int border_: Margin on each side in pixels
+    :return np.array crop: Cropped image
+    """
+    cx_ = int(np.rint(cx_))
+    cy_ = int(np.rint(cy_))
+    crop = arr[
+           cy_ - (radius_ - border_): cy_ + (radius_ - border_),
+           cx_ - (radius_ - border_): cx_ + (radius_ - border_)
+           ]
+
+    return crop
 
 
 def clean_spot_binary(arr, kx=10, ky=10):
