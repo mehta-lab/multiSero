@@ -17,8 +17,8 @@ from skimage.feature import canny
 from skimage.morphology import binary_closing, binary_dilation, selem, disk, binary_opening
 from skimage import measure
 
-from .img_processing import crop_image_at_center, thresh_and_binarize
-from ..utils.mock_regionprop import MockRegionprop
+from .img_processing import thresh_and_binarize
+from array_analyzer.transform.point_registration import icp
 
 """
 method is
@@ -62,6 +62,47 @@ def read_gray_im(im_path):
     except IOError as e:
         raise("Can't read image", e)
     return im
+
+
+def get_well_mask(image_,
+                  disk_size=3,
+                  segmethod='rosin'):
+    """
+    Segment the well boundary and return a binary mask
+
+    :param image_: np.ndarray
+    :param disk_size: int
+    :param segmethod: method for thresh_and_binarize
+    :return: binary mask
+    """
+
+    well_mask = thresh_and_binarize(image_, method=segmethod, invert=False)
+
+    # Now remove small objects.
+    str_elem = disk(disk_size)
+    well_mask = binary_opening(well_mask, str_elem)
+
+    labels = measure.label(well_mask)
+    props = measure.regionprops(labels)
+
+    props = select_props(props, attribute="area", condition="greater_than", condition_value=10 ** 5)
+    well_mask[labels != props[0].label] = 0
+
+    return well_mask
+
+
+def get_well_intensity(image_, mask_):
+    """
+    Return the median intensity of the masked image
+
+    :param image_: np.ndarray
+    :param mask_: boolean array
+    :return: int
+    """
+
+    well_int = np.median(image_[mask_])
+
+    return well_int
 
 
 def find_well_border(image, segmethod='bimodal', detmethod='region'):

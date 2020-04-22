@@ -312,6 +312,27 @@ def crop_image_at_center(im, center, height, width):
     return crop, bbox
 
 
+def crop_image(arr, cx_, cy_, radius_, border_=200):
+    """
+    crop the supplied image to include only the well and its spots
+
+    :param arr: image
+    :param float cx_: Center x coordinate
+    :param float cy_: Center y coordinate
+    :param float radius_: Crop radius
+    :param int border_: Margin on each side in pixels
+    :return np.array crop: Cropped image
+    """
+    cx_ = int(np.rint(cx_))
+    cy_ = int(np.rint(cy_))
+    crop = arr[
+           cy_ - (radius_ - border_): cy_ + (radius_ - border_),
+           cx_ - (radius_ - border_): cx_ + (radius_ - border_)
+           ]
+
+    return crop
+
+
 def thresh_and_binarize(image_, method='rosin', invert=True, min_size=10, thr_percent=95):
     """
     receives greyscale np.ndarray image
