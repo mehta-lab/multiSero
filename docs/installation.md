@@ -44,7 +44,7 @@ Use `pip install -I` to install in the `pysero` site-packages folder, the enviro
 scikit-image dependencies:
 
         sudo apt-get install python-dev libfreetype6-dev
-	sudo apt-get install libfontconfig1-dev
+	sudo apt-get install libfontconfig1-dev libjpeg
 	
 	
 scipy dependencies:
