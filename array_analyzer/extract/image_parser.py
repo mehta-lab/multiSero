@@ -64,13 +64,22 @@ def read_gray_im(im_path):
     return im
 
 
-def get_well_mask(image_, segmethod='rosin'):
+def get_well_mask(image_,
+                  disk_size=3,
+                  segmethod='rosin'):
+    """
+    Segment the well boundary and return a binary mask
+
+    :param image_: np.ndarray
+    :param disk_size: int
+    :param segmethod: method for thresh_and_binarize
+    :return: binary mask
+    """
 
     well_mask = thresh_and_binarize(image_, method=segmethod, invert=False)
 
     # Now remove small objects.
-    str_elem_size = 3
-    str_elem = disk(str_elem_size)
+    str_elem = disk(disk_size)
     well_mask = binary_opening(well_mask, str_elem)
 
     labels = measure.label(well_mask)
@@ -83,6 +92,13 @@ def get_well_mask(image_, segmethod='rosin'):
 
 
 def get_well_intensity(image_, mask_):
+    """
+    Return the median intensity of the masked image
+
+    :param image_: np.ndarray
+    :param mask_: boolean array
+    :return: int
+    """
 
     well_int = np.median(image_[mask_])
 
@@ -138,27 +154,6 @@ def find_well_border(image, segmethod='bimodal', detmethod='region'):
         cx, cy, radii = None, None, None
 
     return [cy, cx], radii, well_mask
-
-
-def crop_image(arr, cx_, cy_, radius_, border_=200):
-    """
-    crop the supplied image to include only the well and its spots
-
-    :param arr: image
-    :param float cx_: Center x coordinate
-    :param float cy_: Center y coordinate
-    :param float radius_: Crop radius
-    :param int border_: Margin on each side in pixels
-    :return np.array crop: Cropped image
-    """
-    cx_ = int(np.rint(cx_))
-    cy_ = int(np.rint(cy_))
-    crop = arr[
-           cy_ - (radius_ - border_): cy_ + (radius_ - border_),
-           cx_ - (radius_ - border_): cx_ + (radius_ - border_)
-           ]
-
-    return crop
 
 
 def clean_spot_binary(arr, kx=10, ky=10):
