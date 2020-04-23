@@ -74,7 +74,14 @@ def point_registration(input_folder, output_folder, debug=False):
             os.path.join(run_path, 'intensities_backgrounds.xlsx'),
         )
 
-    # ================
+    # Get grid rows and columns from params
+    nbr_grid_rows = params['rows']
+    nbr_grid_cols = params['columns']
+    fiducials_idx = FIDUCIALS_IDX
+    if nbr_grid_cols == 8:
+        fiducials_idx = FIDUCIALS_IDX_8COLS
+
+        # ================
     # loop over images
     # ================
     images = [file for file in os.listdir(input_folder)
@@ -89,22 +96,6 @@ def point_registration(input_folder, output_folder, debug=False):
     for image_name in well_images:
         start_time = time.time()
         image = image_parser.read_gray_im(os.path.join(input_folder, image_name))
-
-        props_array = txt_parser.create_array(
-            params['rows'],
-            params['columns'],
-            dtype=object,
-        )
-        bgprops_array = txt_parser.create_array(
-            params['rows'],
-            params['columns'],
-            dtype=object,
-        )
-
-        nbr_grid_rows, nbr_grid_cols = props_array.shape
-        fiducials_idx = FIDUCIALS_IDX
-        if nbr_grid_cols == 8:
-            fiducials_idx = FIDUCIALS_IDX_8COLS
 
         spot_coords = img_processing.get_spot_coords(
             image,
@@ -177,6 +168,17 @@ def point_registration(input_folder, output_folder, debug=False):
             background=background,
             params=params,
         )
+        # Create arrays and assign properties
+        props_array = txt_parser.create_array(
+            params['rows'],
+            params['columns'],
+            dtype=object,
+        )
+        bgprops_array = txt_parser.create_array(
+            params['rows'],
+            params['columns'],
+            dtype=object,
+        )
         props_array_placed = image_parser.assign_props_to_array(
             props_array,
             props_placed_by_loc,
@@ -221,6 +223,11 @@ def point_registration(input_folder, output_folder, debug=False):
                 props_array_placed,
                 output_name,
                 from_source=True,
+            )
+            debug_plots.plot_background_overlay(
+                im_crop,
+                background,
+                output_name,
             )
             debug_plots.plot_registration(
                 image,

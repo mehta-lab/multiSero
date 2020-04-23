@@ -154,6 +154,21 @@ def plot_od(od_well,
     plt.close(figOD)
 
 
+def plot_background_overlay(im, im_background, output_name):
+    """
+    Writes color image with background overlaid.
+
+    :param np.array im: 2D grayscale image
+    :param np.array im_background: 2D grayscale image
+    :param str output_name: Path and image name minus extension
+    """
+    im_stack = np.stack([im_background, im, im_background], axis=2)
+    skimage.io.imsave(
+        output_name + "_crop_bg_overlay.png",
+        (255 * im_stack).astype('uint8'),
+    )
+
+
 def plot_registration(image,
                       spot_coords,
                       grid_coords,

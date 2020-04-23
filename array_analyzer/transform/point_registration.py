@@ -178,8 +178,7 @@ def particle_filter(fiducial_coords,
             ret, results, neighbors, dist = knn.findNearest(trans_coords, 1)
             if remove_outlier:
                 # Remove worst fitted spot
-                remove_spot = np.where(np.squeeze(dist) != np.amax(dist))[0]
-                dist = dist[remove_spot]
+                dist = dist[dist != np.amax(dist)]
 
             dists[p] = sum(dist)
 
