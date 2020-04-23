@@ -62,6 +62,8 @@ def create_xml_dict(path_):
     params['min_diam'] = float(layout['@min_diameter'])
 
     # todo: add param for different imaging conditions (magnificaiton, camera pixel size, etc..)
+    params['pixel_size_scienion'] = 0.0049  # scienion camera
+    params['pixel_size_octopi'] = 0.00185  # octopi camera
 
     return fiduc, spots, repl, params
 

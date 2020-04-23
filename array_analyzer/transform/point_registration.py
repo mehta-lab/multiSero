@@ -80,8 +80,135 @@ def icp(source, target, max_iterate=50, matrix_diff=1.):
         # Estimate diff
         t_diff = sum(sum(abs(t_matrix[:2] - t_old[:2])))
         t_old = t_matrix
-        print(t_diff)
+
         if t_diff < matrix_diff:
             break
 
     return t_matrix[:2]
+
+
+def create_gaussian_particles(mean_point,
+                              stds,
+                              scale_mean=1.,
+                              angle_mean=0.,
+                              nbr_particles=100):
+    """
+    Create particles from parameters x, y, scale and angle given mean and std.
+    A particle is considered one set of parameters for a 2D translation matrix.
+
+    :param tuple mean_point: Mean offset in x and y
+    :param np.array stds: Standard deviations of x, y, angle and scale
+    :param float scale_mean: Mean scale of translation
+    :param float angle_mean: Mean angle of translation estimation
+    :param int nbr_particles: Number of particles
+    :return np.array particles: Set of particle coordinates (nbr particles x 4)
+    """
+    particles = np.empty((nbr_particles, 4))
+    particles[:, 0] = mean_point[0] + (np.random.randn(nbr_particles) * stds[0])
+    particles[:, 1] = mean_point[1] + (np.random.randn(nbr_particles) * stds[1])
+    particles[:, 2] = angle_mean + (np.random.randn(nbr_particles) * stds[2])
+    particles[:, 3] = scale_mean + (np.random.randn(nbr_particles) * stds[3])
+    return particles
+
+
+def get_translation_matrix(particle):
+    """
+    Create a 2D translation matrix from x, y, scale and angle.
+
+    :param np.array particle: The four parameters x, y, scale and angle
+    :return np.array t_matrix: 2D translation matrix (3 x 2)
+    """
+    a = particle[3] * np.cos(particle[2] * np.pi / 180)
+    b = particle[3] * np.sin(particle[2] * np.pi / 180)
+    t_matrix = np.array([[a, b, particle[0]],
+                        [-b, a, particle[1]]])
+    return t_matrix
+
+
+def particle_filter(fiducial_coords,
+                    spot_coords,
+                    particles,
+                    stds,
+                    max_iter=100,
+                    stop_criteria=.01,
+                    iter_decrease=.8,
+                    remove_outlier=False,
+                    debug=False):
+    """
+    Particle filtering to determine best grid location.
+    Start with a number of randomly placed particles. Compute distances
+    to nearest neighbors among detected spots. Do importance sampling of
+    the particles and slightly distort them while iterating until convergence.
+
+    :param np.array fiducial_coords: Initial estimate of fiducial coordinates
+    :param np.array spot_coords: Coordinates of detected spots (nbr spots x 2)
+    :param np.array particles: Translation matrix parameters (nbr particles x 2)
+    :param np.array stds: Standard deviations of x, y, angle, scale
+    :param int max_iter: Maximum number of iterations
+    :param float stop_criteria: Absolute difference of distance between iterations
+    :param float iter_decrease: Reduce standard deviations each iterations to slow
+        down permutations
+    :param bool remove_outlier: If registration hasn't converged, remove worst fitted
+        spot when running particle filter
+    :param bool debug: Print total distance in each iteration if true
+    :return np.array t_matrix: Estimated 2D translation matrix
+    :return float min_dist: Minimum total distance from fiducials to spots
+    """
+    # Pretrain spot coords
+    dst = spot_coords.copy().astype(np.float32)
+    knn = cv.ml.KNearest_create()
+    labels = np.array(range(dst.shape[0])).astype(np.float32)
+    knn.train(dst, cv.ml.ROW_SAMPLE, labels)
+
+    nbr_particles = particles.shape[0]
+    dists = np.zeros(nbr_particles)
+    temp_stds = stds.copy()
+
+    # Iterate until min dist doesn't change
+    min_dist_old = 10 ** 6
+    for i in range(max_iter):
+
+        for p in range(nbr_particles):
+            particle = particles[p]
+            # Generate transformation matrix
+            t_matrix = get_translation_matrix(particle)
+            trans_coords = cv.transform(np.array([fiducial_coords]), t_matrix)
+            trans_coords = trans_coords[0].astype(np.float32)
+            # Find nearest spots
+            ret, results, neighbors, dist = knn.findNearest(trans_coords, 1)
+            if remove_outlier:
+                # Remove worst fitted spot
+                dist = dist[dist != np.amax(dist)]
+
+            dists[p] = sum(dist)
+
+        min_dist = np.min(dists)
+        if debug:
+            print(min_dist)
+        # See if min dist is not decreasing anymore
+        if abs(min_dist_old - min_dist) < stop_criteria:
+            break
+        min_dist_old = min_dist
+
+        # Low distance should correspond to high probability
+        weights = 1 / dists
+        # Make weights sum to 1
+        weights = weights / sum(weights)
+
+        # Importance sampling
+        idxs = np.random.choice(nbr_particles, nbr_particles, p=weights)
+        particles = particles[idxs, :]
+
+        # Reduce standard deviations a little every iteration
+        temp_stds = temp_stds * iter_decrease ** i
+        # Distort particles
+        for c in range(4):
+            distort = np.random.randn(nbr_particles)
+            particles[:, c] = particles[:, c] + distort * temp_stds[c]
+
+    # Return best particle
+    particle = particles[dists == dists.min(), :][0]
+
+    # Generate transformation matrix
+    t_matrix = get_translation_matrix(particle)
+    return t_matrix, min_dist
