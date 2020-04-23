@@ -41,24 +41,19 @@ Use `pip install -I` to install in the `pysero` site-packages folder, the enviro
 
 ### install dependencies for python packages:
 
-scikit-image dependencies:
+scikit-image and scipy dependencies:
 
         sudo apt-get install python-dev libfreetype6-dev
 	sudo apt-get install libfontconfig1-dev libjpeg
-	
-	
-scipy dependencies:
-
 	sudo apt-get install libblas-dev liblapack-dev libatlas-base-dev gfortran
-	sudo -H python3 -m pip install scipy==1.1.0
 	
 ### install python packages:
 	
 	
-	pip install -I scikit-image 
-	# compilation of scikit-image takes >5min. May have to try sudo -H pip3 install scikit-image
 	pip install -I scipy==1.1.0
 	# compilation of scipy can take >5 min.
+	pip install -I scikit-image 
+	# compilation of scikit-image takes >5min. May have to try sudo -H pip3 install scikit-image
 	pip install -I matplotlib 
 	pip install -I pandas==0.24.0 
 	# compilation of pandas can take time.
