@@ -1,8 +1,8 @@
 import cv2 as cv
 import glob
 import natsort
+import numpy as np
 import os
-import re
 import skimage.io as io
 from skimage.color import rgb2grey
 
@@ -31,6 +31,8 @@ def read_gray_im(im_path):
         im = cv.imread(im_path, cv.IMREAD_GRAYSCALE | cv.IMREAD_ANYDEPTH)
     except IOError as e:
         raise("Can't read image", e)
+    if not isinstance(im, np.ndarray):
+        raise IOError('Invalid image path')
     return im
 
 
