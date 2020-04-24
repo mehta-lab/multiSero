@@ -1,3 +1,4 @@
+import argparse
 import os
 from testfixtures import TempDirectory
 import unittest
@@ -29,20 +30,20 @@ class TestRunArrayAnalyzer(unittest.TestCase):
                    ['python',
                     '--input', self.input_dir,
                     '--output', self.output_dir,
-                    '--method', 'fit',
+                    '-wf', 'array_fit',
                     '--debug']):
             parsed_args = array_analyzer.parse_args()
             self.assertEqual(parsed_args.input, self.input_dir)
             self.assertEqual(parsed_args.output, self.output_dir)
             self.assertTrue(parsed_args.debug)
-            self.assertEqual(parsed_args.method, 'fit')
+            self.assertEqual(parsed_args.workflow, 'array_fit')
 
     def test_parse_args_invalid_method(self):
         with patch('argparse._sys.argv',
                    ['python',
                     '--input', self.input_dir,
                     '--output', self.output_dir,
-                    '--method', 'magic']):
+                    '--workflow', 'magic']):
             with self.assertRaises(BaseException) as context:
                 array_analyzer.parse_args()
 
