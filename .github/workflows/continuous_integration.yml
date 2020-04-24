@@ -1,13 +1,13 @@
 name: build
 
-on: [pull_request]
+on: [push]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.8]
+        python-version: [3.7]
 
     steps:
     - name: Install pg_config
