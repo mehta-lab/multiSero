@@ -1,5 +1,6 @@
 
 import array_analyzer.extract.image_parser as image_parser
+import array_analyzer.extract.img_processing as img_processing
 import array_analyzer.extract.constants as c
 from array_analyzer.extract.metadata import MetaData
 
@@ -13,6 +14,18 @@ import numpy as np
 
 
 def well_analysis(input_folder_, output_folder_, method='segmentation', debug=False):
+    """
+    Workflow that pulls all images scanned on a multi-well plate in a standard ELISA format (one antigen per well)
+    It loops over the images in the input_folder (for images acquired using Micro-Manager ONLY).
+        Extracts the center of the well, calculates the median intensity of that spot and background, then computes OD.
+        Finally, it writes a summary report (.xlsx) containing plate info and the computed values.
+
+    :param input_folder_: str path to experiment directory
+    :param output_folder_: str output path to write report and diagnostic images
+    :param method: str 'segmentation' or 'crop'.  Methods to estimate the boundaries of the well
+    :param debug: bool.  Whether to write debug images.
+    :return:
+    """
 
     start = time.time()
 
@@ -51,7 +64,7 @@ def well_analysis(input_folder_, output_folder_, method='segmentation', debug=Fa
     for well_dir in well_dirs:
 
         # read image
-        well_image_dir = [file for file in os.listdir(os.path.join(input_folder_, well_dir))
+        well_image_file = [file for file in os.listdir(os.path.join(input_folder_, well_dir))
                           if '.png' in file or '.tif' in file or '.jpg' in file][0]
         image, image_name = image_parser.read_to_grey(os.path.join(input_folder_, well_dir), well_image_dir)
         print(well_dir)
@@ -68,7 +81,7 @@ def well_analysis(input_folder_, output_folder_, method='segmentation', debug=Fa
             radius = np.floor(0.1 * np.min(img_size)).astype('int')
             cx = np.floor(img_size[1]/2).astype('int')
             cy = np.floor(img_size[0]/2).astype('int')
-            im_crop = image_parser.crop_image(image, cx, cy, radius, border_=0)
+            im_crop = img_processing.crop_image(image, cx, cy, radius, border_=0)
 
             well_mask = np.ones_like(im_crop, dtype='bool')
             int_well_ = image_parser.get_well_intensity(im_crop, well_mask)
@@ -86,8 +99,14 @@ def well_analysis(input_folder_, output_folder_, method='segmentation', debug=Fa
                       (255 * well_mask).astype('uint8'))
 
             # Save masked image
-            img_ = image.copy()
-            img_[~well_mask] = 0
+            if method == 'segmentation':
+                img_ = image.copy()
+                img_[~well_mask] = 0
+            elif method == 'crop':
+                img_ = im_crop.copy()
+                img_[~well_mask] = 0
+            else:
+                raise NotImplementedError(f'method of type {method} not supported')
             io.imsave(output_name + "_masked_image.png",
                       (img_/256).astype('uint8'))
 

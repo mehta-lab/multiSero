@@ -1,8 +1,4 @@
 # bchhun, {2020-03-29}
-from ..utils.mock_regionprop import MockRegionprop
-from skimage.feature import peak_local_max
-import numpy as np
-import math
 
 from ..extract.image_parser import *
 
