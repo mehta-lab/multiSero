@@ -1,3 +1,5 @@
+![unittest](https://github.com/czbiohub/serology-COVID19/workflows/unittest/badge.svg)
+
 # pysero
 
 pysero enables serological measurements with multiplexed and standard ELISA assays.
