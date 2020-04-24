@@ -1,4 +1,4 @@
-name: build
+name: unittest
 
 on: [push]
 
@@ -10,10 +10,7 @@ jobs:
         python-version: [3.7]
 
     steps:
-    - name: Install pg_config
-      run: sudo apt-get install libpq-dev
-
-    - name: Checkout repo
+    - name: Checkout repository
       uses: actions/checkout@v2
 
     - name: Set up Python ${{ matrix.python-version }}
@@ -24,23 +21,17 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
+        pip install flake8 pytest
         pip install -r requirements.txt
+
     - name: Lint with flake8
       run: |
         pip install flake8
-        # hard stop for Python syntax errors or undefined names
-        # (this is likely completely redundant with pylint below)
+        # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # only warn about any remaining flake8 violations
-        flake8 . --count --exit-zero --statistics
-    - name: Lint with pylint
-      run: |
-        pip install pylint
-        # note that including the pylint --errors-only flag
-        # seems to result in pylint ignoring the pylintrc file
-        # TODO: is there a way to print the warnings and still exit 0?
-        pylint ./opencell
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
     - name: Test with pytest
       run: |
-        pip install pytest
         pytest -v
