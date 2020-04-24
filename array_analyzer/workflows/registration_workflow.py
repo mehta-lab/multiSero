@@ -4,7 +4,6 @@ import glob
 import numpy as np
 import os
 import pandas as pd
-import re
 import time
 
 import array_analyzer.extract.image_parser as image_parser
@@ -13,6 +12,7 @@ import array_analyzer.extract.txt_parser as txt_parser
 import array_analyzer.load.debug_images as debug_plots
 import array_analyzer.transform.point_registration as registration
 import array_analyzer.transform.array_generation as array_gen
+import array_analyzer.utils.io_utils as io_utils
 
 FIDUCIALS = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
 FIDUCIALS_IDX = [0, 5, 6, 30, 35]
@@ -81,21 +81,14 @@ def point_registration(input_folder, output_folder, debug=False):
     if nbr_grid_cols == 8:
         fiducials_idx = FIDUCIALS_IDX_8COLS
 
-        # ================
-    # loop over images
     # ================
-    images = [file for file in os.listdir(input_folder)
-              if '.png' in file or '.tif' in file or '.jpg' in file]
+    # loop over well images
+    # ================
+    well_images = io_utils.get_image_paths(input_folder)
 
-    # remove any images that are not images of wells.
-    well_images = [file for file in images if re.match(r'[A-P][0-9]{1,2}', file)]
-
-    # sort by letter, then by number (with '10' coming AFTER '9')
-    well_images.sort(key=lambda x: (x[0], int(x[1:-4])))
-
-    for image_name in well_images:
+    for well_name, im_path in well_images.items():
         start_time = time.time()
-        image = image_parser.read_gray_im(os.path.join(input_folder, image_name))
+        image = io_utils.read_gray_im(im_path)
 
         spot_coords = img_processing.get_spot_coords(
             image,
@@ -193,10 +186,10 @@ def point_registration(input_folder, output_folder, debug=False):
         )
         # Write ODs
         pd_od = pd.DataFrame(od_well)
-        pd_od.to_excel(xlwriter_od, sheet_name=image_name[:-4])
+        pd_od.to_excel(xlwriter_od, sheet_name=well_name)
 
         print("Time to register grid to {}: {:.3f} s".format(
-            image_name,
+            well_name,
             time.time() - start_time),
         )
 
@@ -206,11 +199,11 @@ def point_registration(input_folder, output_folder, debug=False):
             start_time = time.time()
             # Save spot and background intensities
             pd_int = pd.DataFrame(int_well)
-            pd_int.to_excel(xlwriter_int, sheet_name=image_name[:-4])
+            pd_int.to_excel(xlwriter_int, sheet_name=well_name)
             pd_bg = pd.DataFrame(bg_well)
-            pd_bg.to_excel(xlwriter_bg, sheet_name=image_name[:-4])
+            pd_bg.to_excel(xlwriter_bg, sheet_name=well_name)
 
-            output_name = os.path.join(run_path, image_name[:-4])
+            output_name = os.path.join(run_path, well_name)
             # Save OD plots, composite spots and registration
             debug_plots.plot_od(
                 od_well,
