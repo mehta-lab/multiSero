@@ -22,10 +22,10 @@ def test_get_image_paths(image_dir):
     for key, value in well_images.items():
         assert key in expected_keys
 
-
-def test_get_mm_image_paths(micromanager_dir):
-    well_images = io_utils.get_image_paths(micromanager_dir)
-    assert len(well_images) == 4
-    expected_keys = ['A1', 'A2', 'B11', 'B12']
-    for key, value in well_images.items():
-        assert key in expected_keys
+#
+# def test_get_mm_image_paths(micromanager_dir):
+#     well_images = io_utils.get_image_paths(micromanager_dir)
+#     assert len(well_images) == 4
+#     expected_keys = ['A1', 'A2', 'B11', 'B12']
+#     for key, value in well_images.items():
+#         assert key in expected_keys
