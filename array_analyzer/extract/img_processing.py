@@ -1,11 +1,16 @@
+from copy import copy
+
 import cv2 as cv
 import numpy as np
 
 from scipy.signal import find_peaks
 from scipy.ndimage.filters import gaussian_filter1d
+from scipy.ndimage.morphology import black_tophat
+from skimage import util as u
 from skimage.morphology import disk, ball, binary_opening, binary_erosion
-from skimage.filters import threshold_otsu, threshold_multiotsu
+from skimage.filters import threshold_otsu, threshold_multiotsu, threshold_minimum
 from scipy.ndimage import binary_fill_holes
+from skimage.segmentation import clear_border
 
 from .background_estimator import BackgroundEstimator2D
 
@@ -135,7 +140,11 @@ def get_spot_coords(im,
                     min_area=50,
                     max_area=10000,
                     min_circularity=0.1,
-                    min_convexity=0.5):
+                    min_convexity=0.5,
+                    min_dist_between_blobs=10,
+                    min_repeatability=2,
+                    blur_sigma=31,
+                    tophat_size=35):
     """
     Use OpenCVs simple blob detector (thresholdings and grouping by properties)
     to detect all dark spots in the image
@@ -146,28 +155,40 @@ def get_spot_coords(im,
     :param int max_area: Maximum spot area in pixels
     :param float min_circularity: Minimum circularity of spots
     :param float min_convexity: Minimum convexity of spots
+    :param float min_dist_between_blobs: minimal distance in pixels between two spots
+        for them to be called as different spots
+    :param int min_repeatability: minimal number of times the same spot has to be detected
+        at different thresholds
+    :param blur_sigma: sigma of Gaussian filter to blur the image
+    :param int tophat_size: Size of black tophat filter
     :return np.array spot_coords: x, y coordinates of spot centroids (nbr spots x 2)
     """
-    params = cv.SimpleBlobDetector_Params()
+    blob_params = cv.SimpleBlobDetector_Params()
 
     # Change thresholds
-    params.minThreshold = min_thresh
-    params.maxThreshold = max_thresh
+    blob_params.minThreshold = min_thresh
+    blob_params.maxThreshold = max_thresh
     # Filter by Area
-    params.filterByArea = True
-    params.minArea = min_area
-    params.maxArea = max_area
+    blob_params.filterByArea = True
+    blob_params.minArea = min_area
+    blob_params.maxArea = max_area
     # Filter by Circularity
-    params.filterByCircularity = True
-    params.minCircularity = min_circularity
+    blob_params.filterByCircularity = True
+    blob_params.minCircularity = min_circularity
     # Filter by Convexity
-    params.filterByConvexity = True
-    params.minConvexity = min_convexity
+    blob_params.filterByConvexity = True
+    blob_params.minConvexity = min_convexity
+    blob_params.minDistBetweenBlobs = min_dist_between_blobs
+    blob_params.minRepeatability = min_repeatability
+    # This detects bright spots, which they are after top hat
+    blob_params.blobColor = 255
 
-    detector = cv.SimpleBlobDetector_create(params)
+    detector = cv.SimpleBlobDetector_create(blob_params)
 
-    # Normalize image
-    im_norm = ((im - im.min()) / (im.max() - im.min()) * 255).astype(np.uint8)
+    im_norm = cv.GaussianBlur(im, (blur_sigma, blur_sigma), 0)
+    # Black top hat filter, turns spots bright
+    im_norm = black_tophat(im_norm, size=(tophat_size, tophat_size))
+    im_norm = ((im_norm - im_norm.min()) / (im_norm.max() - im_norm.min()) * 255).astype(np.uint8)
     # Detect blobs
     keypoints = detector.detect(im_norm)
 
@@ -268,3 +289,87 @@ def crop_image_from_coords(im, grid_coords, margin=200):
     crop_coords[:, 0] = crop_coords[:, 0] - x_min + 1
     crop_coords[:, 1] = crop_coords[:, 1] - y_min + 1
     return im_crop, crop_coords
+
+
+def crop_image_at_center(im, center, height, width):
+    """
+    crop the supplied image to include only the well and its spots
+
+    :param im: image
+    :param float center_: Center (row, col) of the crop box
+    :param float height: height of the crop box
+    :param float width: width of the crop box
+    :return np.array crop: Cropped image
+    """
+    cy, cx = center
+    im_h, im_w = im.shape
+    # truncate the bounding box when it exceeds image size
+    bbox = np.rint([max(cy - height / 2, 0),
+                   max(cx - width / 2, 0),
+                   min(cy + height / 2, im_h),
+                   min(cx + width / 2, im_w)]).astype(np.int32)
+    crop = im[bbox[0]:bbox[2], bbox[1]:bbox[3]]
+    return crop, bbox
+
+
+def crop_image(arr, cx_, cy_, radius_, border_=200):
+    """
+    crop the supplied image to include only the well and its spots
+
+    :param arr: image
+    :param float cx_: Center x coordinate
+    :param float cy_: Center y coordinate
+    :param float radius_: Crop radius
+    :param int border_: Margin on each side in pixels
+    :return np.array crop: Cropped image
+    """
+    cx_ = int(np.rint(cx_))
+    cy_ = int(np.rint(cy_))
+    crop = arr[
+           cy_ - (radius_ - border_): cy_ + (radius_ - border_),
+           cx_ - (radius_ - border_): cx_ + (radius_ - border_)
+           ]
+
+    return crop
+
+
+def thresh_and_binarize(image_, method='rosin', invert=True, min_size=10, thr_percent=95):
+    """
+    receives greyscale np.ndarray image
+        inverts the intensities
+        thresholds on the minimum peak
+        converts the image into binary about that threshold
+
+    :param image_: np.ndarray
+    :param method: str
+        'bimodal' or 'unimodal'
+    :return: spots threshold_min on this image
+    """
+
+    if invert:
+        image_ = u.invert(image_)
+
+    if method == 'bimodal':
+        thresh = threshold_minimum(image_, nbins=512)
+
+        spots = copy(image_)
+        spots[image_ < thresh] = 0
+        spots[image_ >= thresh] = 1
+
+    elif method == 'otsu':
+        spots = create_otsu_mask(image_, scale=1)
+
+    elif method == 'rosin':
+        spots = create_unimodal_mask(image_, str_elem_size=3)
+
+    elif method == 'bright_spots':
+        spots = image_ > np.percentile(image_, thr_percent)
+        str_elem = disk(min_size)
+        # spots = binary_closing(spots, str_elem)
+        spots = binary_opening(spots, str_elem)
+        spots = clear_border(spots)
+
+    else:
+        raise ModuleNotFoundError("not a supported method for thresh_and_binarize")
+
+    return spots

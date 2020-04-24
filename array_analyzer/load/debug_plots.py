@@ -1,5 +1,6 @@
 # bchhun, {2020-03-26}
 
+import cv2 as cv
 import skimage as si
 import skimage.io
 import os
@@ -121,7 +122,7 @@ def plot_centroid_overlay(im_crop,
                 plt.text(0, 0, im_name + ',spot count=' + str(len(props_by_loc)))
 
     figcentroid = plt.gcf()
-    centroids_debug = output_name + '_overlayCentroids.png'
+    centroids_debug = output_name + '_overlay_centroids.png'
     figcentroid.savefig(centroids_debug, bbox_inches='tight')
     plt.close(figcentroid)
 
@@ -151,3 +152,54 @@ def plot_od(od_well,
     od_debug = output_name + '_od.png'
     figOD.savefig(od_debug)
     plt.close(figOD)
+
+
+def plot_background_overlay(im, im_background, output_name):
+    """
+    Writes color image with background overlaid.
+
+    :param np.array im: 2D grayscale image
+    :param np.array im_background: 2D grayscale image
+    :param str output_name: Path and image name minus extension
+    """
+    im_stack = np.stack([im_background, im, im_background], axis=2)
+    skimage.io.imsave(
+        output_name + "_crop_bg_overlay.png",
+        (255 * im_stack).astype('uint8'),
+    )
+
+
+def plot_registration(image,
+                      spot_coords,
+                      grid_coords,
+                      reg_coords,
+                      output_name,
+                      margin=100):
+    """
+    Plots all detected spots, initial fiducial coordinates and registered grid.
+
+    :param np.array image: Input image
+    :param np.array spot_coords: Detected spot coordinates (nbr spots x 2)
+    :param np.array grid_coords: Initial estimate of fiducial coordinates
+    :param np.array reg_coords: Registered coordinates
+    :param str output_name: Path + well name, _registration.png will be added
+    :param int margin: Margin around spots to crop image before plotting
+    """
+
+    all_coords = np.vstack([spot_coords, grid_coords, reg_coords])
+    im_shape = image.shape
+    x_min = int(max(margin, np.min(all_coords[:, 0]) - margin))
+    x_max = int(min(im_shape[1] - margin, np.max(all_coords[:, 0]) + margin))
+    y_min = int(max(margin, np.min(all_coords[:, 1]) - margin))
+    y_max = int(min(im_shape[0] - margin, np.max(all_coords[:, 1]) + margin))
+    im_roi = image[y_min:y_max, x_min:x_max]
+
+    im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
+    plt.imshow(im_roi)
+    plt.plot(spot_coords[:, 0] - x_min + 1, spot_coords[:, 1] - y_min + 1, 'rx', ms=8)
+    plt.plot(grid_coords[:, 0] - x_min + 1, grid_coords[:, 1] - y_min + 1, 'b+', ms=8)
+    plt.plot(reg_coords[:, 0] - x_min + 1, reg_coords[:, 1] - y_min + 1, 'g.', ms=8)
+    plt.axis('off')
+    fig_save = plt.gcf()
+    fig_save.savefig(output_name + '_registration.png', bbox_inches='tight')
+    plt.close(fig_save)

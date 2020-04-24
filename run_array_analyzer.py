@@ -31,7 +31,9 @@ def parse_args():
         type=str,
         choices=['well_segmentation', 'well_crop', 'array_interp', 'array_fit'],
         default='array_interp',
-        help="Analysis workflow",
+        help="Workflow to automatically identify and extract intensities from experiment.  "
+             "'Well' experiments are for standard ELISAS.  "
+             "'Array' experiments are for plates printed using Scienion Array Printer ",
     )
     parser.add_argument(
         '-d', '--debug',
@@ -59,7 +61,10 @@ def run_workflow(input_dir, output_dir, workflow, debug=False):
 
     :param str input_dir: Input directory path
     :param str output_dir: Output directory path
-    :param str workflow: 'well_segmentation', 'well_crop', 'array_interp', 'array_fit'
+    :param str workflow: str, one of 'array_interp', 'array_fit', 'well_segmentation', 'well_crop'
+        <plate>_<method> format:
+            <plate> describes the printing style of the antigen (array or ELISA)
+            <method> describes the spot segmentation and extraction approach
     :param bool debug: Write debug plots to output directory
     """
 

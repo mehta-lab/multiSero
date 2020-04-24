@@ -1,43 +1,49 @@
 # bchhun, {2020-04-02}
 
-import os
-
-import array_analyzer.extract.image_parser as image_parser
-import array_analyzer.extract.txt_parser as txt_parser
-import array_analyzer.extract.img_processing as img_processing
-import array_analyzer.load.debug_plots as debug_plots
-import array_analyzer.extract.constants as c
-from array_analyzer.extract.metadata import MetaData
-
+from array_analyzer.extract.txt_parser import *
+from array_analyzer.extract.img_processing import *
+from array_analyzer.load.debug_images import *
+from array_analyzer.transform.property_filters import *
+import array_analyzer.transform.array_generation as array_gen
+import re
 import time
+from datetime import datetime
 import skimage.io as io
 import pandas as pd
-import numpy as np
-import re
 
+SCENION_SPOT_DIST = 82
 
 def interp(input_folder_, output_folder_, method='interp', debug=False):
-    """
 
-    :param input_folder_:
-    :param output_folder_:
-    :param method:
-    :param debug:
-    :return:
-    """
+    xml = [f for f in os.listdir(input_folder_) if '.xml' in f]
+    if len(xml) > 1:
+        raise IOError("more than one .xml file found, aborting")
+    xml_path = input_folder_+os.sep+xml[0]
 
-    MetaData(input_folder_, output_folder_)
+    # parsing .xml
+    fiduc, spots, repl, params = create_xml_dict(xml_path)
 
-    os.makedirs(c.RUN_PATH, exist_ok=True)
+    # creating our arrays
+    spot_ids = create_array(params['rows'], params['columns'])
+    antigen_array = create_array(params['rows'], params['columns'])
+
+    # adding .xml info to these arrays
+    spot_ids = populate_array_id(spot_ids, spots)
+    # spot_ids = populate_array_fiduc(spot_ids, fiduc)
+
+    antigen_array = populate_array_antigen(antigen_array, spot_ids, repl)
+
+    # save a sub path for this processing run
+    run_path = output_folder_ + os.sep + f'{datetime.now().month}_{datetime.now().day}_{datetime.now().hour}_{datetime.now().minute}_{datetime.now().second}'
 
     # Write an excel file that can be read into jupyter notebook with minimal parsing.
-    xl_writer_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'ODs.xlsx'))
-    pdantigen = pd.DataFrame(c.ANTIGEN_ARRAY)
-    pdantigen.to_excel(xl_writer_od, sheet_name='antigens')
-
+    xlwriterOD = pd.ExcelWriter(os.path.join(run_path, 'python_median_ODs.xlsx'))
     if debug:
-        xlwriter_int = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'intensities.xlsx'))
-        xlwriter_bg = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'backgrounds.xlsx'))
+        xlwriter_int = pd.ExcelWriter(os.path.join(run_path, 'python_median_intensities.xlsx'))
+        xlwriter_bg = pd.ExcelWriter(os.path.join(run_path, 'python_median_backgrounds.xlsx'))
+
+    if not os.path.isdir(run_path):
+        os.mkdir(run_path)
 
     # ================
     # loop over images => good place for multiproc?  careful with columns in report
@@ -51,114 +57,39 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
     wellimages.sort(key=lambda x: (x[0], int(x[1:-4])))
 
     # wellimages = ['H10.png','H11.png','H12.png']
-    # wellimages = ['B8.png', 'B9.png', 'B10.png']
+    # wellimages = ['B8.png', 'D5.png']
     # wellimages = ['A12.png', 'A11.png', 'A8.png', 'A1.png']
-    # wellimages = ['A9.png']
-    # wellimages = ['E5.png']
+    # wellimages = ['A4.png']
+    # wellimages = ['E11.png']
     well_path = None
     output_name = None
 
     for well in wellimages:
         start = time.time()
-        image, image_name = image_parser.read_to_grey(input_folder_, well)
+        image, image_name = read_to_grey(input_folder_, well)
         print(image_name)
 
-        spot_props_array = txt_parser.create_array(c.params['rows'], c.params['columns'], dtype=object)
-        bgprops_array = txt_parser.create_array(c.params['rows'], c.params['columns'], dtype=object)
+        spot_props_array = create_array(params['rows'], params['columns'], dtype=object)
+        bgprops_array = create_array(params['rows'], params['columns'], dtype=object)
 
         # finding center of well and cropping
-        cx, cy, r, well_mask = image_parser.find_well_border(image, detmethod='region', segmethod='otsu')
-        im_crop = image_parser.crop_image(image, cx, cy, r, border_=0)
+        well_center, well_radi, well_mask = find_well_border(image, detmethod='region', segmethod='otsu')
+        im_crop, _ = \
+            crop_image_at_center(image, well_center, 2 * well_radi, 2 * well_radi)
 
         # find center of spots from crop
-        spot_mask = image_parser.thresh_and_binarize(im_crop, method='bright_spots')
-        background = img_processing.get_background(im_crop, fit_order=2)
+        spot_mask = thresh_and_binarize(im_crop, method='bright_spots')
+        background = get_background(im_crop, fit_order=2)
 
 
-        spot_props = image_parser.generate_props(spot_mask, intensity_image_=im_crop)
+        spot_props = generate_props(spot_mask, intensity_image_=im_crop)
 
-        if method == 'fit':
-            spot_props = image_parser.select_props(spot_props, attribute="area", condition="greater_than", condition_value=300)
-            fiducial_locations = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
-            pix_size = 0.0049 # in mm
-            props_by_loc = image_parser.find_fiducials_markers(spot_props,
-                                                  fiducial_locations,
-                                                  c.params['rows'],
-                                                  c.params['columns'],
-                                                  c.params['v_pitch'],
-                                                  c.params['h_pitch'],
-                                                  im_crop.shape,
-                                                  pix_size)
-
-            spot_props_array = image_parser.assign_props_to_array_2(spot_props_array, props_by_loc)
-
-            # use the spot_props_array to find fiducials, create a new spot_mask "placed" on the array
-            placed_spotmask = image_parser.build_and_place_block_array(spot_props_array, spot_mask, c.params, return_type='region')
-
-            spot_props = image_parser.generate_props(placed_spotmask, intensity_image_=im_crop)
-            bg_props = image_parser.generate_props(placed_spotmask, intensity_image_=background)
-
-            spot_labels = [p.label for p in spot_props]
-            bg_props = image_parser.select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
-
-            props_placed_by_loc = image_parser.generate_props_dict(spot_props,
-                                                      c.params['rows'],
-                                                      c.params['columns'],
-                                                      min_area=100)
-            bgprops_by_loc = image_parser.generate_props_dict(bg_props,
-                                                 c.params['rows'],
-                                                 c.params['columns'],
-                                                 min_area=100)
-        elif method == 'interp':
-            bg_props = image_parser.generate_props(spot_mask, intensity_image_=background)
-            eccentricities = np.array([prop.eccentricity for prop in spot_props])
-            eccent_ub = eccentricities.mean() + 2 * eccentricities.std()
-            # spot_props = select_props(spot_props, attribute="area", condition="greater_than", condition_value=300)
-            spot_props = image_parser.select_props(spot_props, attribute="eccentricity", condition="less_than",
-                                      condition_value=eccent_ub)
-            spot_labels = [p.label for p in spot_props]
-            bg_props = image_parser.select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
-
-            props_placed_by_loc = image_parser.grid_from_centroids(spot_props,
-                                               im_crop,
-                                               c.params['rows'],
-                                               c.params['columns'],
-                                               )
-            # This call to generate_props_dict is excessive.
-            # Both spot_props and bgprops can be assigned locations in previous call.
-
-            bgprops_by_loc = image_parser.grid_from_centroids(bg_props,
-                                                 background,
-                                                 c.params['rows'],
-                                                 c.params['columns'],
-                                                 )
-        props_array_placed = image_parser.assign_props_to_array(spot_props_array, props_placed_by_loc)
-        bgprops_array = image_parser.assign_props_to_array(bgprops_array, bgprops_by_loc)
-
-        # todo: further calculations using bgprops, spot_props here
-        # TODO: compute spot and background intensities,
-        #  and then show them on a plate like graphic (visualize_elisa_spots).
-        od_well, int_well, bg_well = image_parser.compute_od(props_array_placed, bgprops_array)
-
-        pd_OD = pd.DataFrame(od_well)
-        pd_OD.to_excel(xl_writer_od, sheet_name=image_name[:-4])
-
-        stop = time.time()
-        print(f"\ttime to process={stop-start}")
-
-        # SAVE FOR DEBUGGING
         if debug:
-            well_path = os.path.join(c.RUN_PATH)
-            os.makedirs(c.RUN_PATH, exist_ok=True)
+            well_path = os.path.join(run_path)
+            os.makedirs(run_path, exist_ok=True)
             output_name = os.path.join(well_path, image_name[:-4])
 
-            # Save spot and background intensities.
-            pd_int = pd.DataFrame(int_well)
-            pd_int.to_excel(xlwriter_int, sheet_name=image_name[:-4])
-            pd_bg = pd.DataFrame(bg_well)
-            pd_bg.to_excel(xlwriter_bg, sheet_name=image_name[:-4])
-
-            # Save mask of the well, cropped grayscale image, cropped spot segmentation.
+            # # Save mask of the well, cropped grayscale image, cropped spot segmentation.
             io.imsave(output_name + "_well_mask.png",
                       (255 * well_mask).astype('uint8'))
             io.imsave(output_name + "_crop.png",
@@ -171,20 +102,69 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
             io.imsave(output_name + "_crop_bg_overlay.png",
                       (255 * im_bg_overlay).astype('uint8'))
 
+        bg_props = generate_props(spot_mask, intensity_image_=background)
+        # eccentricities = np.array([prop.eccentricity for prop in spot_props])
+        # eccent_ub = eccentricities.mean() + 2.5 * eccentricities.std()
+        # spot_props = select_props(spot_props, attribute="area", condition="greater_than", condition_value=300)
+        # spot_props = select_props(spot_props, attribute="eccentricity", condition="less_than",
+        #                           condition_value=eccent_ub)
+        spot_labels = [p.label for p in spot_props]
+        bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
+
+        crop_coords = \
+            grid_from_centroids(spot_props,
+                               im_crop,
+                               background,
+                               params['rows'],
+                               params['columns'],
+                               )
+        props_by_loc, bgprops_by_loc = \
+            array_gen.get_spot_intensity(
+                coords=crop_coords,
+                im_int=im_crop,
+                background=background,
+                params=params
+            )
+        props_array_placed = assign_props_to_array(spot_props_array, props_by_loc)
+        bgprops_array = assign_props_to_array(bgprops_array, bgprops_by_loc)
+
+        od_well, int_well, bg_well = compute_od(props_array_placed, bgprops_array)
+
+        pd_OD = pd.DataFrame(od_well)
+        pd_OD.to_excel(xlwriterOD, sheet_name=image_name[:-4])
+
+        stop = time.time()
+        print(f"\ttime to process={stop-start}")
+
+        # SAVE FOR DEBUGGING
+        if debug:
+            # Save spot and background intensities.
+            pd_int = pd.DataFrame(int_well)
+            pd_int.to_excel(xlwriter_int, sheet_name=image_name[:-4])
+            pd_bg = pd.DataFrame(bg_well)
+            pd_bg.to_excel(xlwriter_bg, sheet_name=image_name[:-4])
+
             # # This plot shows which spots have been assigned what index.
-            debug_plots.plot_spot_assignment(od_well, int_well, bg_well,
-                                  im_crop, props_placed_by_loc, bgprops_by_loc,
-                                  image_name, output_name, c.params)
-
-            #   save spots
-            # save_all_wells(spot_props_array, spot_ids, well_path, image_name[:-4])
-
-            #   save a composite of all spots, where spots are from source or from region prop
-            debug_plots.save_composite_spots(im_crop, props_array_placed, well_path, image_name[:-4], from_source=True)
+            plot_centroid_overlay(
+                im_crop,
+                params,
+                props_by_loc,
+                bgprops_by_loc,
+                output_name,
+            )
+            plot_od(
+                od_well,
+                int_well,
+                bg_well,
+                output_name,
+            )
+            # #   save a composite of all spots, where spots are from source or from region prop
+            save_composite_spots(im_crop, props_array_placed, output_name, from_source=True)
+            save_composite_spots(im_crop, props_array_placed, output_name, from_source=False)
 
             stop2 = time.time()
             print(f"\ttime to save debug={stop2-stop}")
     if debug:
         xlwriter_int.close()
         xlwriter_bg.close()
-    xl_writer_od.close()
+    xlwriterOD.close()
