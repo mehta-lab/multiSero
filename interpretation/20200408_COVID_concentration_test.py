@@ -84,14 +84,14 @@ plate_info_df.dropna(inplace=True)
 # #plate_info_df.drop(['Sera ID'], axis=1, inplace=True)
 # plate_info_df['type'] = plate_info_df['Sera ID'].str.replace(' \d+', '')
 # # print(plate_info_df[plate_info_df['Sera ID']=='pos 1']['dilution'].unique())
-plate_info_df
+
 
 
 # In[117]:
 
 
 antigen_df = xlsx2D_to_df1D(xlsx_path=antigens_path, sheet='antigens', data_col='antigen')   
-antigen_df
+
 
 
 # # Read analysis output from Scienion 
@@ -106,8 +106,6 @@ for well_id in plate_info_df['well_id']:
     OD_1_well_df['well_id'] = well_id
     scienion_df = scienion_df.append(OD_1_well_df, ignore_index=True)
 
-scienion_df[0:20]
-# scienion_df.shape
 
 
 # In[124]:
@@ -120,7 +118,6 @@ spot_id_df.rename(columns={0: 'antigen_row', 1: 'antigen_col'}, inplace=True)
 
 scienion_df = pd.concat([spot_id_df, scienion_df], axis=1)
 scienion_df.drop('ID', axis=1, inplace=True)
-scienion_df
 
 
 # In[162]:
