@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+#%% Setup
 
 
 from pprint import pprint
@@ -24,7 +24,6 @@ def xlsx2D_to_df1D(xlsx_path, sheet, data_col):
     
 
 
-# # Setup
 
 # *  xkappa biotin spots: these spots are coated with human kappa light chain conjugated to biotin, so that when the streptavidin-HRP is added there is strong signal independent of the serum content.  **We should not expect the fiducial signal to weaken with serial dilution.**
 # *  Row-5 (row index 4) in multiple wells shows excessive comets and are not interpretable. The row corresponds to concentration range of (SARS-CoV2-RBD).  
@@ -37,9 +36,9 @@ def xlsx2D_to_df1D(xlsx_path, sheet, data_col):
 #  * E11: whole well
 # 
 
-# ## Set paths
 
-# In[108]:
+
+#%% Set paths
 
 
 data_folder=r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-04-08-14-48-49-COVID_concentrationtest_April8_images'
@@ -51,9 +50,7 @@ antigens_path=os.path.join(data_folder,'python_antigens.xlsx')
 scienionpath=os.path.join(data_folder,'2020-04-08-14-57-09-COVID_concentrationtest_April8_analysis2.xlsx')
 
 
-# # Read antigen and plate info
-
-# In[161]:
+#%% Read antigen and plate info
 
 
 
@@ -87,16 +84,15 @@ plate_info_df.dropna(inplace=True)
 
 
 
-# In[117]:
+#%% Read antigen information.
 
 
 antigen_df = xlsx2D_to_df1D(xlsx_path=antigens_path, sheet='antigens', data_col='antigen')   
 
 
 
-# # Read analysis output from Scienion 
+#%% Read analysis output from Scienion
 
-# In[123]:
 
 
 # Read all wells into dictionary. 
@@ -108,10 +104,7 @@ for well_id in plate_info_df['well_id']:
 
 
 
-# In[124]:
-
-
-# parse spot ids
+#%%   parse spot ids
 spot_id_df=scienion_df['ID'].str.extract(r'spot-(\d)-(\d)')
 spot_id_df = spot_id_df.astype(int) - 1 # index starting from 0
 spot_id_df.rename(columns={0: 'antigen_row', 1: 'antigen_col'}, inplace=True)
@@ -131,9 +124,8 @@ df_scn['OD'] = np.log10(df_scn['background'] / df_scn['intensity'])
 df_scn[df_scn['well_id']=='A1']
 
 
-# ### Join Scienion data with plateInfo
 
-# In[163]:
+#%% Join Scienion data with plateInfo
 
 
 df_scn = pd.merge(df_scn,
@@ -144,32 +136,20 @@ df_scn = pd.merge(df_scn,
                  how='right', on=['well_id'])
 
 
-# In[165]:
-
+#%% Add a name of the pipeline to the dataframe.
 
 df_scn['pipeline'] = 'scienion'
-df_scn
 
 
-# # Read output from pysero
-
-# ## Read optical density
-
-# In[128]:
-
-
-# Read all wells into dictionary and into a 4D numpy array.
+#%% Read optical density from pysero
 OD_df = pd.DataFrame()
 for well_id in plate_info_df['well_id']:
     OD_1_well_df = xlsx2D_to_df1D(xlsx_path=antigenOD_path, sheet=well_id, data_col='OD')   
     OD_1_well_df['well_id'] = well_id
     OD_df = OD_df.append(OD_1_well_df, ignore_index=True)
-OD_df
 
 
-# ### merge OD with antigen and plate info.
-
-# In[167]:
+#%% merge OD with antigen and plate info.
 
 
 # Use of filter avoids merge of duplicate columns when the cell is run multiple times.
@@ -182,9 +162,8 @@ OD_df = pd.merge(OD_df,
                  how='right', on=['well_id'])
 
 
-# ## median intensities and background from pysero
 
-# In[168]:
+#%% median intensities and background from pysero
 
 
 # Read all intensity wells into dictionary and into a 4D numpy array.
@@ -193,7 +172,6 @@ for well_id in plate_info_df['well_id']:
     OD_1_well_df = xlsx2D_to_df1D(xlsx_path=python_int_path, sheet=well_id, data_col='intensity')   
     OD_1_well_df['well_id'] = well_id
     python_int_df = python_int_df.append(OD_1_well_df, ignore_index=True)
-python_int_df
 
 
 # In[169]:
@@ -205,12 +183,10 @@ for well_id in plate_info_df['well_id']:
     OD_1_well_df = xlsx2D_to_df1D(xlsx_path=python_bg_path, sheet=well_id, data_col='background')   
     OD_1_well_df['well_id'] = well_id
     python_bg_df = python_bg_df.append(OD_1_well_df, ignore_index=True)
-python_bg_df
 
 
-# ### merge intensity and background with OD, plateinfo, antigen info
 
-# In[170]:
+#%% merge intensity and background with OD, plateinfo, antigen info
 
 
 # OD_df = OD_df.filter(items=['well_id','antigen_row', 'antigen_col','antigen','Sera ID', 'type', 'dilution', 'OD'],axis=1)
@@ -233,18 +209,9 @@ python_df['pipeline'] = 'python'
 
 python_df = python_df.append(df_scn)
 
+#%% Generate plots from pysero
 
-# In[172]:
-
-
-python_df
-
-
-# # Generate plots from pysero
-
-# ## 4 positive sera vs 4 negative sera for control antigens
-
-# In[148]:
+# 4 positive sera vs 4 negative sera for control antigens
 
 
 fig_path = os.path.join(data_folder, 'pysero_fit_OD_8_sera_per_ag')
@@ -268,9 +235,8 @@ for y in y_list:
     plt.savefig(os.path.join(fig_path, '_'.join(['pysero', y + '.jpg'])), dpi=300, bbox_inches='tight')
 
 
-# ## Compare pysero and Scienion aross all serum and antigen combinations
 
-# In[180]:
+#%% Compare pysero and Scienion aross all serum and antigen combinations
 
 
 fig_path = os.path.join(data_folder, 'python_median_vs_scienion')
@@ -354,14 +320,6 @@ for antigen, ax in zip(sub_df['antigen'].unique(), g.axes.flat):
 # plt.savefig(os.path.join(fig_path, 'pyseroOD_neg_sera_11_16_fit.jpg'), dpi=300, bbox_inches='tight')
 plt.savefig(os.path.join(fig_path, 'pyseroOD_4_pos_4_neg_sera_fit.jpg'), dpi=300, bbox_inches='tight')
 
-
-# In[142]:
-
-
-python_df_fit
-
-
-# In[ ]:
 
 
 
