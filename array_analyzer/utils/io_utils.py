@@ -58,15 +58,15 @@ def get_image_paths(input_dir):
     well_images = {}
     if len(os.path.basename(image_names[0])) > 6:
         # Micromanager naming convention, find well from subdir name
-        for im in image_names:
-            well_name = im.split('/')[-2]
+        for im_name in image_names:
+            well_name = im_name.split('/')[-2]
             # split again for well name, assume - separation
             well_name = well_name.split('-')[0]
-            well_images[well_name] = im
+            well_images[well_name] = im_name
     else:
         # Assume images are named e.g. A0.png
-        for im in image_names:
-            well_name = os.path.basename(im)[:-4]
-            well_images[well_name] = im
+        for im_name in image_names:
+            well_name = os.path.basename(im_name)[:-4]
+            well_images[well_name] = im_name
 
     return well_images
