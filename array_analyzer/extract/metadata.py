@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from datetime import datetime
+import pandas as pd
 
 import array_analyzer.extract.txt_parser as txt_parser
 import array_analyzer.extract.constants as c
@@ -10,6 +11,15 @@ class MetaData:
 
     def __init__(self, input_folder_, output_folder_):
         """
+        For three METADATA_EXTENSION values:
+        'xml':
+            -
+        'csv':
+            -
+        'well':
+            -
+        'xlsx':
+            -
 
         :param input_folder_:
         :param output_folder_:
