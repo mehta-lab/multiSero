@@ -5,6 +5,7 @@ import csv
 import xmltodict
 from xml.parsers.expat import ExpatError
 import xml.etree.ElementTree as ET
+import pandas as pd
 
 """
 The below code should parse the .xml
@@ -117,7 +118,20 @@ def create_csv_dict(path_):
 
 
 def create_xlsx_dict(path_):
-    pass
+    fiduc = list()
+    antigens = list()
+    array_params = dict()
+
+    xlsx = pd.read_excel(path_, sheet_name=None)
+
+    # populate array parameters
+    for idx, value in enumerate(xlsx['imaging_and_array_parameters']['Parameter']):
+        array_params[value] = xlsx['imaging_and_array_parametrs']['Value'][idx]
+
+    # find and populate fiduc array
+
+
+    return fiduc, None, antigens, array_params
 
 
 def create_array(rows_, cols_, dtype='U100'):

@@ -14,7 +14,7 @@ import array_analyzer.load.debug_images as debug_plots
 import array_analyzer.transform.point_registration as registration
 import array_analyzer.transform.array_generation as array_gen
 
-FIDUCIALS = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
+# FIDUCIALS = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
 FIDUCIALS_IDX = [0, 5, 6, 30, 35]
 FIDUCIALS_IDX_8COLS = [0, 7, 8, 40, 47]
 SCENION_SPOT_DIST = 82

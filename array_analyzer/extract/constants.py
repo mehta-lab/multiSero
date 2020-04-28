@@ -20,6 +20,7 @@ params = {
     'min_diam': None,
     'pixel_size_scienion': 0.0049,
     'pixel_size_octopi': 0.00185,
+    'pixel_size': None
 }
 
 layout = dict()
@@ -36,13 +37,17 @@ ANTIGEN_ARRAY = None
 
 # constants needed for workflows
 #   the constants below are lists of tuples, lists of integers, or simply integers
+
+# list of (column, row) fiducial locations
 FIDUCIALS = []
+
+# list of int fiducial location in array.  Example for 6x6 array: (0,0) = 0, (0,1) = 6, (5,5) = 35
 FIDUCIALS_IDX = []
-FIDUCIALS_IDX_8COLS = []
+# FIDUCIALS_IDX_8COLS = []
+
+# values used by point_registration.py
 SCENION_SPOT_DIST = int()
 STDS = []
 
 # constants for saving
 RUN_PATH = ''
-
-# hardware parameters

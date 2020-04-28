@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from datetime import datetime
+import pandas as pd
 
 import array_analyzer.extract.txt_parser as txt_parser
 import array_analyzer.extract.constants as c
@@ -17,7 +18,7 @@ class MetaData:
 
         fiduc_, spots_, repl_, params_ = None, None, None, None
         if c.METADATA_EXTENSION == 'xml':
-            # check that exactly one .xml is in the data folder
+            # check that exactly one .xml exists
             xml = [f for f in os.listdir(input_folder_) if '.xml' in f]
             if len(xml) > 1:
                 raise IOError("more than one .xml file found, aborting")
@@ -46,7 +47,24 @@ class MetaData:
             fiduc_, _, repl_, params_ = txt_parser.create_csv_dict(csv_paths)
 
         elif c.METADATA_EXTENSION == 'xlsx':
-            pass
+            # check that exactly one .xlsx exists
+            xlsxs = [f for f in os.listdir(input_folder_) if '.xlsx' in f]
+            if len(xlsxs) > 1:
+                raise IOError("more than one .xlsx file found, aborting")
+            xlsx_path = os.path.join(input_folder_, xlsxs[0])
+
+            # check that the xlsx file contains necessary worksheets
+            sheets = pd.read_excel(xlsx_path, sheet_name=None)
+            if 'imaging_and_array_parameters' not in sheets.keys():
+                raise IOError("sheet by name 'imaging_and_array_parameters' not present in excel file, aborting")
+            if 'array_antigens' not in sheets.keys():
+                raise IOError("sheet by name 'array_antigens' not present in excel file, aborting")
+
+            # parsing .xlsx
+            fiduc_, spots_, repl_, params_ = txt_parser.create_xlsx_dict(xlsx_path)
+
+        else:
+            raise NotImplementedError(f"metadata with extension {c.METADATA_EXTENSION} is not supported")
 
         # setting constants
         c.fiducials = fiduc_
