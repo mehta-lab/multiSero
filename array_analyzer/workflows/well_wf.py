@@ -1,6 +1,5 @@
-
 import array_analyzer.extract.image_parser as image_parser
-import array_analyzer.extract.img_processing as img_processing
+import array_analyzer.extract.img_processing as processing
 import array_analyzer.extract.constants as c
 from array_analyzer.extract.metadata import MetaData
 
@@ -66,7 +65,7 @@ def well_analysis(input_folder_, output_folder_, method='segmentation', debug=Fa
         # read image
         well_image_file = [file for file in os.listdir(os.path.join(input_folder_, well_dir))
                           if '.png' in file or '.tif' in file or '.jpg' in file][0]
-        image, image_name = image_parser.read_to_grey(os.path.join(input_folder_, well_dir), well_image_dir)
+        image, image_name = image_parser.read_to_grey(os.path.join(input_folder_, well_dir), well_image_file)
         print(well_dir)
 
         # measure intensity
@@ -81,7 +80,7 @@ def well_analysis(input_folder_, output_folder_, method='segmentation', debug=Fa
             radius = np.floor(0.1 * np.min(img_size)).astype('int')
             cx = np.floor(img_size[1]/2).astype('int')
             cy = np.floor(img_size[0]/2).astype('int')
-            im_crop = img_processing.crop_image(image, cx, cy, radius, border_=0)
+            im_crop = processing.crop_image(image, cx, cy, radius, border_=0)
 
             well_mask = np.ones_like(im_crop, dtype='bool')
             int_well_ = image_parser.get_well_intensity(im_crop, well_mask)
