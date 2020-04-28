@@ -3,7 +3,7 @@ from testfixtures import TempDirectory
 import unittest
 from unittest.mock import patch
 
-import run_array_analyzer as array_analyzer
+import pysero as array_analyzer
 
 
 class TestRunArrayAnalyzer(unittest.TestCase):
