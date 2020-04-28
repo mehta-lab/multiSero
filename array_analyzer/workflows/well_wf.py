@@ -2,6 +2,7 @@ import sys, getopt, os
 
 import array_analyzer.extract.image_parser as image_parser
 import array_analyzer.extract.img_processing as processing
+import array_analyzer.utils.io_utils as io_utils
 
 import time
 from datetime import datetime
@@ -55,7 +56,10 @@ def well_analysis(input_folder_, output_folder_, method='segmentation', debug=Fa
         # read image
         well_image_file = [file for file in os.listdir(os.path.join(input_folder_, well_dir))
                           if '.png' in file or '.tif' in file or '.jpg' in file][0]
-        image, image_name = image_parser.read_to_grey(os.path.join(input_folder_, well_dir), well_image_file)
+        image, image_name = io_utils.read_to_grey(
+            os.path.join(input_folder_, well_dir),
+            well_image_file,
+        )
         print(well_dir)
 
         # measure intensity
