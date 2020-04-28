@@ -1,5 +1,6 @@
 # bchhun, {2020-04-02}
 
+import array_analyzer.extract.background_estimator as background_estimator
 from array_analyzer.extract.txt_parser import *
 from array_analyzer.extract.img_processing import *
 from array_analyzer.load.debug_images import *
@@ -13,6 +14,7 @@ import skimage.io as io
 import pandas as pd
 
 SCENION_SPOT_DIST = 82
+
 
 def interp(input_folder_, output_folder_, method='interp', debug=False):
 
@@ -46,6 +48,13 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
     if not os.path.isdir(run_path):
         os.mkdir(run_path)
 
+    # Initialize background estimator
+    bg_estimator = background_estimator.BackgroundEstimator2D(
+        block_size=128,
+        order=2,
+        normalize=False,
+    )
+
     # ================
     # loop over images => good place for multiproc?  careful with columns in report
     # ================
@@ -65,7 +74,7 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
 
         # find center of spots from crop
         spot_mask = thresh_and_binarize(im_crop, method='bright_spots')
-        background = get_background(im_crop, fit_order=2)
+        background = bg_estimator.get_background(im_crop)
 
         spot_props = generate_props(spot_mask, intensity_image_=im_crop)
 
