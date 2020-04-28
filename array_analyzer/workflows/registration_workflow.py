@@ -6,6 +6,7 @@ import os
 import pandas as pd
 import time
 
+import array_analyzer.extract.background_estimator as background_estimator
 import array_analyzer.extract.image_parser as image_parser
 import array_analyzer.extract.img_processing as img_processing
 import array_analyzer.extract.txt_parser as txt_parser
@@ -73,6 +74,13 @@ def point_registration(input_folder, output_folder, debug=False):
         xlwriter_bg = pd.ExcelWriter(
             os.path.join(run_path, 'intensities_backgrounds.xlsx'),
         )
+
+    # Initialize background estimator
+    bg_estimator = background_estimator.BackgroundEstimator2D(
+        block_size=128,
+        order=2,
+        normalize=False,
+    )
 
     # Get grid rows and columns from params
     nbr_grid_rows = params['rows']
@@ -148,12 +156,8 @@ def point_registration(input_folder, output_folder, debug=False):
             grid_coords=reg_coords,
         )
         im_crop = im_crop / np.iinfo(im_crop.dtype).max
-        # Estimate and remove background
-        background = img_processing.get_background(
-            im_crop,
-            fit_order=2,
-            normalize=False,
-        )
+        # Estimate background
+        background = bg_estimator.get_background(im_crop)
         # Find spots near grid locations
         props_placed_by_loc, bgprops_by_loc = array_gen.get_spot_intensity(
             coords=crop_coords,
