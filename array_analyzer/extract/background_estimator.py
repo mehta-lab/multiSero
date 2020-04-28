@@ -117,5 +117,6 @@ class BackgroundEstimator2D:
         # Normalize by mean
         if self.normalize:
             background /= np.mean(background)
+
         return background
 
