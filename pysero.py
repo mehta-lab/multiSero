@@ -16,8 +16,16 @@ def parse_args():
 
     # make sure that only extract_od or analyze_od stages are passed.
     stage = parser.add_mutually_exclusive_group(required=True)
-    stage.add_argument('-e', '--extract_od', action= 'store_const', const=True)
-    stage.add_argument('-a', '--analyze_od', action= 'store_const', const=True)
+    stage.add_argument(
+        '-e', '--extract_od',
+        action= 'store_const',
+        const=True
+    )
+    stage.add_argument(
+        '-a', '--analyze_od',
+        action= 'store_const',
+        const=True
+    )
 
     parser.add_argument(
         '-i', '--input',
