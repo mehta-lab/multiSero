@@ -1,63 +1,88 @@
-![unittest](https://github.com/czbiohub/serology-COVID19/workflows/unittest/badge.svg)
+![unittest](https://github.com/czbiohub/pysero/workflows/unittest/badge.svg)
 
 # pysero
 
 pysero enables serological measurements with multiplexed and standard ELISA assays.
 
-The project automates measurement of antibody response from data collected with ELISA assays in [conventional multi-well format](https://doi.org/10.1101/2020.03.17.20037713) and [ELISA-array format](https://doi.org/10.1101/2019.12.20.885285).
+The project automates estimation of antibody titers from data collected with ELISA assays performed with [antigen-arrays](https://doi.org/10.1101/2019.12.20.885285) and [single antigens](https://doi.org/10.1101/2020.03.17.20037713).
 
-## Features
+The immediate goal is to enable specific, sensitive, and quantitative serological surveys for COVID-19. 
 
-The immediate goal is to enable rapid serological surveys for COVID-19. 
+## Brief description
 
-The project aims to implement serological analysis for all antigen multiplexing technologies that emerge to be useful: 
-* classical ELISA.
-* antigen arrays printed with [Scienion](https://www.scienion.com/products/sciflexarrayers/).
-* antigen arrays printed with [Echo](https://www.labcyte.com/echo-liquid-handling).
-* antigen multiplexing with [Luminex](https://www.luminexcorp.com/blog/multiplex-technologies-more-effective-than-elisa-for-antibody-detection/) beads. 
 
-The image data can be acquired with diversity of imagers and plate readers:
- * turn-key plate imagers, e.g., [SciReader CL2](https://www.scienion.com/products/scireaders/).
- * [Octopi](https://www.biorxiv.org/content/10.1101/684423v1) platform with online analysis - in development in collaboration with [Prakash Lab](http://web.stanford.edu/group/prakash-lab/cgi-bin/labsite/).
- * any widefield microscope with motorized XY stage.
+## How to analyze the data?
 
-The project will also have tools for combining data from different types of assays for interpretation of antibody binding.
+### Installation
 
-## Overview of pipeline
+On a typical Winodws, Mac, or Linux computer:
+* Create a conda environment: `conda create --name pysero`
+* Activate conda environment: `conda activate pysero`
+* Once inside the repository folder, install dependencies: `pip install -r requirements.txt`
+
+For installation notes for Jetson Nano, see [these notes](docs/installation.md).
+
+The script "pysero.py" automtes the process of analysis. 
+
+```buildoutcfg
+python pysero.py [-h] (-e | -a) -i INPUT -o OUTPUT
+                 [-wf {well_segmentation,well_crop,array_interp,array_fit}]
+                 [-d]
+optional arguments:
+  -h, --help            show this help message and exit
+  -e, --extract_od
+  -a, --analyze_od
+  -i INPUT, --input INPUT
+                        Input directory path
+  -o OUTPUT, --output OUTPUT
+                        Output directory path
+  -wf {well_segmentation,well_crop,array_interp,array_fit}, --workflow {well_segmentation,well_crop,array_interp,array_fit}
+                        Workflow to automatically identify and extract
+                        intensities from experiment. 'Well' experiments are
+                        for standard ELISA. 'Array' experiments are for ELISA
+                        assays using antigen arrays printed with Scienion
+                        Array Printer
+  -d, --debug           Write debug plots of well and spots
+
+```
+
+`pysero -e -i input -o output` will take metadata for antigen array and images as input, and output optical densities for each antigen. 
+The optical densities are stored in an excel file at the following path: `output/run_hour_min_sec/OD.xlsx`
+
+Collection of jupyter notebooks, [such as this](notebooks_interpretation/20200330_March25_flutasteplate_1/FluPlateInterpretationV4_smg.ipynb), show how to use ODs to evaluate antibody binding. 
+The interpretation pipeline will soon be accessible as command-line tool.
+
+This [workflow](docs/workflow.md) describes the steps in the extraction of optical density.
 
 <img src="docs/Workflow%20Schematic.png" width="600">
 
-## Status
-The code is being rapidly developed. 
-Current code is validated for analysis of ELISA-arrays imaged with Scienion reader and is being refined for antigen arrays imaged with Octopi.
+## Equipment list
 
 
-## Usage
-The script "run_array_analyzer.py" can be run from command line
+The project aims to implement serological analysis for several antigen multiplexing approaches. 
 
-```buildoutcfg
-python run_array_analyzer.py --input <input dir> --output <output dir> --method <'interp' or 'fit'> --debug
-```
+It currently supports: 
+* classical ELISA.
+* antigen arrays printed with [Scienion](https://www.scienion.com/products/sciflexarrayers/).
 
-This will look for .xml file in the input directory (must be exactly 1) and grab all .png, .jpg, and .tiff images there.
+It can be extended to support:
+* antigen arrays printed with [Echo](https://www.labcyte.com/echo-liquid-handling).
+* antigen multiplexing with [Luminex](https://www.luminexcorp.com/blog/multiplex-technologies-more-effective-than-elisa-for-antibody-detection/) beads. 
 
-Next it will extract the spots and create a subfolder for the specific processing run named "run_hour_min_sec".
+The antigen-arrays can be imaged with:
+ * any transmission microscope with motorized XY stage.
+ * turn-key plate imagers, e.g., [SciReader CL2](https://www.scienion.com/products/scireaders/).
+ * Squid - a variant of [Octopi](https://www.biorxiv.org/content/10.1101/684423v1) platform from [Prakash Lab](http://web.stanford.edu/group/prakash-lab/cgi-bin/labsite/).
+ 
+The project will also have tools for intersecting data from different assays for estimation of concentrations, determining level of cross-reactivity, ...
 
-Finally, within that run folder an excel workbook "OD.xlsx" is written, summarizing the Optical Density measurements of all spots
-and all wells.  Individual spot and spot-composite images are written if -d debug mode is on.  This can be useful to see
-how well the algorithm identified spots.
+## Validation
 
-- <well_name>_crop.png
-- <well_name>_crop_binary.png
-- <well_name>_spot-1-2.png
-- <well_name>_spot-2-2.png
-- etc...
+Current code is validated for analysis of anigen arrays imaged with Scienion Reader and is being refined for antigen arrays imaged with motorized XY microscope and Squid.
 
-Collection of jupyter notebooks in 
-**notebooks_interpretation** show how to use ODs to evaluate antibody binding. 
 
-## Workflow
-Steps in the analysis workflow are described in [workflow](docs/workflow.md)
+
+
 
 ## Contributions
 We welcome bug reports, feature requests, and contributions to the code. Please see  [this](docs/CONTRIBUTING.md) page for most fruitful ways to contribute.
