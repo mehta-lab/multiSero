@@ -22,7 +22,7 @@ On a typical Winodws, Mac, or Linux computer:
 
 For installation notes for Jetson Nano, see [these notes](docs/installation.md).
 
-The script "pysero.py" automtes the process of analysis. 
+The command-line utility "pysero.py" enables automated analysis. 
 
 ```buildoutcfg
 python pysero.py [-h] (-e | -a) -i INPUT -o OUTPUT
