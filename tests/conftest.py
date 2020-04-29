@@ -1,5 +1,6 @@
 import pytest
 from testfixtures import TempDirectory
+import pandas as pd
 
 
 @pytest.fixture()
@@ -12,9 +13,11 @@ def create_bad_xlsx():
     # build dictionaries, use pandas to write .xlsx to temp
     # yield temp folder
 
+
     # breakdown temp folder
     #   delete temp and .xlsx
 
 @pytest.fixture()
 def create_good_xlsx():
     pass
+

@@ -14,6 +14,20 @@ def parse_args():
     :return: namespace containing the arguments passed.
     """
     parser = argparse.ArgumentParser()
+
+    # make sure that only extract_od or analyze_od stages are passed.
+    stage = parser.add_mutually_exclusive_group(required=True)
+    stage.add_argument(
+        '-e', '--extract_od',
+        action= 'store_const',
+        const=True
+    )
+    stage.add_argument(
+        '-a', '--analyze_od',
+        action= 'store_const',
+        const=True
+    )
+
     parser.add_argument(
         '-i', '--input',
         type=str,
@@ -32,8 +46,8 @@ def parse_args():
         choices=['well_segmentation', 'well_crop', 'array_interp', 'array_fit'],
         default='array_interp',
         help="Workflow to automatically identify and extract intensities from experiment.  "
-             "'Well' experiments are for standard ELISAS.  "
-             "'Array' experiments are for plates printed using Scienion Array Printer ",
+             "'Well' experiments are for standard ELISA.  "
+             "'Array' experiments are for ELISA assays using antigen arrays printed with Scienion Array Printer ",
     )
     parser.add_argument(
         '-d', '--debug',
@@ -53,7 +67,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def run_workflow(input_dir, output_dir, workflow, debug=False):
+def extract_od(input_dir, output_dir, workflow, debug=False):
     """
     For each image in input directory, run either interpolation (default)
     or registration of fiducials workflow.
@@ -106,9 +120,12 @@ if __name__ == '__main__':
     args = parse_args()
     c.METADATA_EXTENSION = args.metadata
 
-    run_workflow(
-        input_dir=args.input,
-        output_dir=args.output,
-        workflow=args.workflow,
-        debug=args.debug,
-    )
+    if args.extract_od:
+        extract_od(
+            input_dir=args.input,
+            output_dir=args.output,
+            workflow=args.workflow,
+            debug=args.debug,
+        )
+    elif args.analyze_od:
+        print('Automated interpretation is coming. See the interpretation folder for examples of interpretation scripts.')

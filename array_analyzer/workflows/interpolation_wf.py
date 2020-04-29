@@ -2,7 +2,7 @@
 
 from array_analyzer.extract.txt_parser import *
 from array_analyzer.extract.img_processing import *
-from array_analyzer.load.debug_images import *
+from array_analyzer.load.debug_plots import *
 from array_analyzer.transform.property_filters import *
 import array_analyzer.transform.array_generation as array_gen
 import re
@@ -11,7 +11,7 @@ from datetime import datetime
 import skimage.io as io
 import pandas as pd
 
-SCENION_SPOT_DIST = 82
+# SCENION_SPOT_DIST = 82
 
 def interp(input_folder_, output_folder_, method='interp', debug=False):
 
