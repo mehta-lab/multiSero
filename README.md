@@ -85,5 +85,5 @@ Current code is validated for analysis of anigen arrays imaged with Scienion Rea
 
 
 ## Contributions
-We welcome bug reports, feature requests, and contributions to the code. Please see  [this](docs/CONTRIBUTING.md) page for most fruitful ways to contribute.
+We welcome bug reports, feature requests, and contributions to the code. Please see  [this](docs/contributing.md) page for most fruitful ways to contribute.
 
