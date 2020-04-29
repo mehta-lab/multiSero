@@ -1,5 +1,3 @@
-"""Estimate flat field images"""
-
 import numpy as np
 import itertools
 
@@ -95,7 +93,6 @@ class BackgroundEstimator2D:
         variable_iterator = itertools.filterfalse(lambda x: sum(x) > self.order, order_pairs)
         for coeff, (m, n) in zip(coeffs, variable_iterator):
             poly_surface += coeff * x_mesh ** m * y_mesh ** n
-
         return poly_surface
 
     def get_background(self, im):
@@ -118,4 +115,3 @@ class BackgroundEstimator2D:
         if self.normalize:
             background /= np.mean(background)
         return background
-
