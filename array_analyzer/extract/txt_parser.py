@@ -53,31 +53,31 @@ def create_xml_dict(path_):
         xmlstr = ET.tostring(xml_data, encoding='utf-8', method='xml')
         doc = xmltodict.parse(xmlstr)
 
-    # layout of array
-    layout = doc['configuration']['well_configurations']['configuration']['array']['layout']
+    try:
+        # layout of array
+        layout = doc['configuration']['well_configurations']['configuration']['array']['layout']
 
-    # fiducials
-    fiduc = layout['marker']
+        # fiducials
+        fiduc = layout['marker']
 
-    # spot IDs
-    spots = doc['configuration']['well_configurations']['configuration']['array']['spots']['spot']
+        # spot IDs
+        spots = doc['configuration']['well_configurations']['configuration']['array']['spots']['spot']
 
-    # replicates
-    repl = doc['configuration']['well_configurations']['configuration']['array']['spots']['multiplet']
+        # replicates
+        repl = doc['configuration']['well_configurations']['configuration']['array']['spots']['multiplet']
 
-    array_params = dict()
-    array_params['rows'] = int(layout['@rows'])
-    array_params['columns'] = int(layout['@cols'])
-    array_params['v_pitch'] = float(layout['@vspace'])
-    array_params['h_pitch'] = float(layout['@hspace'])
-    array_params['spot_width'] = float(layout['@expected_diameter'])
-    array_params['bg_offset'] = float(layout['@background_offset'])
-    array_params['bg_thickness'] = float(layout['@background_thickness'])
-    array_params['max_diam'] = float(layout['@max_diameter'])
-    array_params['min_diam'] = float(layout['@min_diameter'])
-
-    array_params['pixel_size_scienion'] = 0.0049  # scienion camera
-    array_params['pixel_size_octopi'] = 0.00185  # octopi camera
+        array_params = dict()
+        array_params['rows'] = int(layout['@rows'])
+        array_params['columns'] = int(layout['@cols'])
+        array_params['v_pitch'] = float(layout['@vspace'])
+        array_params['h_pitch'] = float(layout['@hspace'])
+        array_params['spot_width'] = float(layout['@expected_diameter'])
+        array_params['bg_offset'] = float(layout['@background_offset'])
+        array_params['bg_thickness'] = float(layout['@background_thickness'])
+        array_params['max_diam'] = float(layout['@max_diameter'])
+        array_params['min_diam'] = float(layout['@min_diameter'])
+    except Exception as ex:
+        raise AttributeError(f"exception while parsing .xml : {ex}")
 
     return fiduc, spots, repl, array_params
 
@@ -131,9 +131,13 @@ def create_csv_dict(path_):
 
 def create_xlsx_dict(path_):
     """
-
-    :param path_:
-    :return:
+    extracts fiducial, antigen, and array parameter metadata from .xlsx sheets
+    then populates dictionaries or lists with appropriate information
+    :param path_: path to .xlsx file
+    :return list fiduc: Fiducials and control info
+    :return list spots: None.  spots IDs not needed for .xlsx
+    :return list repl: Replicate (antigen)
+    :return dict params: Additional parameters about hardware and array
     """
     fiduc = list()
     xlsx_antigens = list()

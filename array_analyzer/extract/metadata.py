@@ -56,6 +56,9 @@ class MetaData:
             # if len(xlsxs) > 1:
             #     raise IOError("more than one .xlsx file found, aborting")
             # xlsx_path = os.path.join(input_folder_, xlsxs[0])
+            # check that properly named .xlsx exists
+            if not os.path.isfile(os.path.join(input_folder_, 'Metadata_and_Plate_configuration.xlsx')):
+                raise IOError("required metadata file named 'Metadata_and_Plate_configuration.xlsx' does not exist")
             xlsx_path = os.path.join(input_folder_, 'Metadata_and_Plate_configuration.xlsx')
 
             # check that the xlsx file contains necessary worksheets
@@ -81,16 +84,18 @@ class MetaData:
         if params_:
             c.params['rows'] = int(params_['rows'])
             c.params['columns'] = int(params_['columns'])
-            c.params['v_pitch'] = int(params_['v_pitch'])
-            c.params['h_pitch'] = int(params_['h_pitch'])
-            c.params['spot_width'] = int(params_['spot_width'])
-            # c.params['bg_offset'] = int(params_['bg_offset'])
-            # c.params['bg_thickness'] = int(params_['bg_thickness'])
-            # c.params['max_diam'] = int(params_['max_diam'])
-            # c.params['min_diam'] = int(params_['min_diam'])
+            c.params['v_pitch'] = float(params_['v_pitch'])
+            c.params['h_pitch'] = float(params_['h_pitch'])
+            c.params['spot_width'] = float(params_['spot_width'])
             c.params['pixel_size'] = float(params_['pixel_size'])
             if c.METADATA_EXTENSION == 'xml':
                 c.params['pixel_size'] = c.params['pixel_size_scienion']
+
+                # these params are present in .xml but not used
+                # c.params['bg_offset'] = int(params_['bg_offset'])
+                # c.params['bg_thickness'] = int(params_['bg_thickness'])
+                # c.params['max_diam'] = int(params_['max_diam'])
+                # c.params['min_diam'] = int(params_['min_diam'])
 
         # setting constant arrays
         if c.METADATA_EXTENSION == 'xml':
@@ -168,7 +173,9 @@ class MetaData:
     def _calculate_fiduc_idx(self):
         """
         Calculate fiducial index like
-            FIDUCIALS_IDX = [0, 5, 6, 30, 35]
+            FIDUCIALS_IDX = [0, 5, 6, 30, 35]\
+
+
             FIDUCIALS_IDX = [0, 7, 8, 40, 47] for 8 columns
         :return:
         """
