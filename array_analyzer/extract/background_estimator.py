@@ -117,4 +117,3 @@ class BackgroundEstimator2D:
             background /= np.mean(background)
 
         return background
-

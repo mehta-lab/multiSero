@@ -50,6 +50,13 @@ def interp(input_dir, output_dir, method='interp', debug=False):
         normalize=False,
     )
 
+    # Initialize background estimator
+    bg_estimator = background_estimator.BackgroundEstimator2D(
+        block_size=128,
+        order=2,
+        normalize=False,
+    )
+
     # ================
     # loop over images => good place for multiproc?  careful with columns in report
     # ================
