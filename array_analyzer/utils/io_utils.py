@@ -6,6 +6,7 @@ import numpy as np
 import os
 import skimage.io as io
 from skimage.color import rgb2grey
+import re
 
 
 def read_to_grey(path_, wellimage_):
@@ -46,29 +47,38 @@ def get_image_paths(input_dir):
         with one image each
     :return dict well_images: Well name key, path to found image value
     """
-    extensions = ('*.png', '*.tif', '*.jpg')
+    extensions = ('.png', '.tif')
 
     image_names = []
     for ext in extensions:
-        search_str = os.path.join(input_dir, '**', ext)
-        image_names.extend(glob.glob(search_str, recursive=True))
+        search_str = os.path.join(input_dir,'[A-P][0-9]*'+ext)
+        image_names.extend(glob.glob(search_str, recursive=False))
 
     # Sort images
     image_names = natsort.natsorted(image_names)
     # Find well names from image paths
     well_images = {}
-    if len(os.path.basename(image_names[0])) > 6:
+    if len(image_names) > 0:
+        # Assume images are named e.g. A0.png
+        for im_name in image_names:
+            well_name = os.path.basename(im_name)[:-4]
+            if re.match(r'[A-P][0-9]{1,2}',well_name): #  double-check that the file represents a well.
+                well_images[well_name] = im_name
+    else:
         # Micromanager naming convention, find well from subdir name
+        image_names = []
+        for ext in extensions:
+            search_str = os.path.join(input_dir,'[A-P][0-9]*','*'+ext)
+            image_names.extend(glob.glob(search_str, recursive=False))
+
+        # Sort images
+        image_names = natsort.natsorted(image_names)
         for im_name in image_names:
             well_name = im_name.split('/')[-2]
             # split again for well name, assume - separation
             well_name = well_name.split('-')[0]
-            well_images[well_name] = im_name
-    else:
-        # Assume images are named e.g. A0.png
-        for im_name in image_names:
-            well_name = os.path.basename(im_name)[:-4]
-            well_images[well_name] = im_name
+            if re.match(r'[A-P][0-9]{1,2}',well_name): #  double-check that the file represents a well.
+                well_images[well_name] = im_name
 
     return well_images
 
