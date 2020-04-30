@@ -1,6 +1,5 @@
 import cv2 as cv
-# from datetime import datetime
-# import glob
+import glob
 import numpy as np
 import os
 import pandas as pd
@@ -42,15 +41,15 @@ def point_registration(input_dir, output_dir, debug=False):
 
     os.makedirs(c.RUN_PATH, exist_ok=True)
 
-    xlwriter_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'intensitites_od.xlsx'))
+    xlwriter_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_ODs.xlsx'))
     pdantigen = pd.DataFrame(c.ANTIGEN_ARRAY)
     pdantigen.to_excel(xlwriter_od, sheet_name='antigens')
     if debug:
         xlwriter_int = pd.ExcelWriter(
-            os.path.join(c.RUN_PATH, 'intensities_spots.xlsx'),
+            os.path.join(c.RUN_PATH, 'python_median_intensities.xlsx'),
         )
         xlwriter_bg = pd.ExcelWriter(
-            os.path.join(c.RUN_PATH, 'intensities_backgrounds.xlsx'),
+            os.path.join(c.RUN_PATH, 'python_median_backgrounds.xlsx'),
         )
 
     # Initialize background estimator

@@ -42,18 +42,6 @@ def well_analysis(input_dir, output_dir, method='segmentation', debug=False):
     )
     # Write an excel file that can be read into jupyter notebook with minimal parsing.
     xlwriter_int = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'intensities.xlsx'))
-    xl_writer_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'ODs.xlsx'))
-    pdantigen = pd.DataFrame(c.ANTIGEN_ARRAY)
-    pdantigen.to_excel(xl_writer_od, sheet_name='antigens')
-
-    if debug:
-        xlwriter_int = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'intensities.xlsx'))
-        xlwriter_bg = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'backgrounds.xlsx'))
-
-    # ================
-    # loop over images
-    # ================
-
     # get well directories
     well_images = io_utils.get_image_paths(input_dir)
 

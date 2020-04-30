@@ -87,7 +87,7 @@ def interp(input_dir, output_dir, debug=False):
 
         # find center of spots from crop
         spot_mask = img_processing.thresh_and_binarize(im_crop, method='bright_spots')
-        background = img_processing.get_background(im_crop, fit_order=2)
+        background = bg_estimator.get_background(im_crop)
 
         spot_props = image_parser.generate_props(spot_mask, intensity_image_=im_crop)
 
