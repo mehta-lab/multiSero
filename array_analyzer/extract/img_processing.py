@@ -12,8 +12,6 @@ from skimage.filters import threshold_otsu, threshold_multiotsu, threshold_minim
 from scipy.ndimage import binary_fill_holes
 from skimage.segmentation import clear_border
 
-from .background_estimator import BackgroundEstimator2D
-
 
 def get_unimodal_threshold(input_image):
     """Determines optimal unimodal threshold
@@ -122,16 +120,6 @@ def create_multiotsu_mask(input_image, n_class, fg_class, str_elem_size=3):
     # remove small objects in mask
     mask = binary_opening(mask, str_elem)
     return mask
-
-
-def get_background(img, fit_order, normalize=False, block_size=128):
-    bg_estimator = BackgroundEstimator2D(block_size=block_size)
-    background = bg_estimator.get_background(
-        img,
-        order=fit_order,
-        normalize=normalize,
-    )
-    return background
 
 
 def get_spot_coords(im,

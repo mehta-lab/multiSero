@@ -1,24 +1,25 @@
 # bchhun, {2020-04-02}
 
+import array_analyzer.extract.background_estimator as background_estimator
 from array_analyzer.extract.txt_parser import *
 from array_analyzer.extract.img_processing import *
 from array_analyzer.load.debug_images import *
 from array_analyzer.transform.property_filters import *
 import array_analyzer.transform.array_generation as array_gen
-import re
+import array_analyzer.utils.io_utils as io_utils
 import time
-from datetime import datetime
 import skimage.io as io
 import pandas as pd
 
 SCENION_SPOT_DIST = 82
 
-def interp(input_folder_, output_folder_, method='interp', debug=False):
 
-    xml = [f for f in os.listdir(input_folder_) if '.xml' in f]
+def interp(input_dir, output_dir, method='interp', debug=False):
+
+    xml = [f for f in os.listdir(input_dir) if '.xml' in f]
     if len(xml) > 1:
         raise IOError("more than one .xml file found, aborting")
-    xml_path = input_folder_+os.sep+xml[0]
+    xml_path = input_dir+os.sep+xml[0]
 
     # parsing .xml
     fiduc, spots, repl, params = create_xml_dict(xml_path)
@@ -33,41 +34,37 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
 
     antigen_array = populate_array_antigen(antigen_array, spot_ids, repl)
 
-    # save a sub path for this processing run
-    run_path = output_folder_ + os.sep + f'{datetime.now().month}_{datetime.now().day}_{datetime.now().hour}_{datetime.now().minute}_{datetime.now().second}'
+    # Make directory for processing run
+    run_dir = io_utils.make_run_dir(input_dir, output_dir)
 
     # Write an excel file that can be read into jupyter notebook with minimal parsing.
-    xlwriterOD = pd.ExcelWriter(os.path.join(run_path, 'python_median_ODs.xlsx'))
+    xlwriterOD = pd.ExcelWriter(os.path.join(run_dir, 'python_median_ODs.xlsx'))
     if debug:
-        xlwriter_int = pd.ExcelWriter(os.path.join(run_path, 'python_median_intensities.xlsx'))
-        xlwriter_bg = pd.ExcelWriter(os.path.join(run_path, 'python_median_backgrounds.xlsx'))
+        xlwriter_int = pd.ExcelWriter(os.path.join(run_dir, 'python_median_intensities.xlsx'))
+        xlwriter_bg = pd.ExcelWriter(os.path.join(run_dir, 'python_median_backgrounds.xlsx'))
 
-    if not os.path.isdir(run_path):
-        os.mkdir(run_path)
+    # Initialize background estimator
+    bg_estimator = background_estimator.BackgroundEstimator2D(
+        block_size=128,
+        order=2,
+        normalize=False,
+    )
+
+    # Initialize background estimator
+    bg_estimator = background_estimator.BackgroundEstimator2D(
+        block_size=128,
+        order=2,
+        normalize=False,
+    )
 
     # ================
     # loop over images => good place for multiproc?  careful with columns in report
     # ================
-    images = [file for file in os.listdir(input_folder_) if '.png' in file or '.tif' in file or '.jpg' in file]
+    well_images = io_utils.get_image_paths(input_dir)
 
-    # remove any images that are not images of wells.
-    wellimages = [file for file in images if re.match(r'[A-P][0-9]{1,2}', file)]
-
-    # sort by letter, then by number (with '10' coming AFTER '9')
-    wellimages.sort(key=lambda x: (x[0], int(x[1:-4])))
-
-    # wellimages = ['H10.png','H11.png','H12.png']
-    # wellimages = ['B8.png', 'D5.png']
-    # wellimages = ['A12.png', 'A11.png', 'A8.png', 'A1.png']
-    # wellimages = ['A4.png']
-    # wellimages = ['E11.png']
-    well_path = None
-    output_name = None
-
-    for well in wellimages:
+    for well_name, im_path in well_images.items():
         start = time.time()
-        image, image_name = read_to_grey(input_folder_, well)
-        print(image_name)
+        image = io_utils.read_gray_im(im_path)
 
         spot_props_array = create_array(params['rows'], params['columns'], dtype=object)
         bgprops_array = create_array(params['rows'], params['columns'], dtype=object)
@@ -79,15 +76,12 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
 
         # find center of spots from crop
         spot_mask = thresh_and_binarize(im_crop, method='bright_spots')
-        background = get_background(im_crop, fit_order=2)
-
+        background = bg_estimator.get_background(im_crop)
 
         spot_props = generate_props(spot_mask, intensity_image_=im_crop)
 
         if debug:
-            well_path = os.path.join(run_path)
-            os.makedirs(run_path, exist_ok=True)
-            output_name = os.path.join(well_path, image_name[:-4])
+            output_name = os.path.join(run_dir, well_name)
 
             # # Save mask of the well, cropped grayscale image, cropped spot segmentation.
             io.imsave(output_name + "_well_mask.png",
@@ -111,27 +105,26 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
         spot_labels = [p.label for p in spot_props]
         bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
 
-        crop_coords = \
-            grid_from_centroids(spot_props,
-                               im_crop,
-                               background,
-                               params['rows'],
-                               params['columns'],
-                               )
-        props_by_loc, bgprops_by_loc = \
-            array_gen.get_spot_intensity(
-                coords=crop_coords,
-                im_int=im_crop,
-                background=background,
-                params=params
-            )
+        crop_coords = grid_from_centroids(
+            spot_props,
+            im_crop,
+            background,
+            params['rows'],
+            params['columns'],
+        )
+        props_by_loc, bgprops_by_loc = array_gen.get_spot_intensity(
+            coords=crop_coords,
+            im_int=im_crop,
+            background=background,
+            params=params,
+        )
         props_array_placed = assign_props_to_array(spot_props_array, props_by_loc)
         bgprops_array = assign_props_to_array(bgprops_array, bgprops_by_loc)
 
         od_well, int_well, bg_well = compute_od(props_array_placed, bgprops_array)
 
         pd_OD = pd.DataFrame(od_well)
-        pd_OD.to_excel(xlwriterOD, sheet_name=image_name[:-4])
+        pd_OD.to_excel(xlwriterOD, sheet_name=well_name)
 
         stop = time.time()
         print(f"\ttime to process={stop-start}")
@@ -140,9 +133,9 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
         if debug:
             # Save spot and background intensities.
             pd_int = pd.DataFrame(int_well)
-            pd_int.to_excel(xlwriter_int, sheet_name=image_name[:-4])
+            pd_int.to_excel(xlwriter_int, sheet_name=well_name)
             pd_bg = pd.DataFrame(bg_well)
-            pd_bg.to_excel(xlwriter_bg, sheet_name=image_name[:-4])
+            pd_bg.to_excel(xlwriter_bg, sheet_name=well_name)
 
             # # This plot shows which spots have been assigned what index.
             plot_centroid_overlay(
