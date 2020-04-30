@@ -20,14 +20,13 @@ def parse_args():
     stage.add_argument(
         '-e', '--extract_od',
         action= 'store_const',
-        const=True
+        const=True,
     )
     stage.add_argument(
         '-a', '--analyze_od',
-        action= 'store_const',
-        const=True
+        action='store_const',
+        const=True,
     )
-
     parser.add_argument(
         '-i', '--input',
         type=str,
@@ -59,7 +58,7 @@ def parse_args():
         '-m', '--metadata',
         type=str,
         required=True,
-        choices=['xml', 'csv', 'xlsx'],
+        choices=['xml', 'csv', 'xlsx', 'well'],
         help="specify the file extension for the experiment metadata"
     )
     parser.set_defaults(debug=False)
@@ -91,7 +90,6 @@ def extract_od(input_dir, output_dir, workflow, debug=False):
         interpolation_wf.interp(
             input_dir,
             output_dir,
-            method='interp',
             debug=debug,
         )
     elif workflow == 'array_fit':
@@ -128,4 +126,7 @@ if __name__ == '__main__':
             debug=args.debug,
         )
     elif args.analyze_od:
-        print('Automated interpretation is coming. See the interpretation folder for examples of interpretation scripts.')
+        raise NotImplementedError(
+            'Automated interpretation is coming. '
+            'See the interpretation folder for examples of interpretation scripts.',
+        )

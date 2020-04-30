@@ -3,10 +3,10 @@ from testfixtures import TempDirectory
 import unittest
 from unittest.mock import patch
 
-import pysero as array_analyzer
+import pysero as pysero
 
 
-class TestRunArrayAnalyzer(unittest.TestCase):
+class TestPysero(unittest.TestCase):
     # TODO: Add tests for entire workflow
 
     def setUp(self):
@@ -27,25 +27,33 @@ class TestRunArrayAnalyzer(unittest.TestCase):
     def test_parse_args(self):
         with patch('argparse._sys.argv',
                    ['python',
+                    '-e',
                     '--input', self.input_dir,
                     '--output', self.output_dir,
-                    '--method', 'fit',
+                    '-wf', 'array_fit',
                     '--debug']):
-            parsed_args = array_analyzer.parse_args()
+            parsed_args = pysero.parse_args()
             self.assertEqual(parsed_args.input, self.input_dir)
             self.assertEqual(parsed_args.output, self.output_dir)
             self.assertTrue(parsed_args.debug)
-            self.assertEqual(parsed_args.method, 'fit')
+            self.assertEqual(parsed_args.workflow, 'array_fit')
 
     def test_parse_args_invalid_method(self):
         with patch('argparse._sys.argv',
                    ['python',
+                    '--extract_od',
                     '--input', self.input_dir,
                     '--output', self.output_dir,
-                    '--method', 'magic']):
-            with self.assertRaises(BaseException) as context:
-                array_analyzer.parse_args()
+                    '--workflow', 'magic']):
+            with self.assertRaises(BaseException) as c:
+                pysero.parse_args()
 
-
-if __name__ == '__main__':
-    unittest.main()
+    def test_parse_args_mutially_exclusive(self):
+        with patch('argparse._sys.argv',
+                   ['python',
+                    '--extract_od',
+                    '--analyze_od',
+                    '--input', self.input_dir,
+                    '--output', self.output_dir]):
+            with self.assertRaises(BaseException) as c:
+                pysero.parse_args()

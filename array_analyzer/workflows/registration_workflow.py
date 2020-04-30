@@ -37,34 +37,6 @@ def point_registration(input_folder, output_folder, debug=False):
     :param bool debug: For saving debug plots
     """
 
-    # xml_path = glob.glob(input_folder + '/*.xml')
-    # if len(xml_path) > 1 or not xml_path:
-    #     raise IOError("Did not find unique xml")
-    # xml_path = xml_path[0]
-
-    # parsing .xml
-    # fiduc, spots, repl, params = txt_parser.create_xml_dict(xml_path)
-
-    # creating our arrays
-    # spot_ids = txt_parser.create_array(params['rows'], params['columns'])
-    # antigen_array = txt_parser.create_array(params['rows'], params['columns'])
-
-    # adding .xml info to these arrays
-    # spot_ids = txt_parser.populate_array_id(spot_ids, spots)
-
-    # antigen_array = txt_parser.populate_array_antigen(antigen_array, spot_ids, repl)
-
-    # save a sub path for this processing run
-    # run_path = os.path.join(
-    #     output_folder,
-    #     '_'.join([os.path.basename(os.path.normpath(input_folder)),
-    #               str(datetime.now().month),
-    #               str(datetime.now().day),
-    #               str(datetime.now().hour),
-    #               str(datetime.now().minute),
-    #               str(datetime.now().second)]),
-    # )
-
     MetaData(input_folder, output_folder)
 
     os.makedirs(c.RUN_PATH, exist_ok=True)
@@ -84,8 +56,6 @@ def point_registration(input_folder, output_folder, debug=False):
     nbr_grid_rows = c.params['rows']
     nbr_grid_cols = c.params['columns']
     fiducials_idx = c.FIDUCIALS_IDX
-    # if nbr_grid_cols == 8:
-    #     fiducials_idx = FIDUCIALS_IDX_8COLS
 
         # ================
     # loop over images

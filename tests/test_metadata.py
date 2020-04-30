@@ -1,7 +1,8 @@
 import pytest
 
-from array_analyzer.extract import metadata
+from array_analyzer.extract.metadata import MetaData
 import array_analyzer.extract.constants as c
+import os
 
 """
 Tests to add:
@@ -11,11 +12,15 @@ normal operation:
     - input folder with good xlsx, good 
     - dummy output folder
 1) extension .xml, .xlsx are found
+
 2) no extension is found (not implemented error)
+
 3) c.params are populated correctly for each of
     3a) .xml, .xlsx
+    
 4) arrays are populated correctly for each of 
     4a) .xml, .xlsx
+    
 5) fiducials are calculated correctly for each of
     5a) 6x6 array metadata, .xml and .xlsx
     5b) 6x8 array metadata, .xml and .xlsx
@@ -33,36 +38,24 @@ bad operation:
 """
 
 
-def test_bad_xlsx(create_bad_xlsx, create_good_xlsx):
-    bad = create_bad_xlsx
-    good = create_good_xlsx
+def test_one_xml(create_good_xml):
+    c.METADATA_EXTENSION = 'xml'
+
+    output_dir = create_good_xml
+    MetaData(output_dir, output_dir)
+
+
+def test_two_xml(create_good_xml):
+    c.METADATA_EXTENSION = 'xml'
+    output_dir = create_good_xml
+
+    with open(os.path.join(output_dir, 'second_xml.xml'), 'w') as fp:
+        pass
+    with pytest.raises(IOError):
+        MetaData(output_dir, output_dir)
+
+
+def test_xlsx(create_good_xlsx):
     c.METADATA_EXTENSION = 'xlsx'
-
-
-    pass
-
-
-
-
-import pytest
-from testfixtures import TempDirectory
-import pandas as pd
-
-
-@pytest.fixture()
-def create_bad_xlsx():
-    # setup temp folder for fake .xlsx file
-    temp = TempDirectory()
-    temp_dir = temp.path
-
-    # create dummy .xlsx
-    # build dictionaries, use pandas to write .xlsx to temp
-    # yield temp folder
-
-
-    # breakdown temp folder
-    #   delete temp and .xlsx
-
-@pytest.fixture()
-def create_good_xlsx():
-    pass
+    output_dir = create_good_xlsx
+    MetaData(output_dir, output_dir)
