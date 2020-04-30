@@ -62,7 +62,8 @@ def get_image_paths(input_dir):
         # Assume images are named e.g. A0.png
         for im_name in image_names:
             well_name = os.path.basename(im_name)[:-4]
-            if re.match(r'[A-P][0-9]{1,2}',well_name): #  double-check that the file represents a well.
+            # double-check that the file represents a well
+            if re.match(r'[A-P][0-9]{1,2}',well_name):
                 well_images[well_name] = im_name
     else:
         # Micromanager naming convention, find well from subdir name
@@ -77,7 +78,8 @@ def get_image_paths(input_dir):
             well_name = im_name.split('/')[-2]
             # split again for well name, assume - separation
             well_name = well_name.split('-')[0]
-            if re.match(r'[A-P][0-9]{1,2}',well_name): #  double-check that the file represents a well.
+            #  double-check that the file represents a well
+            if re.match(r'[A-P][0-9]{1,2}',well_name):
                 well_images[well_name] = im_name
 
     return well_images

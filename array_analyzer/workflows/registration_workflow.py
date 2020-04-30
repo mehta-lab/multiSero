@@ -54,7 +54,7 @@ def point_registration(input_dir, output_dir, debug=False):
     # Make directory for processing run
     run_dir = io_utils.make_run_dir(input_dir, output_dir)
 
-    xlwriter_od = pd.ExcelWriter(os.path.join(run_dir, 'intensitites_od.xlsx'))
+    xlwriter_od = pd.ExcelWriter(os.path.join(run_dir, 'python_median_ODs.xlsx'))
     pdantigen = pd.DataFrame(antigen_array)
     pdantigen.to_excel(xlwriter_od, sheet_name='antigens')
     if debug:
