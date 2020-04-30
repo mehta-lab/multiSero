@@ -59,10 +59,10 @@ def point_registration(input_dir, output_dir, debug=False):
     pdantigen.to_excel(xlwriter_od, sheet_name='antigens')
     if debug:
         xlwriter_int = pd.ExcelWriter(
-            os.path.join(run_dir, 'intensities_spots.xlsx'),
+            os.path.join(run_dir, 'python_median_intensities.xlsx'),
         )
         xlwriter_bg = pd.ExcelWriter(
-            os.path.join(run_dir, 'intensities_backgrounds.xlsx'),
+            os.path.join(run_dir, 'python_median_backgrounds.xlsx'),
         )
 
     # Initialize background estimator
