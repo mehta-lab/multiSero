@@ -2,6 +2,7 @@ import array_analyzer.extract.image_parser as image_parser
 import array_analyzer.extract.img_processing as processing
 import array_analyzer.extract.constants as c
 from array_analyzer.extract.metadata import MetaData
+import array_analyzer.utils.io_utils as io_utils
 
 import time
 import skimage.io as io
@@ -12,32 +13,35 @@ import re
 import numpy as np
 
 
-def well_analysis(input_folder_, output_folder_, method='segmentation', debug=False):
+def well_analysis(input_dir, output_dir, method='segmentation', debug=False):
     """
     Workflow that pulls all images scanned on a multi-well plate in a standard ELISA format (one antigen per well)
     It loops over the images in the input_folder (for images acquired using Micro-Manager ONLY).
         Extracts the center of the well, calculates the median intensity of that spot and background, then computes OD.
         Finally, it writes a summary report (.xlsx) containing plate info and the computed values.
 
-    :param input_folder_: str path to experiment directory
-    :param output_folder_: str output path to write report and diagnostic images
+    :param input_dir: str path to experiment directory
+    :param output_dir: str output path to write report and diagnostic images
     :param method: str 'segmentation' or 'crop'.  Methods to estimate the boundaries of the well
     :param debug: bool.  Whether to write debug images.
     :return:
     """
-
     start = time.time()
 
     # metadata isn't used for the well format
-    MetaData(input_folder_, output_folder_)
+    MetaData(input_dir, output_dir)
 
     os.makedirs(c.RUN_PATH, exist_ok=True)
 
     # Read plate info
-    plate_info = pd.read_excel(os.path.join(input_folder_, 'Plate_Info.xlsx'), usecols='A:M', sheet_name=None, index_col=0)
-
+    plate_info = pd.read_excel(
+        os.path.join(input_dir, 'Plate_Info.xlsx'),
+        usecols='A:M',
+        sheet_name=None,
+        index_col=0,
+    )
     # Write an excel file that can be read into jupyter notebook with minimal parsing.
-    # xlwriter_int = pd.ExcelWriter(os.path.join(run_path, 'intensities.xlsx'))
+    xlwriter_int = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'intensities.xlsx'))
     xl_writer_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'ODs.xlsx'))
     pdantigen = pd.DataFrame(c.ANTIGEN_ARRAY)
     pdantigen.to_excel(xl_writer_od, sheet_name='antigens')
@@ -51,22 +55,13 @@ def well_analysis(input_folder_, output_folder_, method='segmentation', debug=Fa
     # ================
 
     # get well directories
-    well_dirs = [d
-                 for d in os.listdir(input_folder_)
-                 if re.match(r'[A-P][0-9]{1,2}-Site_0', d)]
-    # sort by letter, then by number (with '10' coming AFTER '9')
-    well_dirs.sort(key=lambda x: (x[0], int(x[1:-7])))
-
-    # well_dirs = ['A7-Site_0']
+    well_images = io_utils.get_image_paths(input_dir)
 
     int_well = []
-    for well_dir in well_dirs:
-
+    for well_name, im_path in well_images.items():
         # read image
-        well_image_file = [file for file in os.listdir(os.path.join(input_folder_, well_dir))
-                          if '.png' in file or '.tif' in file or '.jpg' in file][0]
-        image, image_name = image_parser.read_to_grey(os.path.join(input_folder_, well_dir), well_image_file)
-        print(well_dir)
+        image = io_utils.read_gray_im(im_path)
+        print(well_name)
 
         # measure intensity
         if method == 'segmentation':
@@ -89,9 +84,7 @@ def well_analysis(input_folder_, output_folder_, method='segmentation', debug=Fa
 
         # SAVE FOR DEBUGGING
         if debug:
-            well_path = os.path.join(c.RUN_PATH)
-            os.makedirs(c.RUN_PATH, exist_ok=True)
-            output_name = os.path.join(well_path, well_dir)
+            output_name = os.path.join(c.RUN_PATH, well_name)
 
             # Save mask of the well, cropped grayscale image, cropped spot segmentation.
             io.imsave(output_name + "_well_mask.png",
@@ -109,12 +102,19 @@ def well_analysis(input_folder_, output_folder_, method='segmentation', debug=Fa
             io.imsave(output_name + "_masked_image.png",
                       (img_/256).astype('uint8'))
 
-    df_int = pd.DataFrame(np.reshape(int_well, (8, 12)), index=list(string.ascii_uppercase[:8]), columns=range(1,13))
+    df_int = pd.DataFrame(
+        np.reshape(int_well, (8, 12)),
+        index=list(string.ascii_uppercase[:8]),
+        columns=range(1, 13),
+    )
     plate_info.update({'intensity': df_int})
 
     # compute optical density
     sample_info = plate_info['sample']
-    blanks = np.any(np.dstack((sample_info == 'Blank', sample_info == 'blank', sample_info == 'BLANK')), axis=2)
+    blanks = np.any(np.dstack((
+        sample_info == 'Blank',
+        sample_info == 'blank',
+        sample_info == 'BLANK')), axis=2)
     if blanks.any():
         # blank intensity is averaged over all blank wells
         int_blank = np.mean(df_int.to_numpy()[blanks])

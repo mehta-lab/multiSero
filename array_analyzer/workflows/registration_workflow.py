@@ -4,9 +4,9 @@ import cv2 as cv
 import numpy as np
 import os
 import pandas as pd
-import re
 import time
 
+import array_analyzer.extract.background_estimator as background_estimator
 import array_analyzer.extract.image_parser as image_parser
 import array_analyzer.extract.img_processing as img_processing
 import array_analyzer.extract.txt_parser as txt_parser
@@ -15,6 +15,7 @@ import array_analyzer.extract.constants as c
 import array_analyzer.load.debug_plots as debug_plots
 import array_analyzer.transform.point_registration as registration
 import array_analyzer.transform.array_generation as array_gen
+import array_analyzer.utils.io_utils as io_utils
 
 # FIDUCIALS = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
 # FIDUCIALS_IDX = [0, 5, 6, 30, 35]
@@ -26,18 +27,18 @@ import array_analyzer.transform.array_generation as array_gen
 # REG_DIST_THRESH = 1000
 
 
-def point_registration(input_folder, output_folder, debug=False):
+def point_registration(input_dir, output_dir, debug=False):
     """
     For each image in input directory, detect spots using particle filtering
     to register fiducial spots to blobs detected in the image.
 
-    :param str input_folder: Input directory containing images and an xml file
+    :param str input_dir: Input directory containing images and an xml file
         with parameters
-    :param str output_folder: Directory where output is written to
+    :param str output_dir: Directory where output is written to
     :param bool debug: For saving debug plots
     """
 
-    MetaData(input_folder, output_folder)
+    MetaData(input_dir, output_dir)
 
     os.makedirs(c.RUN_PATH, exist_ok=True)
 
@@ -52,26 +53,26 @@ def point_registration(input_folder, output_folder, debug=False):
             os.path.join(c.RUN_PATH, 'intensities_backgrounds.xlsx'),
         )
 
+    # Initialize background estimator
+    bg_estimator = background_estimator.BackgroundEstimator2D(
+        block_size=128,
+        order=2,
+        normalize=False,
+    )
+
     # Get grid rows and columns from params
     nbr_grid_rows = c.params['rows']
     nbr_grid_cols = c.params['columns']
     fiducials_idx = c.FIDUCIALS_IDX
 
-        # ================
-    # loop over images
     # ================
-    images = [file for file in os.listdir(input_folder)
-              if '.png' in file or '.tif' in file or '.jpg' in file]
+    # loop over well images
+    # ================
+    well_images = io_utils.get_image_paths(input_dir)
 
-    # remove any images that are not images of wells.
-    well_images = [file for file in images if re.match(r'[A-P][0-9]{1,2}', file)]
-
-    # sort by letter, then by number (with '10' coming AFTER '9')
-    well_images.sort(key=lambda x: (x[0], int(x[1:-4])))
-
-    for image_name in well_images:
+    for well_name, im_path in well_images.items():
         start_time = time.time()
-        image = image_parser.read_gray_im(os.path.join(input_folder, image_name))
+        image = io_utils.read_gray_im(im_path)
 
         spot_coords = img_processing.get_spot_coords(
             image,
@@ -131,12 +132,8 @@ def point_registration(input_folder, output_folder, debug=False):
             grid_coords=reg_coords,
         )
         im_crop = im_crop / np.iinfo(im_crop.dtype).max
-        # Estimate and remove background
-        background = img_processing.get_background(
-            im_crop,
-            fit_order=2,
-            normalize=False,
-        )
+        # Estimate background
+        background = bg_estimator.get_background(im_crop)
         # Find spots near grid locations
         props_placed_by_loc, bgprops_by_loc = array_gen.get_spot_intensity(
             coords=crop_coords,
@@ -169,10 +166,10 @@ def point_registration(input_folder, output_folder, debug=False):
         )
         # Write ODs
         pd_od = pd.DataFrame(od_well)
-        pd_od.to_excel(xlwriter_od, sheet_name=image_name[:-4])
+        pd_od.to_excel(xlwriter_od, sheet_name=well_name)
 
         print("Time to register grid to {}: {:.3f} s".format(
-            image_name,
+            well_name,
             time.time() - start_time),
         )
 
@@ -182,11 +179,11 @@ def point_registration(input_folder, output_folder, debug=False):
             start_time = time.time()
             # Save spot and background intensities
             pd_int = pd.DataFrame(int_well)
-            pd_int.to_excel(xlwriter_int, sheet_name=image_name[:-4])
+            pd_int.to_excel(xlwriter_int, sheet_name=well_name)
             pd_bg = pd.DataFrame(bg_well)
-            pd_bg.to_excel(xlwriter_bg, sheet_name=image_name[:-4])
+            pd_bg.to_excel(xlwriter_bg, sheet_name=well_name)
 
-            output_name = os.path.join(c.RUN_PATH, image_name[:-4])
+            output_name = os.path.join(c.RUN_PATH, well_name)
             # Save OD plots, composite spots and registration
             debug_plots.plot_od(
                 od_well,

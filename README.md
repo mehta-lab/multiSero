@@ -1,4 +1,5 @@
-![unittest](https://github.com/czbiohub/pysero/workflows/unittest/badge.svg)
+![unittests](https://github.com/czbiohub/pysero/workflows/unittests/badge.svg)
+[![codecov](https://codecov.io/gh/czbiohub/pysero/branch/master/graph/badge.svg)](https://codecov.io/gh/czbiohub/pysero)
 
 # pysero
 
