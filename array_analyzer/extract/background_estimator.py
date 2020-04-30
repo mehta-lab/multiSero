@@ -1,5 +1,3 @@
-"""Estimate flat field images"""
-
 import numpy as np
 import itertools
 

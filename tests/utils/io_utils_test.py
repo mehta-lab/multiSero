@@ -35,3 +35,15 @@ def test_get_mm_image_paths(micromanager_dir):
         # split again for well name, assume - separation
         well_name = well_name.split('-')[0]
         assert key == well_name
+
+
+def test_make_run_dir(tmp_path):
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    input_dir = 'input_dir_name'
+    run_dir = io_utils.make_run_dir(input_dir, output_dir)
+    output_subdir = os.listdir(output_dir)
+    assert len(output_subdir) == 1
+    # Get last part of subdir and compare
+    subdir_name = run_dir.split('/')[-1]
+    assert subdir_name == output_subdir[0]

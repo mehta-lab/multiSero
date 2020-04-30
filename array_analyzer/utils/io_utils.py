@@ -1,4 +1,5 @@
 import cv2 as cv
+from datetime import datetime
 import glob
 import natsort
 import numpy as np
@@ -70,3 +71,27 @@ def get_image_paths(input_dir):
             well_images[well_name] = im_name
 
     return well_images
+
+
+def make_run_dir(input_dir, output_dir):
+    """
+    For a specific processing run, create a subdirectory in the output directory
+    which specifies which input directory was used and when the processing took
+    place.
+
+    :param str input_dir: Path to input directory, to be processed
+    :param str output_dir: Path to main output directory
+    :return str run_dir: Path to directory where processed data is stored
+    """
+    run_dir = os.path.join(
+        output_dir,
+        '_'.join([os.path.basename(os.path.normpath(input_dir)),
+                  str(datetime.now().month),
+                  str(datetime.now().day),
+                  str(datetime.now().hour),
+                  str(datetime.now().minute),
+                  str(datetime.now().second)]),
+    )
+    os.makedirs(run_dir, exist_ok=True)
+    return run_dir
+

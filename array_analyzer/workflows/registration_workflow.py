@@ -1,5 +1,4 @@
 import cv2 as cv
-from datetime import datetime
 import glob
 import numpy as np
 import os
@@ -25,17 +24,17 @@ STDS = np.array([500, 500, .1, .001])  # x, y, angle, scale
 REG_DIST_THRESH = 1000
 
 
-def point_registration(input_folder, output_folder, debug=False):
+def point_registration(input_dir, output_dir, debug=False):
     """
     For each image in input directory, detect spots using particle filtering
     to register fiducial spots to blobs detected in the image.
 
-    :param str input_folder: Input directory containing images and an xml file
+    :param str input_dir: Input directory containing images and an xml file
         with parameters
-    :param str output_folder: Directory where output is written to
+    :param str output_dir: Directory where output is written to
     :param bool debug: For saving debug plots
     """
-    xml_path = glob.glob(input_folder + '/*.xml')
+    xml_path = glob.glob(input_dir + '/*.xml')
     if len(xml_path) > 1 or not xml_path:
         raise IOError("Did not find unique xml")
     xml_path = xml_path[0]
@@ -52,27 +51,18 @@ def point_registration(input_folder, output_folder, debug=False):
 
     antigen_array = txt_parser.populate_array_antigen(antigen_array, spot_ids, repl)
 
-    # save a sub path for this processing run
-    run_path = os.path.join(
-        output_folder,
-        '_'.join([os.path.basename(os.path.normpath(input_folder)),
-                  str(datetime.now().month),
-                  str(datetime.now().day),
-                  str(datetime.now().hour),
-                  str(datetime.now().minute),
-                  str(datetime.now().second)]),
-    )
-    os.makedirs(run_path, exist_ok=True)
+    # Make directory for processing run
+    run_dir = io_utils.make_run_dir(input_dir, output_dir)
 
-    xlwriter_od = pd.ExcelWriter(os.path.join(run_path, 'intensitites_od.xlsx'))
+    xlwriter_od = pd.ExcelWriter(os.path.join(run_dir, 'intensitites_od.xlsx'))
     pdantigen = pd.DataFrame(antigen_array)
     pdantigen.to_excel(xlwriter_od, sheet_name='antigens')
     if debug:
         xlwriter_int = pd.ExcelWriter(
-            os.path.join(run_path, 'intensities_spots.xlsx'),
+            os.path.join(run_dir, 'intensities_spots.xlsx'),
         )
         xlwriter_bg = pd.ExcelWriter(
-            os.path.join(run_path, 'intensities_backgrounds.xlsx'),
+            os.path.join(run_dir, 'intensities_backgrounds.xlsx'),
         )
 
     # Initialize background estimator
@@ -92,7 +82,7 @@ def point_registration(input_folder, output_folder, debug=False):
     # ================
     # loop over well images
     # ================
-    well_images = io_utils.get_image_paths(input_folder)
+    well_images = io_utils.get_image_paths(input_dir)
 
     for well_name, im_path in well_images.items():
         start_time = time.time()
@@ -207,7 +197,7 @@ def point_registration(input_folder, output_folder, debug=False):
             pd_bg = pd.DataFrame(bg_well)
             pd_bg.to_excel(xlwriter_bg, sheet_name=well_name)
 
-            output_name = os.path.join(run_path, well_name)
+            output_name = os.path.join(run_dir, well_name)
             # Save OD plots, composite spots and registration
             debug_plots.plot_od(
                 od_well,

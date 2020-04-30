@@ -7,21 +7,19 @@ from array_analyzer.load.debug_images import *
 from array_analyzer.transform.property_filters import *
 import array_analyzer.transform.array_generation as array_gen
 import array_analyzer.utils.io_utils as io_utils
-import re
 import time
-from datetime import datetime
 import skimage.io as io
 import pandas as pd
 
 SCENION_SPOT_DIST = 82
 
 
-def interp(input_folder_, output_folder_, method='interp', debug=False):
+def interp(input_dir, output_dir, method='interp', debug=False):
 
-    xml = [f for f in os.listdir(input_folder_) if '.xml' in f]
+    xml = [f for f in os.listdir(input_dir) if '.xml' in f]
     if len(xml) > 1:
         raise IOError("more than one .xml file found, aborting")
-    xml_path = input_folder_+os.sep+xml[0]
+    xml_path = input_dir+os.sep+xml[0]
 
     # parsing .xml
     fiduc, spots, repl, params = create_xml_dict(xml_path)
@@ -36,17 +34,14 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
 
     antigen_array = populate_array_antigen(antigen_array, spot_ids, repl)
 
-    # save a sub path for this processing run
-    run_path = output_folder_ + os.sep + f'{datetime.now().month}_{datetime.now().day}_{datetime.now().hour}_{datetime.now().minute}_{datetime.now().second}'
+    # Make directory for processing run
+    run_dir = io_utils.make_run_dir(input_dir, output_dir)
 
     # Write an excel file that can be read into jupyter notebook with minimal parsing.
-    xlwriterOD = pd.ExcelWriter(os.path.join(run_path, 'python_median_ODs.xlsx'))
+    xlwriterOD = pd.ExcelWriter(os.path.join(run_dir, 'python_median_ODs.xlsx'))
     if debug:
-        xlwriter_int = pd.ExcelWriter(os.path.join(run_path, 'python_median_intensities.xlsx'))
-        xlwriter_bg = pd.ExcelWriter(os.path.join(run_path, 'python_median_backgrounds.xlsx'))
-
-    if not os.path.isdir(run_path):
-        os.mkdir(run_path)
+        xlwriter_int = pd.ExcelWriter(os.path.join(run_dir, 'python_median_intensities.xlsx'))
+        xlwriter_bg = pd.ExcelWriter(os.path.join(run_dir, 'python_median_backgrounds.xlsx'))
 
     # Initialize background estimator
     bg_estimator = background_estimator.BackgroundEstimator2D(
@@ -58,7 +53,7 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
     # ================
     # loop over images => good place for multiproc?  careful with columns in report
     # ================
-    well_images = io_utils.get_image_paths(input_folder_)
+    well_images = io_utils.get_image_paths(input_dir)
 
     for well_name, im_path in well_images.items():
         start = time.time()
@@ -79,9 +74,7 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
         spot_props = generate_props(spot_mask, intensity_image_=im_crop)
 
         if debug:
-            well_path = os.path.join(run_path)
-            os.makedirs(run_path, exist_ok=True)
-            output_name = os.path.join(well_path, well_name)
+            output_name = os.path.join(run_dir, well_name)
 
             # # Save mask of the well, cropped grayscale image, cropped spot segmentation.
             io.imsave(output_name + "_well_mask.png",
@@ -105,20 +98,19 @@ def interp(input_folder_, output_folder_, method='interp', debug=False):
         spot_labels = [p.label for p in spot_props]
         bg_props = select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
 
-        crop_coords = \
-            grid_from_centroids(spot_props,
-                               im_crop,
-                               background,
-                               params['rows'],
-                               params['columns'],
-                               )
-        props_by_loc, bgprops_by_loc = \
-            array_gen.get_spot_intensity(
-                coords=crop_coords,
-                im_int=im_crop,
-                background=background,
-                params=params
-            )
+        crop_coords = grid_from_centroids(
+            spot_props,
+            im_crop,
+            background,
+            params['rows'],
+            params['columns'],
+        )
+        props_by_loc, bgprops_by_loc = array_gen.get_spot_intensity(
+            coords=crop_coords,
+            im_int=im_crop,
+            background=background,
+            params=params,
+        )
         props_array_placed = assign_props_to_array(spot_props_array, props_by_loc)
         bgprops_array = assign_props_to_array(bgprops_array, bgprops_by_loc)
 
