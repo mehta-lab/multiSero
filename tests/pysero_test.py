@@ -31,12 +31,14 @@ class TestPysero(unittest.TestCase):
                     '--input', self.input_dir,
                     '--output', self.output_dir,
                     '-wf', 'array_fit',
+                    '-m', 'xml',
                     '--debug']):
             parsed_args = pysero.parse_args()
             self.assertEqual(parsed_args.input, self.input_dir)
             self.assertEqual(parsed_args.output, self.output_dir)
             self.assertTrue(parsed_args.debug)
             self.assertEqual(parsed_args.workflow, 'array_fit')
+            self.assertEqual(parsed_args.metadata, 'xml')
 
     def test_parse_args_invalid_method(self):
         with patch('argparse._sys.argv',
