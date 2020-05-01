@@ -95,17 +95,17 @@ def create_good_xlsx(tmp_path_factory):
 
     # make a dummy antigen array layout with realistic fiducials
     fiducials = {0: {0: 'Fiducial', 1: '', 2: '', 3: '', 4: '', 5: 'Fiducial'},
-                1: {0: 'Fiducial', 1: '', 2: '', 3: '', 4: '', 5: ''},
-                2: {0: 'Positive Control', 1: '', 2: '', 3: '', 4: '', 5: 'Negative Control'},
-                3: {0: 'Positive Control', 1: '', 2: '', 3: '', 4: '', 5: 'Negative Control'},
-                4: {0: 'Positive Control', 1: '', 2: '', 3: '', 4: '', 5: 'Negative Control'},
-                5: {0: 'Fiducial', 1: '', 2: '', 3: '', 4: '', 5: 'Fiducial'}
-                }
+                 1: {0: 'Fiducial', 1: '', 2: '', 3: '', 4: '', 5: ''},
+                 2: {0: 'Positive Control', 1: '', 2: '', 3: '', 4: '', 5: 'Negative Control'},
+                 3: {0: 'Positive Control', 1: '', 2: '', 3: '', 4: '', 5: 'Negative Control'},
+                 4: {0: 'Positive Control', 1: '', 2: '', 3: '', 4: '', 5: 'Negative Control'},
+                 5: {0: 'Fiducial', 1: '', 2: '', 3: '', 4: '', 5: 'Fiducial'}
+                 }
     fiducials_df = pd.DataFrame(fiducials).T
 
     # make a dummy antigen array layout with realistic antigens
-    antigens = {0: {0: 'xkappa-biotin', 1: 'Flu vaccine 2018-2019', 2: 'Flu vaccine 2018-2019', 3: 'Flu vaccine 2018-2019',
-                    4: 'Flu vaccine 2018-2019', 5: 'xkappa-biotin'},
+    antigens = {0: {0: 'xkappa-biotin', 1: 'Flu vaccine 2018-2019', 2: 'Flu vaccine 2018-2019',
+                    3: 'Flu vaccine 2018-2019', 4: 'Flu vaccine 2018-2019', 5: 'xkappa-biotin'},
                 1: {0: 'xkappa-biotin', 1: 'H1 HA', 2: 'H1 HA', 3: 'H1 HA', 4: 'H1 HA', 5: ''},
                 2: {0: 'xlgG Fc', 1: 'H3 HA', 2: 'H3 HA', 3: 'H3 HA', 4: 'H3 HA', 5: 'GFP foldon'},
                 3: {0: 'xlgG Fc', 1: 'H7 HA', 2: 'H7 HA', 3: 'H7 HA', 4: 'H7 HA', 5: 'GFP foldon'},

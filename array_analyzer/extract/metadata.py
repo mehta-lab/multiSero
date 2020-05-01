@@ -2,6 +2,7 @@ import os
 import numpy as np
 from datetime import datetime
 import pandas as pd
+import shutil
 
 import array_analyzer.extract.txt_parser as txt_parser
 import array_analyzer.extract.constants as c
@@ -19,6 +20,8 @@ class MetaData:
         """
 
         self.fiduc, self.spots, self.repl, self.params = None, None, None, None
+        self.xlsx_path = None
+        self.xml_path = None
 
         # parse fiducials, spot types, antigens, and hardware parameters from metadata
         if c.METADATA_EXTENSION == 'xml':
@@ -26,10 +29,10 @@ class MetaData:
             xml = [f for f in os.listdir(input_folder_) if '.xml' in f]
             if len(xml) > 1:
                 raise IOError("more than one .xml file found, aborting")
-            xml_path = os.path.join(input_folder_, xml[0])
+            self.xml_path = os.path.join(input_folder_, xml[0])
 
             # parsing .xml
-            self.fiduc, self.spots, self.repl, self.params = txt_parser.create_xml_dict(xml_path)
+            self.fiduc, self.spots, self.repl, self.params = txt_parser.create_xml_dict(self.xml_path)
 
         elif c.METADATA_EXTENSION == 'well':
             self._set_run_path(output_folder_)
@@ -60,17 +63,17 @@ class MetaData:
             # check that properly named .xlsx exists
             if not os.path.isfile(os.path.join(input_folder_, 'pysero_output_data_metadata.xlsx')):
                 raise IOError("required metadata file named 'pysero_output_data_metadata.xlsx' does not exist")
-            xlsx_path = os.path.join(input_folder_, 'pysero_output_data_metadata.xlsx')
+            self.xlsx_path = os.path.join(input_folder_, 'pysero_output_data_metadata.xlsx')
 
             # check that the xlsx file contains necessary worksheets
-            sheets = pd.read_excel(xlsx_path, sheet_name=None)
+            sheets = pd.read_excel(self.xlsx_path, sheet_name=None)
             if 'imaging_and_array_parameters' not in sheets.keys():
                 raise IOError("sheet by name 'imaging_and_array_parameters' not present in excel file, aborting")
             if 'antigen_array' not in sheets.keys():
                 raise IOError("sheet by name 'array_antigens' not present in excel file, aborting")
 
             # parsing .xlsx
-            self.fiduc, _, self.repl, self.params = txt_parser.create_xlsx_dict(xlsx_path)
+            self.fiduc, _, self.repl, self.params = txt_parser.create_xlsx_dict(self.xlsx_path)
 
             # parsing .xlsx using pandas !! not tested or finished yet
             # self.fiduc, _, self.repl, self.params = txt_parser.create_xlsx_array(xlsx_path)
@@ -95,6 +98,7 @@ class MetaData:
         self._calculate_fiduc_idx()
         self._calc_spot_dist()
         self._set_run_path(output_folder_)
+        self._copy_metadata_to_output(input_folder_)
 
         # setting 96-well constants
         self._calc_image_to_well()
@@ -211,13 +215,22 @@ class MetaData:
         """
         c.RUN_PATH = os.path.join(
             output_folder,
-            '_'.join([str(datetime.now().month),
-                      str(datetime.now().day),
-                      str(datetime.now().hour),
-                      str(datetime.now().minute),
-                      str(datetime.now().second)]),
+            ''.join(['pysero_',
+                     f"{datetime.now().year:04d}",
+                     f"{datetime.now().month:02d}",
+                     f"{datetime.now().day:02d}",
+                     '_',
+                     f"{datetime.now().hour:02d}",
+                     f"{datetime.now().minute:02d}"]
+                    )
         )
         os.makedirs(c.RUN_PATH, exist_ok=True)
+
+    def _copy_metadata_to_output(self, input_folder):
+        if c.METADATA_EXTENSION == 'xlsx':
+            shutil.copy2(self.xlsx_path, c.RUN_PATH)
+        elif c.METADATA_EXTENSION == 'xml':
+            shutil.copy2(self.xml_path, c.RUN_PATH)
 
     # create image-to-well mapping dictionary
     def _calc_image_to_well(self):

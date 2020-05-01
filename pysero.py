@@ -116,7 +116,9 @@ def extract_od(input_dir, output_dir, workflow, debug=False):
 
 if __name__ == '__main__':
     args = parse_args()
+
     c.METADATA_EXTENSION = args.metadata
+    c.DEBUG = args.debug
 
     if args.extract_od:
         extract_od(

@@ -22,14 +22,7 @@ def interp(input_dir, output_dir, debug=False):
     MetaData(input_dir, output_dir)
 
     # Write an excel file that can be read into jupyter notebook with minimal parsing.
-    xlwriter_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_ODs.xlsx'))
-    if debug:
-        xlwriter_int = pd.ExcelWriter(
-            os.path.join(c.RUN_PATH, 'python_median_intensities.xlsx')
-        )
-        xlwriter_bg = pd.ExcelWriter(
-            os.path.join(c.RUN_PATH, 'python_median_backgrounds.xlsx')
-        )
+    xlwriter_od_well = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'median_ODs_per_well.xlsx'))
 
     # Initialize background estimator
     bg_estimator = background_estimator.BackgroundEstimator2D(
@@ -52,47 +45,28 @@ def interp(input_dir, output_dir, debug=False):
 
         # finding center of well and cropping
         well_center, well_radi, well_mask = image_parser.find_well_border(image, detmethod='region', segmethod='otsu')
-        im_crop, _ = \
-            img_processing.crop_image_at_center(image, well_center, 2 * well_radi, 2 * well_radi)
+        im_crop, _ = img_processing.crop_image_at_center(
+            image,
+            well_center,
+            2 * well_radi,
+            2 * well_radi
+        )
 
         # find center of spots from crop
         spot_mask = img_processing.thresh_and_binarize(im_crop, method='bright_spots')
-        background = bg_estimator.get_background(im_crop)
-
         spot_props = image_parser.generate_props(spot_mask, intensity_image_=im_crop)
 
-        if debug:
-            output_name = os.path.join(c.RUN_PATH, well_name)
-
-            # # Save mask of the well, cropped grayscale image, cropped spot segmentation.
-            io.imsave(output_name + "_well_mask.png",
-                      (255 * well_mask).astype('uint8'))
-            io.imsave(output_name + "_crop.png",
-                      (255 * im_crop).astype('uint8'))
-            io.imsave(output_name + "_crop_binary.png",
-                      (255 * spot_mask).astype('uint8'))
-
-            # Evaluate accuracy of background estimation with green (image), magenta (background) overlay.
-            im_bg_overlay = np.stack([background, im_crop, background], axis=2)
-            io.imsave(output_name + "_crop_bg_overlay.png",
-                      (255 * im_bg_overlay).astype('uint8'))
-
-        bg_props = image_parser.generate_props(spot_mask, intensity_image_=background)
-        # eccentricities = np.array([prop.eccentricity for prop in spot_props])
-        # eccent_ub = eccentricities.mean() + 2.5 * eccentricities.std()
-        # spot_props = select_props(spot_props, attribute="area", condition="greater_than", condition_value=300)
-        # spot_props = select_props(spot_props, attribute="eccentricity", condition="less_than",
-        #                           condition_value=eccent_ub)
-        spot_labels = [p.label for p in spot_props]
-        bg_props = image_parser.select_props(bg_props, attribute="label", condition="is_in", condition_value=spot_labels)
+        # if debug:
 
         crop_coords = image_parser.grid_from_centroids(
             spot_props,
-            im_crop,
-            background,
             c.params['rows'],
             c.params['columns']
         )
+
+        # convert to float64
+        im_crop = im_crop / np.iinfo(im_crop.dtype).max
+        background = bg_estimator.get_background(im_crop)
         props_by_loc, bgprops_by_loc = array_gen.get_spot_intensity(
             coords=crop_coords,
             im_int=im_crop,
@@ -105,7 +79,7 @@ def interp(input_dir, output_dir, debug=False):
         od_well, int_well, bg_well = image_parser.compute_od(props_array_placed, bgprops_array)
 
         pd_OD = pd.DataFrame(od_well)
-        pd_OD.to_excel(xlwriter_od, sheet_name=well_name)
+        pd_OD.to_excel(xlwriter_od_well, sheet_name=well_name)
 
         # populate 96-well plate constants with OD, INT, BG arrays
         report.write_od_to_plate(od_well, well_name, 'od')
@@ -118,10 +92,21 @@ def interp(input_dir, output_dir, debug=False):
         # SAVE FOR DEBUGGING
         if debug:
             # Save spot and background intensities.
-            pd_int = pd.DataFrame(int_well)
-            pd_int.to_excel(xlwriter_int, sheet_name=well_name)
-            pd_bg = pd.DataFrame(bg_well)
-            pd_bg.to_excel(xlwriter_bg, sheet_name=well_name)
+            output_name = os.path.join(c.RUN_PATH, well_name)
+
+            # # Save mask of the well, cropped grayscale image, cropped spot segmentation.
+            io.imsave(output_name + "_well_mask.png",
+                      (255 * well_mask).astype('uint8'))
+            io.imsave(output_name + "_crop.png",
+                      (255 * im_crop).astype('uint8'))
+            io.imsave(output_name + "_crop_binary.png",
+                      (255 * spot_mask).astype('uint8'))
+
+            # Evaluate accuracy of background estimation with green (image), magenta (background) overlay.
+            im_bg_overlay = np.stack([background, im_crop, background], axis=2)
+
+            io.imsave(output_name + "_crop_bg_overlay.png",
+                      (255 * im_bg_overlay).astype('uint8'))
 
             # This plot shows which spots have been assigned what index.
             debug_plots.plot_centroid_overlay(
@@ -143,10 +128,8 @@ def interp(input_dir, output_dir, debug=False):
 
             stop2 = time.time()
             print(f"\ttime to save debug={stop2-stop}")
-    if debug:
-        xlwriter_int.close()
-        xlwriter_bg.close()
-    xlwriter_od.close()
+
+    xlwriter_od_well.close()
 
     # create excel writers to write reports
     xlwriter_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_ODs.xlsx'))

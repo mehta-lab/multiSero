@@ -334,7 +334,7 @@ def find_fiducials_markers(props_,
     return cent_map
 
 
-def grid_from_centroids(props_, im_int, background, n_rows, n_cols, dist_flr=True, grid_spacing=82):
+def grid_from_centroids(props_, n_rows, n_cols, grid_spacing=82):
     """
     based on the region props, creates a dictionary of format:
         key = (centroid_x, centroid_y)
@@ -342,12 +342,9 @@ def grid_from_centroids(props_, im_int, background, n_rows, n_cols, dist_flr=Tru
 
     :param props_: list of region props
         approximately 36-48 of these, depending on quality of the image
-    :param im: array of the intensity image
     :param n_rows: int
     :param n_cols: int
-    :param min_area: int
-    :param im_height: int
-    :param im_width: int
+    :param grid_spacing
     :return: dict
         of format (cent_x, cent_y): prop
     """

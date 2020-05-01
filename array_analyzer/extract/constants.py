@@ -1,10 +1,16 @@
 """
 The constants.py namespace contains constants used throughout the repo
     These values are assigned at the start of analysis using the "metadata.MetaData" class
-    Set the values by populating the .xml or .csv file as per documentation
+    Set the values by populating the .xml or .xlsx file as per documentation
 """
-
+# === runtime arguments ===
+EXTRACT_OD = None
+ANALYZE_OD = None
+INPUT_FOLDER = None
+OUTPUT_FOLDER = None
+WORKFLOW = None
 METADATA_EXTENSION = None
+DEBUG = None
 
 # === constants parsed from metadata ===
 #   the constants below are all dictionaries

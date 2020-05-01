@@ -30,7 +30,7 @@ def point_registration(input_dir, output_dir, debug=False):
 
     MetaData(input_dir, output_dir)
 
-    xlwriter_od_well = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_ODs_per_well.xlsx'))
+    xlwriter_od_well = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'median_ODs_per_well.xlsx'))
     pdantigen = pd.DataFrame(c.ANTIGEN_ARRAY)
     pdantigen.to_excel(xlwriter_od_well, sheet_name='antigens')
 
@@ -196,10 +196,9 @@ def point_registration(input_dir, output_dir, debug=False):
                 time.time() - start_time),
             )
 
-    # create excel writers to write reports
-    xlwriter_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_ODs.xlsx'))
-    xlwriter_int = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_intensities.xlsx'))
-    xlwriter_bg = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_backgrounds.xlsx'))
+    xlwriter_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'median_ODs.xlsx'))
+    xlwriter_int = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'median_intensities.xlsx'))
+    xlwriter_bg = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'median_backgrounds.xlsx'))
 
     report.write_antigen_report(xlwriter_od, 'od')
     report.write_antigen_report(xlwriter_int, 'int')
