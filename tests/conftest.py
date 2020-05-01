@@ -114,6 +114,8 @@ def create_good_xlsx(tmp_path_factory):
     writer.save()
     writer.close()
 
+    return input_dir
+
 
 @pytest.fixture(scope="session")
 def image_dir(tmpdir_factory):
