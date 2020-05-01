@@ -11,6 +11,7 @@ def test_parse_args():
                 '--input', 'input_dir_name',
                 '--output', 'output_dir_name',
                 '-wf', 'array_fit',
+                '-m', 'xml',
                 '--debug']):
         parsed_args = pysero.parse_args()
         assert parsed_args.input == 'input_dir_name'
