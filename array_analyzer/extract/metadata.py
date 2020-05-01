@@ -111,6 +111,10 @@ class MetaData:
         self._calc_spot_dist()
         self._set_run_path(output_folder_)
 
+        # setting 96-well constants
+        self._calc_image_to_well()
+        self._calc_empty_plate_const()
+
     def _create_spot_id_array(self):
         """
         Creates an empty ndarray of strings, whose rows and columns match the printed array's rows/cols
@@ -219,3 +223,26 @@ class MetaData:
         )
         if not os.path.isdir(c.RUN_PATH):
             os.mkdir(c.RUN_PATH)
+
+    # create image-to-well mapping dictionary
+    def _calc_image_to_well(self):
+        """
+        Calculate the mapping from ImageName: (row, col) position in the plate.
+
+        :return:
+        """
+        # assuming file names are "rowcol" or "A1" - "H12"
+        rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+        cols = list(range(1, 13))
+        for r_idx, row in enumerate(rows):
+            for col in cols:
+                c.IMAGE_TO_WELL[row+str(col)] = (r_idx+1, col)
+
+    def _calc_empty_plate_const(self):
+        """
+        initialize report arrays assuming a 96-well plate format
+        :return:
+        """
+        c.WELL_BG_ARRAY = np.empty((8, 12), dtype=object)
+        c.WELL_INT_ARRAY = np.empty((8, 12), dtype=object)
+        c.WELL_OD_ARRAY = np.empty((8, 12), dtype=object)

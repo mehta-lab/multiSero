@@ -137,6 +137,8 @@ def create_xlsx_dict(path_):
     """
     extracts fiducial, antigen, and array parameter metadata from .xlsx sheets
     then populates dictionaries or lists with appropriate information
+    The output dictionaries and lists conform the .xml-style parsing.  This is for consistency
+
     :param path_: path to .xlsx file
     :return list fiduc: Fiducials and control info
     :return list spots: None.  spots IDs not needed for .xlsx
@@ -162,7 +164,12 @@ def create_xlsx_dict(path_):
             elif "Fiducial" in value:
                 pos = {'@row': row,
                        '@col': col,
-                       '@spot_type': str(value)}
+                       '@spot_type': "Fiducial"}
+                fiduc.append(pos)
+            elif "xkappa-biotin" in value:
+                pos = {'@row': row,
+                       '@col': col,
+                       '@spot_type': "Fiducial"}
                 fiduc.append(pos)
             else:
                 pos = {'@row': row,

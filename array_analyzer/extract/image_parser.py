@@ -651,16 +651,17 @@ def compute_od(props_array,bgprops_array):
     i_spot
     i_bg
     """
-    assert props_array.shape == bgprops_array.shape, 'regionprops arrays representing sample and background are not the same.'
-    n_rows=props_array.shape[0]
-    n_cols=props_array.shape[1]
-    i_spot=np.empty((n_rows,n_cols))
-    i_bg=np.empty((n_rows,n_cols))
-    od_norm=np.empty((n_rows,n_cols))
+    assert props_array.shape == bgprops_array.shape, \
+        'regionprops arrays representing sample and background are not the same.'
+    n_rows = props_array.shape[0]
+    n_cols = props_array.shape[1]
+    i_spot = np.empty((n_rows, n_cols))
+    i_bg = np.empty((n_rows, n_cols))
+    od_norm = np.empty((n_rows, n_cols))
 
-    i_spot[:]=np.NaN
-    i_bg[:]=np.NaN
-    od_norm[:]=np.NaN
+    i_spot[:] = np.NaN
+    i_bg[:] = np.NaN
+    od_norm[:] = np.NaN
 
     for r in np.arange(n_rows):
         for c in np.arange(n_cols):

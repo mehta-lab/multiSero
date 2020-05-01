@@ -1,9 +1,9 @@
 import cv2 as cv
-import glob
 import numpy as np
 import os
 import pandas as pd
 import time
+from copy import deepcopy
 
 import array_analyzer.extract.background_estimator as background_estimator
 import array_analyzer.extract.image_parser as image_parser
@@ -15,15 +15,7 @@ import array_analyzer.load.debug_plots as debug_plots
 import array_analyzer.transform.point_registration as registration
 import array_analyzer.transform.array_generation as array_gen
 import array_analyzer.utils.io_utils as io_utils
-
-# FIDUCIALS = [(0, 0), (0, 1), (0, 5), (7, 0), (7, 5)]
-# FIDUCIALS_IDX = [0, 5, 6, 30, 35]
-# FIDUCIALS_IDX_8COLS = [0, 7, 8, 40, 47]
-# SCENION_SPOT_DIST = 82
-# The expected standard deviations could be estimated from training data
-# Just winging it for now
-# STDS = np.array([500, 500, .1, .001])  # x, y, angle, scale
-# REG_DIST_THRESH = 1000
+import array_analyzer.load.report as report
 
 
 def point_registration(input_dir, output_dir, debug=False):
@@ -41,16 +33,16 @@ def point_registration(input_dir, output_dir, debug=False):
 
     os.makedirs(c.RUN_PATH, exist_ok=True)
 
-    xlwriter_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_ODs.xlsx'))
-    pdantigen = pd.DataFrame(c.ANTIGEN_ARRAY)
-    pdantigen.to_excel(xlwriter_od, sheet_name='antigens')
-    if debug:
-        xlwriter_int = pd.ExcelWriter(
-            os.path.join(c.RUN_PATH, 'python_median_intensities.xlsx'),
-        )
-        xlwriter_bg = pd.ExcelWriter(
-            os.path.join(c.RUN_PATH, 'python_median_backgrounds.xlsx'),
-        )
+    # xlwriter_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_ODs.xlsx'))
+    # pdantigen = pd.DataFrame(c.ANTIGEN_ARRAY)
+    # pdantigen.to_excel(xlwriter_od, sheet_name='antigens')
+    # if debug:
+    # xlwriter_int = pd.ExcelWriter(
+    #     os.path.join(c.RUN_PATH, 'python_median_intensities.xlsx'),
+    # )
+    # xlwriter_bg = pd.ExcelWriter(
+    #     os.path.join(c.RUN_PATH, 'python_median_backgrounds.xlsx'),
+    # )
 
     # Initialize background estimator
     bg_estimator = background_estimator.BackgroundEstimator2D(
@@ -163,9 +155,15 @@ def point_registration(input_dir, output_dir, debug=False):
             props_array_placed,
             bgprops_array,
         )
+
+        # populate 96-well plate constants with OD, INT, BG arrays
+        report.write_well_arrays(od_well, well_name, 'od')
+        report.write_well_arrays(int_well, well_name, 'int')
+        report.write_well_arrays(bg_well, well_name, 'bg')
+
         # Write ODs
-        pd_od = pd.DataFrame(od_well)
-        pd_od.to_excel(xlwriter_od, sheet_name=well_name)
+        # pd_od = pd.DataFrame(od_well)
+        # pd_od.to_excel(xlwriter_od, sheet_name=well_name)
 
         print("Time to register grid to {}: {:.3f} s".format(
             well_name,
@@ -177,10 +175,6 @@ def point_registration(input_dir, output_dir, debug=False):
         if debug:
             start_time = time.time()
             # Save spot and background intensities
-            pd_int = pd.DataFrame(int_well)
-            pd_int.to_excel(xlwriter_int, sheet_name=well_name)
-            pd_bg = pd.DataFrame(bg_well)
-            pd_bg.to_excel(xlwriter_bg, sheet_name=well_name)
 
             output_name = os.path.join(c.RUN_PATH, well_name)
             # Save OD plots, composite spots and registration
@@ -211,7 +205,54 @@ def point_registration(input_dir, output_dir, debug=False):
             print("Time to save debug images: {:.3f} s".format(
                 time.time() - start_time),
             )
-            xlwriter_int.close()
-            xlwriter_bg.close()
+
+    xlwriter_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_ODs.xlsx'))
+    xlwriter_int = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_intensities.xlsx'))
+    xlwriter_bg = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_backgrounds.xlsx'))
+    pdantigen = pd.DataFrame(c.ANTIGEN_ARRAY)
+    pdantigen.to_excel(xlwriter_od, sheet_name='antigens')
+    pdantigen.to_excel(xlwriter_int, sheet_name='antigens')
+    pdantigen.to_excel(xlwriter_bg, sheet_name='antigens')
+
+    # loop all antigens
+    well_to_image = {v: k for k, v in c.IMAGE_TO_WELL.items()}
+    for antigen_position, antigen in np.ndenumerate(c.ANTIGEN_ARRAY):
+        if antigen == '' or antigen is None:
+            continue
+        print(f"writing antigen {antigen} to excel sheets")
+
+        od_sheet = deepcopy(c.WELL_OUTPUT_TEMPLATE)
+        int_sheet = deepcopy(c.WELL_OUTPUT_TEMPLATE)
+        bg_sheet = deepcopy(c.WELL_OUTPUT_TEMPLATE)
+
+        # loop all wells and write OD, INT, BG of this antigen
+        for od_position, od_well in np.ndenumerate(c.WELL_OD_ARRAY):
+            od_val = od_well[antigen_position[0], antigen_position[1]]
+            well_name = well_to_image[(od_position[0]+1, od_position[1]+1)]
+            print(f"writing od pos {od_position} to well pos {well_name}")
+            od_sheet[well_name[0]][int(well_name[1:])] = od_val
+
+        for int_position, int_well in np.ndenumerate(c.WELL_INT_ARRAY):
+            int_val = int_well[antigen_position[0], antigen_position[1]]
+            well_name = well_to_image[(int_position[0]+1, int_position[1]+1)]
+            print(f"writing int pos {int_position} to well pos {well_name}")
+            int_sheet[well_name[0]][int(well_name[1:])] = int_val
+
+        for bg_position, bg_well in np.ndenumerate(c.WELL_BG_ARRAY):
+            bg_val = bg_well[antigen_position[0], antigen_position[1]]
+            well_name = well_to_image[(bg_position[0]+1, bg_position[1]+1)]
+            print(f"writing bg pos {bg_position} to well pos {well_name}")
+            bg_sheet[well_name[0]][int(well_name[1:])] = bg_val
+
+        # write the outputs from the above three to a worksheet
+        od_sheet_df = pd.DataFrame(od_sheet).T
+        int_sheet_df = pd.DataFrame(int_sheet).T
+        bg_sheet_df = pd.DataFrame(bg_sheet).T
+
+        od_sheet_df.to_excel(xlwriter_od, sheet_name=f'od_{antigen_position}_{antigen}')
+        int_sheet_df.to_excel(xlwriter_int, sheet_name=f'int_{antigen_position}_{antigen}')
+        bg_sheet_df.to_excel(xlwriter_bg, sheet_name=f'bg_{antigen_position}_{antigen}')
 
     xlwriter_od.close()
+    xlwriter_int.close()
+    xlwriter_bg.close()

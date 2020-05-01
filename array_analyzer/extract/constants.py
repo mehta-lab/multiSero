@@ -28,12 +28,20 @@ fiducials = dict()
 spots = dict()
 replicates = dict()
 
+# a map between Image Name : well (row, col)
+IMAGE_TO_WELL = dict()
+
 # === array-constants ===
 #   the constants below are all np.ndarrays whose elements are "U100" strings
 SPOT_ID_ARRAY = None
 SPOT_TYPE_ARRAY = None
 FIDUCIAL_ARRAY = None
 ANTIGEN_ARRAY = None
+
+# ndarrays representing 96-well plates for each analysis type
+WELL_OD_ARRAY = None
+WELL_INT_ARRAY = None
+WELL_BG_ARRAY = None
 
 # === constants needed for workflows ===
 #   these values are extracted from the above ARRAYs
@@ -52,3 +60,22 @@ REG_DIST_THRESH = 1000
 
 # constants for saving
 RUN_PATH = ''
+
+# template for writing OD, INT, BG worksheets
+WELL_OUTPUT_TEMPLATE = {'A': {1: None, 2: None, 3: None, 4: None, 5: None, 6: None,
+                              7: None, 8: None, 9: None, 10: None, 11: None, 12: None},
+                        'B': {1: None, 2: None, 3: None, 4: None, 5: None, 6: None,
+                              7: None, 8: None, 9: None, 10: None, 11: None, 12: None},
+                        'C': {1: None, 2: None, 3: None, 4: None, 5: None, 6: None,
+                              7: None, 8: None, 9: None, 10: None, 11: None, 12: None},
+                        'D': {1: None, 2: None, 3: None, 4: None, 5: None, 6: None,
+                              7: None, 8: None, 9: None, 10: None, 11: None, 12: None},
+                        'E': {1: None, 2: None, 3: None, 4: None, 5: None, 6: None,
+                              7: None, 8: None, 9: None, 10: None, 11: None, 12: None},
+                        'F': {1: None, 2: None, 3: None, 4: None, 5: None, 6: None,
+                              7: None, 8: None, 9: None, 10: None, 11: None, 12: None},
+                        'G': {1: None, 2: None, 3: None, 4: None, 5: None, 6: None,
+                              7: None, 8: None, 9: None, 10: None, 11: None, 12: None},
+                        'H': {1: None, 2: None, 3: None, 4: None, 5: None, 6: None,
+                              7: None, 8: None, 9: None, 10: None, 11: None, 12: None}
+                        }
