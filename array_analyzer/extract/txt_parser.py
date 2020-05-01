@@ -180,6 +180,26 @@ def create_xlsx_dict(path_):
     return fiduc, None, xlsx_antigens, array_params
 
 
+def create_xlsx_array(path_):
+
+    array_params = dict()
+
+    # populate array parameters
+    params = pd.read_excel(path_, sheet_name='imaging_and_array_parameters')
+    for idx, value in enumerate(params['Parameter']):
+        array_params[value] = params['Value'][idx]
+
+    # populate fiducials array
+    fiduc_df = pd.read_excel(path_, sheet_name='antigen_type')
+    fiduc = fiduc_df.to_numpy(dtype='U100')
+
+    # populate xlsx
+    xlsx_antigens_df = pd.read_excel(path_, sheet_name='antigen_array')
+    xlsx_antigens = xlsx_antigens_df.to_numpy(dtype='U100')
+
+    return fiduc, None, xlsx_antigens, array_params
+
+
 def create_array(rows_, cols_, dtype='U100'):
     """
     creates an empty numpy array whose elements are long strings

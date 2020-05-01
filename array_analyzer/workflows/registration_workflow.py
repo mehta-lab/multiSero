@@ -3,7 +3,6 @@ import numpy as np
 import os
 import pandas as pd
 import time
-from copy import deepcopy
 
 import array_analyzer.extract.background_estimator as background_estimator
 import array_analyzer.extract.image_parser as image_parser
@@ -33,16 +32,9 @@ def point_registration(input_dir, output_dir, debug=False):
 
     os.makedirs(c.RUN_PATH, exist_ok=True)
 
-    # xlwriter_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_ODs.xlsx'))
-    # pdantigen = pd.DataFrame(c.ANTIGEN_ARRAY)
-    # pdantigen.to_excel(xlwriter_od, sheet_name='antigens')
-    # if debug:
-    # xlwriter_int = pd.ExcelWriter(
-    #     os.path.join(c.RUN_PATH, 'python_median_intensities.xlsx'),
-    # )
-    # xlwriter_bg = pd.ExcelWriter(
-    #     os.path.join(c.RUN_PATH, 'python_median_backgrounds.xlsx'),
-    # )
+    xlwriter_od_well = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_ODs_per_well.xlsx'))
+    pdantigen = pd.DataFrame(c.ANTIGEN_ARRAY)
+    pdantigen.to_excel(xlwriter_od_well, sheet_name='antigens')
 
     # Initialize background estimator
     bg_estimator = background_estimator.BackgroundEstimator2D(
@@ -157,13 +149,13 @@ def point_registration(input_dir, output_dir, debug=False):
         )
 
         # populate 96-well plate constants with OD, INT, BG arrays
-        report.write_well_arrays(od_well, well_name, 'od')
-        report.write_well_arrays(int_well, well_name, 'int')
-        report.write_well_arrays(bg_well, well_name, 'bg')
+        report.write_od_to_plate(od_well, well_name, 'od')
+        report.write_od_to_plate(int_well, well_name, 'int')
+        report.write_od_to_plate(bg_well, well_name, 'bg')
 
-        # Write ODs
-        # pd_od = pd.DataFrame(od_well)
-        # pd_od.to_excel(xlwriter_od, sheet_name=well_name)
+        # Write ODs per well
+        pd_od = pd.DataFrame(od_well)
+        pd_od.to_excel(xlwriter_od_well, sheet_name=well_name)
 
         print("Time to register grid to {}: {:.3f} s".format(
             well_name,
@@ -209,49 +201,46 @@ def point_registration(input_dir, output_dir, debug=False):
     xlwriter_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_ODs.xlsx'))
     xlwriter_int = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_intensities.xlsx'))
     xlwriter_bg = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_backgrounds.xlsx'))
-    pdantigen = pd.DataFrame(c.ANTIGEN_ARRAY)
-    pdantigen.to_excel(xlwriter_od, sheet_name='antigens')
-    pdantigen.to_excel(xlwriter_int, sheet_name='antigens')
-    pdantigen.to_excel(xlwriter_bg, sheet_name='antigens')
+
+    report.write_antigen_report(xlwriter_od, 'od')
+    report.write_antigen_report(xlwriter_int, 'int')
+    report.write_antigen_report(xlwriter_bg, 'bg')
 
     # loop all antigens
-    well_to_image = {v: k for k, v in c.IMAGE_TO_WELL.items()}
-    for antigen_position, antigen in np.ndenumerate(c.ANTIGEN_ARRAY):
-        if antigen == '' or antigen is None:
-            continue
-        print(f"writing antigen {antigen} to excel sheets")
-
-        od_sheet = deepcopy(c.WELL_OUTPUT_TEMPLATE)
-        int_sheet = deepcopy(c.WELL_OUTPUT_TEMPLATE)
-        bg_sheet = deepcopy(c.WELL_OUTPUT_TEMPLATE)
-
-        # loop all wells and write OD, INT, BG of this antigen
-        for od_position, od_well in np.ndenumerate(c.WELL_OD_ARRAY):
-            od_val = od_well[antigen_position[0], antigen_position[1]]
-            well_name = well_to_image[(od_position[0]+1, od_position[1]+1)]
-            print(f"writing od pos {od_position} to well pos {well_name}")
-            od_sheet[well_name[0]][int(well_name[1:])] = od_val
-
-        for int_position, int_well in np.ndenumerate(c.WELL_INT_ARRAY):
-            int_val = int_well[antigen_position[0], antigen_position[1]]
-            well_name = well_to_image[(int_position[0]+1, int_position[1]+1)]
-            print(f"writing int pos {int_position} to well pos {well_name}")
-            int_sheet[well_name[0]][int(well_name[1:])] = int_val
-
-        for bg_position, bg_well in np.ndenumerate(c.WELL_BG_ARRAY):
-            bg_val = bg_well[antigen_position[0], antigen_position[1]]
-            well_name = well_to_image[(bg_position[0]+1, bg_position[1]+1)]
-            print(f"writing bg pos {bg_position} to well pos {well_name}")
-            bg_sheet[well_name[0]][int(well_name[1:])] = bg_val
-
-        # write the outputs from the above three to a worksheet
-        od_sheet_df = pd.DataFrame(od_sheet).T
-        int_sheet_df = pd.DataFrame(int_sheet).T
-        bg_sheet_df = pd.DataFrame(bg_sheet).T
-
-        od_sheet_df.to_excel(xlwriter_od, sheet_name=f'od_{antigen_position}_{antigen}')
-        int_sheet_df.to_excel(xlwriter_int, sheet_name=f'int_{antigen_position}_{antigen}')
-        bg_sheet_df.to_excel(xlwriter_bg, sheet_name=f'bg_{antigen_position}_{antigen}')
+    # well_to_image = {v: k for k, v in c.IMAGE_TO_WELL.items()}
+    # for antigen_position, antigen in np.ndenumerate(c.ANTIGEN_ARRAY):
+    #     if antigen == '' or antigen is None:
+    #         continue
+    #     print(f"writing antigen {antigen} to excel sheets")
+    #
+    #     od_sheet = deepcopy(c.WELL_OUTPUT_TEMPLATE)
+    #     int_sheet = deepcopy(c.WELL_OUTPUT_TEMPLATE)
+    #     bg_sheet = deepcopy(c.WELL_OUTPUT_TEMPLATE)
+    #
+    #     # loop all wells and write OD, INT, BG of this antigen
+    #     for od_position, od_well in np.ndenumerate(c.WELL_OD_ARRAY):
+    #         od_val = od_well[antigen_position[0], antigen_position[1]]
+    #         well_name = well_to_image[(od_position[0]+1, od_position[1]+1)]
+    #         od_sheet[well_name[0]][int(well_name[1:])] = od_val
+    #
+    #     for int_position, int_well in np.ndenumerate(c.WELL_INT_ARRAY):
+    #         int_val = int_well[antigen_position[0], antigen_position[1]]
+    #         well_name = well_to_image[(int_position[0]+1, int_position[1]+1)]
+    #         int_sheet[well_name[0]][int(well_name[1:])] = int_val
+    #
+    #     for bg_position, bg_well in np.ndenumerate(c.WELL_BG_ARRAY):
+    #         bg_val = bg_well[antigen_position[0], antigen_position[1]]
+    #         well_name = well_to_image[(bg_position[0]+1, bg_position[1]+1)]
+    #         bg_sheet[well_name[0]][int(well_name[1:])] = bg_val
+    #
+    #     # write the outputs from the above three to a worksheet
+    #     od_sheet_df = pd.DataFrame(od_sheet).T
+    #     int_sheet_df = pd.DataFrame(int_sheet).T
+    #     bg_sheet_df = pd.DataFrame(bg_sheet).T
+    #
+    #     od_sheet_df.to_excel(xlwriter_od, sheet_name=f'od_{antigen_position}_{antigen}')
+    #     int_sheet_df.to_excel(xlwriter_int, sheet_name=f'int_{antigen_position}_{antigen}')
+    #     bg_sheet_df.to_excel(xlwriter_bg, sheet_name=f'bg_{antigen_position}_{antigen}')
 
     xlwriter_od.close()
     xlwriter_int.close()

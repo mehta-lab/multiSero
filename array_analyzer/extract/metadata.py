@@ -18,7 +18,7 @@ class MetaData:
         :param output_folder_: str full path to output folder for reports and diagnostics
         """
 
-        fiduc_, spots_, repl_, params_ = None, None, None, None
+        self.fiduc, self.spots, self.repl, self.params = None, None, None, None
 
         # parse fiducials, spot types, antigens, and hardware parameters from metadata
         if c.METADATA_EXTENSION == 'xml':
@@ -29,7 +29,7 @@ class MetaData:
             xml_path = os.path.join(input_folder_, xml[0])
 
             # parsing .xml
-            fiduc_, spots_, repl_, params_ = txt_parser.create_xml_dict(xml_path)
+            self.fiduc, self.spots, self.repl, self.params = txt_parser.create_xml_dict(xml_path)
 
         elif c.METADATA_EXTENSION == 'well':
             self._set_run_path(output_folder_)
@@ -48,7 +48,7 @@ class MetaData:
             csv_paths = [os.path.join(input_folder_, one_csv) for one_csv in csvs]
 
             # parsing .csv
-            fiduc_, _, repl_, params_ = txt_parser.create_csv_dict(csv_paths)
+            self.fiduc, _, self.repl, self.params = txt_parser.create_csv_dict(csv_paths)
 
         elif c.METADATA_EXTENSION == 'xlsx':
             # check that exactly one .xlsx exists
@@ -59,6 +59,7 @@ class MetaData:
 
             # check that properly named .xlsx exists
             if not os.path.isfile(os.path.join(input_folder_, 'Metadata_and_Plate_configuration.xlsx')):
+            # if not os.path.isfile(os.path.join(input_folder_, 'pysero_output_data_metadata.xlsx')):
                 raise IOError("required metadata file named 'Metadata_and_Plate_configuration.xlsx' does not exist")
             xlsx_path = os.path.join(input_folder_, 'Metadata_and_Plate_configuration.xlsx')
 
@@ -70,33 +71,38 @@ class MetaData:
                 raise IOError("sheet by name 'array_antigens' not present in excel file, aborting")
 
             # parsing .xlsx
-            fiduc_, _, repl_, params_ = txt_parser.create_xlsx_dict(xlsx_path)
+            self.fiduc, _, self.repl, self.params = txt_parser.create_xlsx_dict(xlsx_path)
+
+            # parsing .xlsx using pandas
+            # self.fiduc, _, self.repl, self.params = txt_parser.create_xlsx_array(xlsx_path)
+            # c.FIDUCIAL_ARRAY = self.fiduc
+            # c.ANTIGEN_ARRAY = self.repl
 
         else:
             raise NotImplementedError(f"metadata with extension {c.METADATA_EXTENSION} is not supported")
 
         # setting constants
-        if fiduc_:
-            c.fiducials = fiduc_
-        if spots_:
-            c.spots = spots_
-        if repl_:
-            c.replicates = repl_
-        if params_:
-            c.params['rows'] = int(params_['rows'])
-            c.params['columns'] = int(params_['columns'])
-            c.params['v_pitch'] = float(params_['v_pitch'])
-            c.params['h_pitch'] = float(params_['h_pitch'])
-            c.params['spot_width'] = float(params_['spot_width'])
-            if c.METADATA_EXTENSION == 'xml':
-                c.params['pixel_size'] = c.params['pixel_size_scienion']
-                # these params are present in .xml but not used
-                # c.params['bg_offset'] = int(params_['bg_offset'])
-                # c.params['bg_thickness'] = int(params_['bg_thickness'])
-                # c.params['max_diam'] = int(params_['max_diam'])
-                # c.params['min_diam'] = int(params_['min_diam'])
-            else:
-                c.params['pixel_size'] = float(params_['pixel_size'])
+        # if fiduc_:
+        #     c.fiducials = fiduc_
+        # if spots_:
+        #     c.spots = spots_
+        # if repl_:
+        #     c.replicates = repl_
+        # if params_:
+        c.params['rows'] = int(self.params['rows'])
+        c.params['columns'] = int(self.params['columns'])
+        c.params['v_pitch'] = float(self.params['v_pitch'])
+        c.params['h_pitch'] = float(self.params['h_pitch'])
+        c.params['spot_width'] = float(self.params['spot_width'])
+        if c.METADATA_EXTENSION == 'xml':
+            c.params['pixel_size'] = c.params['pixel_size_scienion']
+            # these params are present in .xml but not used
+            # c.params['bg_offset'] = int(params_['bg_offset'])
+            # c.params['bg_thickness'] = int(params_['bg_thickness'])
+            # c.params['max_diam'] = int(params_['max_diam'])
+            # c.params['min_diam'] = int(params_['min_diam'])
+        else:
+            c.params['pixel_size'] = float(self.params['pixel_size'])
 
         # setting constant arrays
         if c.METADATA_EXTENSION == 'xml':
@@ -123,7 +129,23 @@ class MetaData:
         :return:
         """
         self.spot_ids = np.empty(shape=(c.params['rows'], c.params['columns']), dtype='U100')
-        c.SPOT_ID_ARRAY = txt_parser.populate_array_id(self.spot_ids, c.spots)
+        c.SPOT_ID_ARRAY = txt_parser.populate_array_id(self.spot_ids, self.spots)
+
+    def _assign_params(self, params_):
+        c.params['rows'] = int(params_['rows'])
+        c.params['columns'] = int(params_['columns'])
+        c.params['v_pitch'] = float(params_['v_pitch'])
+        c.params['h_pitch'] = float(params_['h_pitch'])
+        c.params['spot_width'] = float(params_['spot_width'])
+        if c.METADATA_EXTENSION == 'xml':
+            c.params['pixel_size'] = c.params['pixel_size_scienion']
+            # these params are present in .xml but not used
+            # c.params['bg_offset'] = int(params_['bg_offset'])
+            # c.params['bg_thickness'] = int(params_['bg_thickness'])
+            # c.params['max_diam'] = int(params_['max_diam'])
+            # c.params['min_diam'] = int(params_['min_diam'])
+        else:
+            c.params['pixel_size'] = float(params_['pixel_size'])
 
     def _create_spot_type_array(self):
         """
@@ -133,7 +155,7 @@ class MetaData:
         :return:
         """
         self.spot_type = np.empty(shape=(c.params['rows'], c.params['columns']), dtype='U100')
-        c.SPOT_TYPE_ARRAY = txt_parser.populate_array_spots_type(self.spot_type, c.spots, c.fiducials)
+        c.SPOT_TYPE_ARRAY = txt_parser.populate_array_spots_type(self.spot_type, self.spots, self.fiduc)
 
     def _create_fiducials_array(self):
         """
@@ -143,7 +165,7 @@ class MetaData:
         :return:
         """
         self.fiducials_array = np.empty(shape=(c.params['rows'], c.params['columns']), dtype='U100')
-        c.FIDUCIAL_ARRAY = txt_parser.populate_array_fiduc(self.fiducials_array, c.fiducials)
+        c.FIDUCIAL_ARRAY = txt_parser.populate_array_fiduc(self.fiducials_array, self.fiduc)
 
     def _create_antigen_array(self):
         """
@@ -159,9 +181,9 @@ class MetaData:
         if c.METADATA_EXTENSION == 'xml':
             if c.SPOT_ID_ARRAY.size == 0:
                 raise AttributeError("attempting to create antigen array before SPOT_ID_ARRAY is assigned")
-            c.ANTIGEN_ARRAY = txt_parser.populate_array_antigen_xml(self.antigen_array, c.SPOT_ID_ARRAY, c.replicates)
+            c.ANTIGEN_ARRAY = txt_parser.populate_array_antigen_xml(self.antigen_array, c.SPOT_ID_ARRAY, self.repl)
         elif c.METADATA_EXTENSION == 'csv' or c.METADATA_EXTENSION == 'xlsx':
-            c.ANTIGEN_ARRAY = txt_parser.populate_array_antigen(self.antigen_array, c.replicates)
+            c.ANTIGEN_ARRAY = txt_parser.populate_array_antigen(self.antigen_array, self.repl)
 
     def _calculate_fiduc_coords(self):
         """

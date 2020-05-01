@@ -23,11 +23,6 @@ params = {
     'pixel_size': None
 }
 
-layout = dict()
-fiducials = dict()
-spots = dict()
-replicates = dict()
-
 # a map between Image Name : well (row, col)
 IMAGE_TO_WELL = dict()
 
