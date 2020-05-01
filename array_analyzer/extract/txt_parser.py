@@ -152,22 +152,24 @@ def create_xlsx_dict(path_):
     for idx, value in enumerate(xlsx['imaging_and_array_parameters']['Parameter']):
         array_params[value] = xlsx['imaging_and_array_parameters']['Value'][idx]
 
-    # find and populate fiduc list, antigen list
-    for col in xlsx['array_antigens'].keys()[1:]:
-        for row, value in enumerate(xlsx['array_antigens'][col]):
+    # populate fiduc list
+    for col in xlsx['antigen_type'].keys()[1:]:
+        for row, value in enumerate(xlsx['antigen_type'][col]):
             if type(value) is float:
                 if math.isnan(value):
                     continue
-            elif "Fiducial" in value:
+            elif "Fiducial" in value or "xkappa-biotin" in value or "Fiducial, Diagnostic" in value:
                 pos = {'@row': row,
                        '@col': col,
                        '@spot_type': "Fiducial"}
                 fiduc.append(pos)
-            elif "xkappa-biotin" in value:
-                pos = {'@row': row,
-                       '@col': col,
-                       '@spot_type': "Fiducial"}
-                fiduc.append(pos)
+
+    # find and populate fiduc list, antigen list
+    for col in xlsx['antigen_array'].keys()[1:]:
+        for row, value in enumerate(xlsx['antigen_array'][col]):
+            if type(value) is float:
+                if math.isnan(value):
+                    continue
             else:
                 pos = {'@row': row,
                        '@col': col,
@@ -178,6 +180,12 @@ def create_xlsx_dict(path_):
 
 
 def create_xlsx_array(path_):
+    """
+    (unfinished attempt to convert arrays in xlsx to np.ndarrays directly, using pandas)
+
+    :param path_:
+    :return:
+    """
 
     array_params = dict()
 

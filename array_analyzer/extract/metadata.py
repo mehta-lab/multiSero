@@ -58,22 +58,21 @@ class MetaData:
             # xlsx_path = os.path.join(input_folder_, xlsxs[0])
 
             # check that properly named .xlsx exists
-            if not os.path.isfile(os.path.join(input_folder_, 'Metadata_and_Plate_configuration.xlsx')):
-            # if not os.path.isfile(os.path.join(input_folder_, 'pysero_output_data_metadata.xlsx')):
-                raise IOError("required metadata file named 'Metadata_and_Plate_configuration.xlsx' does not exist")
-            xlsx_path = os.path.join(input_folder_, 'Metadata_and_Plate_configuration.xlsx')
+            if not os.path.isfile(os.path.join(input_folder_, 'pysero_output_data_metadata.xlsx')):
+                raise IOError("required metadata file named 'pysero_output_data_metadata.xlsx' does not exist")
+            xlsx_path = os.path.join(input_folder_, 'pysero_output_data_metadata.xlsx')
 
             # check that the xlsx file contains necessary worksheets
             sheets = pd.read_excel(xlsx_path, sheet_name=None)
             if 'imaging_and_array_parameters' not in sheets.keys():
                 raise IOError("sheet by name 'imaging_and_array_parameters' not present in excel file, aborting")
-            if 'array_antigens' not in sheets.keys():
+            if 'antigen_array' not in sheets.keys():
                 raise IOError("sheet by name 'array_antigens' not present in excel file, aborting")
 
             # parsing .xlsx
             self.fiduc, _, self.repl, self.params = txt_parser.create_xlsx_dict(xlsx_path)
 
-            # parsing .xlsx using pandas
+            # parsing .xlsx using pandas !! not tested or finished yet
             # self.fiduc, _, self.repl, self.params = txt_parser.create_xlsx_array(xlsx_path)
             # c.FIDUCIAL_ARRAY = self.fiduc
             # c.ANTIGEN_ARRAY = self.repl
@@ -81,28 +80,8 @@ class MetaData:
         else:
             raise NotImplementedError(f"metadata with extension {c.METADATA_EXTENSION} is not supported")
 
-        # setting constants
-        # if fiduc_:
-        #     c.fiducials = fiduc_
-        # if spots_:
-        #     c.spots = spots_
-        # if repl_:
-        #     c.replicates = repl_
-        # if params_:
-        c.params['rows'] = int(self.params['rows'])
-        c.params['columns'] = int(self.params['columns'])
-        c.params['v_pitch'] = float(self.params['v_pitch'])
-        c.params['h_pitch'] = float(self.params['h_pitch'])
-        c.params['spot_width'] = float(self.params['spot_width'])
-        if c.METADATA_EXTENSION == 'xml':
-            c.params['pixel_size'] = c.params['pixel_size_scienion']
-            # these params are present in .xml but not used
-            # c.params['bg_offset'] = int(params_['bg_offset'])
-            # c.params['bg_thickness'] = int(params_['bg_thickness'])
-            # c.params['max_diam'] = int(params_['max_diam'])
-            # c.params['min_diam'] = int(params_['min_diam'])
-        else:
-            c.params['pixel_size'] = float(self.params['pixel_size'])
+        # set hardware and array parameters
+        self._assign_params(self.params)
 
         # setting constant arrays
         if c.METADATA_EXTENSION == 'xml':
@@ -121,6 +100,17 @@ class MetaData:
         self._calc_image_to_well()
         self._calc_empty_plate_const()
 
+    def _assign_params(self, params_):
+        c.params['rows'] = int(params_['rows'])
+        c.params['columns'] = int(params_['columns'])
+        c.params['v_pitch'] = float(params_['v_pitch'])
+        c.params['h_pitch'] = float(params_['h_pitch'])
+        c.params['spot_width'] = float(params_['spot_width'])
+        if c.METADATA_EXTENSION == 'xml':
+            c.params['pixel_size'] = c.params['pixel_size_scienion']
+        else:
+            c.params['pixel_size'] = float(params_['pixel_size'])
+
     def _create_spot_id_array(self):
         """
         Creates an empty ndarray of strings, whose rows and columns match the printed array's rows/cols
@@ -130,22 +120,6 @@ class MetaData:
         """
         self.spot_ids = np.empty(shape=(c.params['rows'], c.params['columns']), dtype='U100')
         c.SPOT_ID_ARRAY = txt_parser.populate_array_id(self.spot_ids, self.spots)
-
-    def _assign_params(self, params_):
-        c.params['rows'] = int(params_['rows'])
-        c.params['columns'] = int(params_['columns'])
-        c.params['v_pitch'] = float(params_['v_pitch'])
-        c.params['h_pitch'] = float(params_['h_pitch'])
-        c.params['spot_width'] = float(params_['spot_width'])
-        if c.METADATA_EXTENSION == 'xml':
-            c.params['pixel_size'] = c.params['pixel_size_scienion']
-            # these params are present in .xml but not used
-            # c.params['bg_offset'] = int(params_['bg_offset'])
-            # c.params['bg_thickness'] = int(params_['bg_thickness'])
-            # c.params['max_diam'] = int(params_['max_diam'])
-            # c.params['min_diam'] = int(params_['min_diam'])
-        else:
-            c.params['pixel_size'] = float(params_['pixel_size'])
 
     def _create_spot_type_array(self):
         """
@@ -243,14 +217,12 @@ class MetaData:
                       str(datetime.now().minute),
                       str(datetime.now().second)]),
         )
-        if not os.path.isdir(c.RUN_PATH):
-            os.mkdir(c.RUN_PATH)
+        os.makedirs(c.RUN_PATH, exist_ok=True)
 
     # create image-to-well mapping dictionary
     def _calc_image_to_well(self):
         """
         Calculate the mapping from ImageName: (row, col) position in the plate.
-
         :return:
         """
         # assuming file names are "rowcol" or "A1" - "H12"
@@ -263,6 +235,7 @@ class MetaData:
     def _calc_empty_plate_const(self):
         """
         initialize report arrays assuming a 96-well plate format
+        each element of these arrays contains a sub-array of antigens
         :return:
         """
         c.WELL_BG_ARRAY = np.empty((8, 12), dtype=object)

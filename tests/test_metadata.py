@@ -59,3 +59,4 @@ def test_xlsx(create_good_xlsx):
     c.METADATA_EXTENSION = 'xlsx'
     output_dir = create_good_xlsx
     MetaData(output_dir, output_dir)
+

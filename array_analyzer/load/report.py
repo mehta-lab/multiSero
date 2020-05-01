@@ -30,6 +30,14 @@ def write_od_to_plate(data, well_name, array_type):
 
 
 def write_antigen_report(writer, array_type):
+    """
+    Creates and writes a single Excel worksheet containing:
+        - one of OD, INT, or BG values for a SINGLE antigen, in row-col format
+        - row-col format is based on 96-well plate: c.WELL_OUTPUT_TEMPLATE
+    :param writer: pd.ExcelWriter object
+    :param array_type: str one of 'od', 'int', 'bg'
+    :return:
+    """
     well_to_image = {v: k for k, v in c.IMAGE_TO_WELL.items()}
     for antigen_position, antigen in np.ndenumerate(c.ANTIGEN_ARRAY):
         if antigen == '' or antigen is None:
@@ -60,4 +68,9 @@ def write_antigen_report(writer, array_type):
         # write the outputs from the above three to a worksheet
         od_sheet_df = pd.DataFrame(sheet).T
 
-        od_sheet_df.to_excel(writer, sheet_name=f'{array_type}_{antigen_position}_{antigen}')
+        od_sheet_df.to_excel(writer,
+                             sheet_name=f''
+                             f'{array_type}_'
+                             f'{antigen_position[0]}_'
+                             f'{antigen_position[1]}_'
+                             f'{antigen}')

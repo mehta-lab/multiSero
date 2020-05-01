@@ -1,4 +1,3 @@
-import re
 import time
 import os
 import numpy as np
@@ -15,31 +14,12 @@ import array_analyzer.extract.background_estimator as background_estimator
 import array_analyzer.utils.io_utils as io_utils
 
 from array_analyzer.extract.metadata import MetaData
+import array_analyzer.load.report as report
 
 
-def interp(input_dir, output_dir, method='interp', debug=False):
-
-    # parsing .xml
-    # fiduc, spots, repl, params = create_xml_dict(xml_path)
-
-    # creating our arrays
-    # spot_ids = create_array(params['rows'], params['columns'])
-    # antigen_array = create_array(params['rows'], params['columns'])
-
-    # adding .xml info to these arrays
-    # spot_ids = populate_array_id(spot_ids, spots)
-    # spot_ids = populate_array_fiduc(spot_ids, fiduc)
-
-    # antigen_array = populate_array_antigen(antigen_array, spot_ids, repl)
-
-    # Make directory for processing run
-    run_dir = io_utils.make_run_dir(input_dir, output_dir)
-    # save a sub path for this processing run
-    # run_path = output_folder_ + os.sep + f'{datetime.now().month}_{datetime.now().day}_{datetime.now().hour}_{datetime.now().minute}_{datetime.now().second}'
+def interp(input_dir, output_dir, debug=False):
 
     MetaData(input_dir, output_dir)
-
-    os.makedirs(c.RUN_PATH, exist_ok=True)
 
     # Write an excel file that can be read into jupyter notebook with minimal parsing.
     xlwriter_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_ODs.xlsx'))
@@ -50,13 +30,6 @@ def interp(input_dir, output_dir, method='interp', debug=False):
         xlwriter_bg = pd.ExcelWriter(
             os.path.join(c.RUN_PATH, 'python_median_backgrounds.xlsx')
         )
-
-    # Initialize background estimator
-    bg_estimator = background_estimator.BackgroundEstimator2D(
-        block_size=128,
-        order=2,
-        normalize=False,
-    )
 
     # Initialize background estimator
     bg_estimator = background_estimator.BackgroundEstimator2D(
@@ -134,6 +107,11 @@ def interp(input_dir, output_dir, method='interp', debug=False):
         pd_OD = pd.DataFrame(od_well)
         pd_OD.to_excel(xlwriter_od, sheet_name=well_name)
 
+        # populate 96-well plate constants with OD, INT, BG arrays
+        report.write_od_to_plate(od_well, well_name, 'od')
+        report.write_od_to_plate(int_well, well_name, 'int')
+        report.write_od_to_plate(bg_well, well_name, 'bg')
+
         stop = time.time()
         print(f"\ttime to process={stop-start}")
 
@@ -169,3 +147,16 @@ def interp(input_dir, output_dir, method='interp', debug=False):
         xlwriter_int.close()
         xlwriter_bg.close()
     xlwriter_od.close()
+
+    # create excel writers to write reports
+    xlwriter_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_ODs.xlsx'))
+    xlwriter_int = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_intensities.xlsx'))
+    xlwriter_bg = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_backgrounds.xlsx'))
+
+    report.write_antigen_report(xlwriter_od, 'od')
+    report.write_antigen_report(xlwriter_int, 'int')
+    report.write_antigen_report(xlwriter_bg, 'bg')
+
+    xlwriter_od.close()
+    xlwriter_int.close()
+    xlwriter_bg.close()
