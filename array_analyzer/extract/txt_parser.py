@@ -77,9 +77,6 @@ def create_xml_dict(path_):
         array_params['max_diam'] = float(layout['@max_diameter'])
         array_params['min_diam'] = float(layout['@min_diameter'])
 
-        # not present in .xml but manually added here:
-        array_params['pixel_size_scienion'] = 0.0049
-        array_params['pixel_size_octopi'] = 0.00185
     except Exception as ex:
         raise AttributeError(f"exception while parsing .xml : {ex}")
 

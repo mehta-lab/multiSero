@@ -27,6 +27,8 @@ def well_analysis(input_dir, output_dir, method='segmentation', debug=False):
     :return:
     """
     start = time.time()
+    # Make directory for processing run
+    run_dir = io_utils.make_run_dir(input_dir, output_dir)
 
     # metadata isn't used for the well format
     MetaData(input_dir, output_dir)
@@ -72,7 +74,7 @@ def well_analysis(input_dir, output_dir, method='segmentation', debug=False):
 
         # SAVE FOR DEBUGGING
         if debug:
-            output_name = os.path.join(c.RUN_PATH, well_name)
+            output_name = os.path.join(run_dir, well_name)
 
             # Save mask of the well, cropped grayscale image, cropped spot segmentation.
             io.imsave(output_name + "_well_mask.png",

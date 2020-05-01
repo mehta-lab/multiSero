@@ -17,12 +17,7 @@ import array_analyzer.utils.io_utils as io_utils
 from array_analyzer.extract.metadata import MetaData
 
 
-def interp(input_dir, output_dir, debug=False):
-
-    # xml = [f for f in os.listdir(input_folder_) if '.xml' in f]
-    # if len(xml) > 1:
-    #     raise IOError("more than one .xml file found, aborting")
-    # xml_path = input_folder_+os.sep+xml[0]
+def interp(input_dir, output_dir, method='interp', debug=False):
 
     # parsing .xml
     # fiduc, spots, repl, params = create_xml_dict(xml_path)
@@ -37,6 +32,8 @@ def interp(input_dir, output_dir, debug=False):
 
     # antigen_array = populate_array_antigen(antigen_array, spot_ids, repl)
 
+    # Make directory for processing run
+    run_dir = io_utils.make_run_dir(input_dir, output_dir)
     # save a sub path for this processing run
     # run_path = output_folder_ + os.sep + f'{datetime.now().month}_{datetime.now().day}_{datetime.now().hour}_{datetime.now().minute}_{datetime.now().second}'
 
