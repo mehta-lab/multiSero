@@ -237,11 +237,14 @@ class MetaData:
         """
         c.RUN_PATH = os.path.join(
             output_folder,
-            '_'.join([str(datetime.now().month),
-                      str(datetime.now().day),
-                      str(datetime.now().hour),
-                      str(datetime.now().minute),
-                      str(datetime.now().second)]),
+            ''.join(['pysero_',
+                    f"{datetime.now().year:04d}",
+                    f"{datetime.now().month:02d}",
+                    f"{datetime.now().day:02d}",
+                    '_',
+                    f"{datetime.now().hour:02d}",
+                    f"{datetime.now().minute:02d}"]
+                    )
         )
         if not os.path.isdir(c.RUN_PATH):
             os.mkdir(c.RUN_PATH)

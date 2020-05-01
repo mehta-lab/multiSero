@@ -198,9 +198,9 @@ def point_registration(input_dir, output_dir, debug=False):
                 time.time() - start_time),
             )
 
-    xlwriter_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_ODs.xlsx'))
-    xlwriter_int = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_intensities.xlsx'))
-    xlwriter_bg = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_backgrounds.xlsx'))
+    xlwriter_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'median_ODs.xlsx'))
+    xlwriter_int = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'median_intensities.xlsx'))
+    xlwriter_bg = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'median_backgrounds.xlsx'))
 
     report.write_antigen_report(xlwriter_od, 'od')
     report.write_antigen_report(xlwriter_int, 'int')

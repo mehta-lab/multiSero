@@ -45,13 +45,13 @@ def interp(input_dir, output_dir, debug=False):
     os.makedirs(c.RUN_PATH, exist_ok=True)
 
     # Write an excel file that can be read into jupyter notebook with minimal parsing.
-    xlwriter_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_ODs.xlsx'))
+    xlwriter_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'median_ODs.xlsx'))
     if debug:
         xlwriter_int = pd.ExcelWriter(
-            os.path.join(c.RUN_PATH, 'python_median_intensities.xlsx')
+            os.path.join(c.RUN_PATH, 'median_intensities.xlsx')
         )
         xlwriter_bg = pd.ExcelWriter(
-            os.path.join(c.RUN_PATH, 'python_median_backgrounds.xlsx')
+            os.path.join(c.RUN_PATH, 'median_backgrounds.xlsx')
         )
 
     # Initialize background estimator
