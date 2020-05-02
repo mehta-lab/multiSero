@@ -15,50 +15,49 @@ import seaborn as sns; sns.set_context("talk")
 font = {'size'   : 16, 'weight' : 'normal', 'family' : 'arial'}
 matplotlib.rc('font', **font)
 
-def xlsx2D_to_df1D(xlsx_path, sheet, data_col):
+def antigen2D_to_df1D(xlsx_path, sheet, data_col):
+    """
+    Convert old 2D output format (per antigen) to 1D dataframe
+    :param xlsx_path:
+    :param sheet:
+    :param data_col:
+    :return:
+    """
     df = pd.read_excel(xlsx_path, sheet_name=sheet, index_col=0)
     df = df.unstack().reset_index(name=data_col) # unpivot (linearize) the table
     df.rename(columns={'level_1': 'antigen_row', 'level_0': 'antigen_col'}, inplace=True)
+    df[['antigen_row', 'antigen_col']] = df[['antigen_row', 'antigen_col']].applymap(int)
     df = df[['antigen_row', 'antigen_col', data_col]]
     return df
     
-
-
-
-# *  xkappa biotin spots: these spots are coated with human kappa light chain conjugated to biotin, so that when the streptavidin-HRP is added there is strong signal independent of the serum content.  **We should not expect the fiducial signal to weaken with serial dilution.**
-# *  Row-5 (row index 4) in multiple wells shows excessive comets and are not interpretable. The row corresponds to concentration range of (SARS-CoV2-RBD).  
-# *  Looking at debug plots, following spots are not reliable:
-#  * A1: row-4, (5,1)
-#  * B1: row-4, (5,1)
-#  * C3: whole well
-#  * D3: whole well
-#  * E3: whole well
-#  * E11: whole well
-# 
-
-
-
+def well2D_to_df1D(xlsx_path, sheet, data_col):
+    """
+    Convert new 2D output format (per well) to 1D dataframe
+    :param xlsx_path:
+    :param sheet:
+    :param data_col:
+    :return:
+    """
+    df = pd.read_excel(xlsx_path, sheet_name=sheet, index_col=0)
+    df = df.unstack().reset_index(name=data_col) # unpivot (linearize) the table
+    df.rename(columns={'level_1': 'row_id', 'level_0': 'col_id'}, inplace=True)
+    df['well_id'] = df.row_id + df.col_id.map(str)
+    df = df[['well_id', data_col]]
+    return df
 #%% Set paths
-
-
 data_folder=r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-04-08-14-48-49-COVID_concentrationtest_April8_images'
-plateinfo_path=os.path.join(data_folder,'COVIDplateinfo0408_v2.xlsx')
-antigenOD_path=os.path.join(data_folder,'python_fit_ODs.xlsx') 
-python_int_path=os.path.join(data_folder,'python_fit_intensities.xlsx') 
-python_bg_path=os.path.join(data_folder,'python_fit_backgrounds.xlsx')
-antigens_path=os.path.join(data_folder,'python_antigens.xlsx')
-scienionpath=os.path.join(data_folder,'2020-04-08-14-57-09-COVID_concentrationtest_April8_analysis2.xlsx')
-
-
+metadata_path=os.path.join(data_folder, 'pysero_output_data_metadata.xlsx')
+OD_path=os.path.join(data_folder, 'median_ODs.xlsx')
+int_path=os.path.join(data_folder, 'median_intensities.xlsx')
+bg_path=os.path.join(data_folder, 'median_backgrounds.xlsx')
+# antigens_path=os.path.join(data_folder,'python_antigens.xlsx')
+scienion_path=os.path.join(data_folder, 'Scienion_reader_output', '2020-04-08-14-57-09-COVID_concentrationtest_April8_analysis2.xlsx')
 #%% Read antigen and plate info
-
-
-
-sheet_names = ['serum ID', 'dilution', 'type']
+sheet_names = ['serum ID', 'serum dilution', 'serum type']
 plate_info_df = pd.DataFrame()
 for sheet_name in sheet_names:
     
-    sheet_df = pd.read_excel(plateinfo_path, sheet_name=sheet_name, index_col=0)
+    sheet_df = pd.read_excel(metadata_path, sheet_name=sheet_name, index_col=0)
     sheet_df = sheet_df.unstack().reset_index(name=sheet_name) # unpivot (linearize) the table
     sheet_df.rename(columns={'level_1': 'row_id', 'level_0': 'col_id'}, inplace=True)
     if sheet_name == 'serum ID':
@@ -68,11 +67,9 @@ for sheet_name in sheet_names:
                                  sheet_df,
                                  how='left', on=['row_id', 'col_id'])       
 plate_info_df['well_id'] = plate_info_df.row_id + plate_info_df.col_id.map(str)
-plate_info_df['dilution'] = 1 / plate_info_df['dilution']  
-plate_info_df = plate_info_df[['serum ID', 'dilution', 'type', 'well_id']]
+plate_info_df['serum dilution'] = 1 / plate_info_df['serum dilution']
+plate_info_df = plate_info_df[['serum ID', 'serum dilution', 'serum type', 'well_id']]
 plate_info_df.dropna(inplace=True)
-# plate_info_df.rename(columns={'Well': 'well_id', 'Type':'type', 'Dilution':'dilution'}, inplace=True)
-
 # # serum_day_df=plate_info_df['Sera ID'].str.split('-Day', expand=True) #If sera names are not organized by ID+collection day, comment out
 # #serum_day_df.fillna(0, inplace=True)
 # #serum_day_df.columns=['serum', 'day']
@@ -81,50 +78,27 @@ plate_info_df.dropna(inplace=True)
 # #plate_info_df.drop(['Sera ID'], axis=1, inplace=True)
 # plate_info_df['type'] = plate_info_df['Sera ID'].str.replace(' \d+', '')
 # # print(plate_info_df[plate_info_df['Sera ID']=='pos 1']['dilution'].unique())
-
-
-
 #%% Read antigen information.
-
-
-antigen_df = xlsx2D_to_df1D(xlsx_path=antigens_path, sheet='antigens', data_col='antigen')   
-
-
-
+antigen_df = antigen2D_to_df1D(xlsx_path=metadata_path, sheet='antigen_array', data_col='antigen')
 #%% Read analysis output from Scienion
-
-
-
 # Read all wells into dictionary. 
 scienion_df = pd.DataFrame()
 for well_id in plate_info_df['well_id']:
-    OD_1_well_df = pd.read_excel(scienionpath, sheet_name=well_id)
-    OD_1_well_df['well_id'] = well_id
-    scienion_df = scienion_df.append(OD_1_well_df, ignore_index=True)
-
-
-
+    OD_1_antiten_df = pd.read_excel(scienion_path, sheet_name=well_id)
+    OD_1_antiten_df['well_id'] = well_id
+    scienion_df = scienion_df.append(OD_1_antiten_df, ignore_index=True)
 #%%   parse spot ids
 spot_id_df=scienion_df['ID'].str.extract(r'spot-(\d)-(\d)')
 spot_id_df = spot_id_df.astype(int) - 1 # index starting from 0
 spot_id_df.rename(columns={0: 'antigen_row', 1: 'antigen_col'}, inplace=True)
-
 scienion_df = pd.concat([spot_id_df, scienion_df], axis=1)
 scienion_df.drop('ID', axis=1, inplace=True)
 
-
-# In[162]:
-
-
-# invert the intensity and compute ODs, check A2
+#%% invert the intensity and compute ODs, check A2
 df_scn = scienion_df.loc[:, ['antigen_row', 'antigen_col', 'well_id']]
 df_scn['intensity'] = 1 - scienion_df['Median'] / 255
 df_scn['background'] = 1 - scienion_df['Background Median'] / 255
 df_scn['OD'] = np.log10(df_scn['background'] / df_scn['intensity'])
-df_scn[df_scn['well_id']=='A1']
-
-
-
 #%% Join Scienion data with plateInfo
 
 
@@ -143,11 +117,31 @@ df_scn['pipeline'] = 'scienion'
 
 #%% Read optical density from pysero
 OD_df = pd.DataFrame()
-for well_id in plate_info_df['well_id']:
-    OD_1_well_df = xlsx2D_to_df1D(xlsx_path=antigenOD_path, sheet=well_id, data_col='OD')   
-    OD_1_well_df['well_id'] = well_id
-    OD_df = OD_df.append(OD_1_well_df, ignore_index=True)
+int_df = pd.DataFrame()
+bg_df = pd.DataFrame()
+for _, row in antigen_df.iterrows():
+    sheet_name = 'od_{}_{}_{}'.format(row['antigen_row'], row['antigen_col'], row['antigen'])
+    OD_1_antiten_df = well2D_to_df1D(xlsx_path=OD_path, sheet=sheet_name, data_col='OD')
+    OD_1_antiten_df['antigen_row'] = row['antigen_row']
+    OD_1_antiten_df['antigen_col'] = row['antigen_col']
+    OD_1_antiten_df['antigen'] = row['antigen']
+    OD_df = OD_df.append(OD_1_antiten_df, ignore_index=True)
 
+for _, row in antigen_df.iterrows():
+    sheet_name = 'int_{}_{}_{}'.format(row['antigen_row'], row['antigen_col'], row['antigen'])
+    int_1_antiten_df = well2D_to_df1D(xlsx_path=int_path, sheet=sheet_name, data_col='intensity')
+    int_1_antiten_df['antigen_row'] = row['antigen_row']
+    int_1_antiten_df['antigen_col'] = row['antigen_col']
+    int_1_antiten_df['antigen'] = row['antigen']
+    int_df = int_df.append(int_1_antiten_df, ignore_index=True)
+
+for _, row in antigen_df.iterrows():
+    sheet_name = 'bg_{}_{}_{}'.format(row['antigen_row'], row['antigen_col'], row['antigen'])
+    bg_1_antiten_df = well2D_to_df1D(xlsx_path=bg_path, sheet=sheet_name, data_col='bg')
+    bg_1_antiten_df['antigen_row'] = row['antigen_row']
+    bg_1_antiten_df['antigen_col'] = row['antigen_col']
+    bg_1_antiten_df['antigen'] = row['antigen']
+    bg_df = bg_df.append(bg_1_antiten_df, ignore_index=True)
 
 #%% merge OD with antigen and plate info.
 
@@ -160,41 +154,11 @@ OD_df = pd.merge(OD_df,
 OD_df = pd.merge(OD_df,
                  plate_info_df,
                  how='right', on=['well_id'])
-
-
-
-#%% median intensities and background from pysero
-
-
-# Read all intensity wells into dictionary and into a 4D numpy array.
-python_int_df = pd.DataFrame()
-for well_id in plate_info_df['well_id']:
-    OD_1_well_df = xlsx2D_to_df1D(xlsx_path=python_int_path, sheet=well_id, data_col='intensity')   
-    OD_1_well_df['well_id'] = well_id
-    python_int_df = python_int_df.append(OD_1_well_df, ignore_index=True)
-
-
-# In[169]:
-
-
-# Read all background wells into dictionary and into a 4D numpy array.
-python_bg_df = pd.DataFrame()
-for well_id in plate_info_df['well_id']:
-    OD_1_well_df = xlsx2D_to_df1D(xlsx_path=python_bg_path, sheet=well_id, data_col='background')   
-    OD_1_well_df['well_id'] = well_id
-    python_bg_df = python_bg_df.append(OD_1_well_df, ignore_index=True)
-
-
-
-#%% merge intensity and background with OD, plateinfo, antigen info
-
-
-# OD_df = OD_df.filter(items=['well_id','antigen_row', 'antigen_col','antigen','Sera ID', 'type', 'dilution', 'OD'],axis=1)
 python_df = pd.merge(OD_df,
-                 python_int_df,
+                 int_df,
                  how='left', on=['antigen_row', 'antigen_col', 'well_id'])
 python_df = pd.merge(python_df,
-                 python_bg_df,
+                 bg_df,
                  how='left', on=['antigen_row', 'antigen_col', 'well_id'])
 
 python_df['pipeline'] = 'python'
@@ -205,8 +169,6 @@ python_df['pipeline'] = 'python'
 
 
 # In[171]:
-
-
 python_df = python_df.append(df_scn)
 
 #%% Generate plots from pysero
@@ -239,13 +201,13 @@ for y in y_list:
 #%% Compare pysero and Scienion aross all serum and antigen combinations
 
 
-fig_path = os.path.join(data_folder, 'python_median_vs_scienion')
+fig_path = os.path.join(data_folder, 'pysero_plots', 'pysero_metadata_vs_scienion')
 os.makedirs(fig_path, exist_ok=True)
 y_list = ["OD", "intensity", "background"]
 for serum in python_df['serum ID'].unique():
     serum_df = python_df[python_df['serum ID']==serum]
     for y in y_list:
-        g = sns.relplot(x="dilution", y=y,
+        g = sns.relplot(x="serum dilution", y=y,
                     hue="pipeline", col="antigen", ci='sd', style='pipeline',
                      data=serum_df, col_wrap=3, estimator=np.mean, kind='line')
         g.set(xscale="log", ylim=[-0.05, 1.2])
