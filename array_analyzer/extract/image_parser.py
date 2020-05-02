@@ -334,7 +334,7 @@ def find_fiducials_markers(props_,
     return cent_map
 
 
-def grid_from_centroids(props_, im_int, background, n_rows, n_cols, dist_flr=True, grid_spacing=82):
+def grid_from_centroids(props_, n_rows, n_cols, grid_spacing=82):
     """
     based on the region props, creates a dictionary of format:
         key = (centroid_x, centroid_y)
@@ -342,12 +342,9 @@ def grid_from_centroids(props_, im_int, background, n_rows, n_cols, dist_flr=Tru
 
     :param props_: list of region props
         approximately 36-48 of these, depending on quality of the image
-    :param im: array of the intensity image
     :param n_rows: int
     :param n_cols: int
-    :param min_area: int
-    :param im_height: int
-    :param im_width: int
+    :param grid_spacing
     :return: dict
         of format (cent_x, cent_y): prop
     """
@@ -651,16 +648,17 @@ def compute_od(props_array,bgprops_array):
     i_spot
     i_bg
     """
-    assert props_array.shape == bgprops_array.shape, 'regionprops arrays representing sample and background are not the same.'
-    n_rows=props_array.shape[0]
-    n_cols=props_array.shape[1]
-    i_spot=np.empty((n_rows,n_cols))
-    i_bg=np.empty((n_rows,n_cols))
-    od_norm=np.empty((n_rows,n_cols))
+    assert props_array.shape == bgprops_array.shape, \
+        'regionprops arrays representing sample and background are not the same.'
+    n_rows = props_array.shape[0]
+    n_cols = props_array.shape[1]
+    i_spot = np.empty((n_rows, n_cols))
+    i_bg = np.empty((n_rows, n_cols))
+    od_norm = np.empty((n_rows, n_cols))
 
-    i_spot[:]=np.NaN
-    i_bg[:]=np.NaN
-    od_norm[:]=np.NaN
+    i_spot[:] = np.NaN
+    i_bg[:] = np.NaN
+    od_norm[:] = np.NaN
 
     for r in np.arange(n_rows):
         for c in np.arange(n_cols):

@@ -1,13 +1,15 @@
-import os
-
 import array_analyzer.extract.image_parser as image_parser
 import array_analyzer.extract.img_processing as processing
+import array_analyzer.extract.constants as c
+from array_analyzer.extract.metadata import MetaData
 import array_analyzer.utils.io_utils as io_utils
 
 import time
 import skimage.io as io
 import pandas as pd
 import string
+import os
+import re
 import numpy as np
 
 
@@ -27,6 +29,12 @@ def well_analysis(input_dir, output_dir, method='segmentation', debug=False):
     start = time.time()
     # Make directory for processing run
     run_dir = io_utils.make_run_dir(input_dir, output_dir)
+
+    # metadata isn't used for the well format
+    MetaData(input_dir, output_dir)
+
+    os.makedirs(c.RUN_PATH, exist_ok=True)
+
     # Read plate info
     plate_info = pd.read_excel(
         os.path.join(input_dir, 'Plate_Info.xlsx'),
@@ -35,7 +43,7 @@ def well_analysis(input_dir, output_dir, method='segmentation', debug=False):
         index_col=0,
     )
     # Write an excel file that can be read into jupyter notebook with minimal parsing.
-    xlwriter_int = pd.ExcelWriter(os.path.join(run_dir, 'intensities.xlsx'))
+    xlwriter_int = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'intensities.xlsx'))
     # get well directories
     well_images = io_utils.get_image_paths(input_dir)
 

@@ -2,5 +2,3 @@
 
 from .extract import image_parser
 from .extract import txt_parser
-
-from .load import xlsx_report
