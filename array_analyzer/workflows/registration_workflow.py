@@ -3,13 +3,14 @@ import numpy as np
 import os
 import pandas as pd
 import time
+import warnings
 
 import array_analyzer.extract.background_estimator as background_estimator
 import array_analyzer.extract.image_parser as image_parser
 import array_analyzer.extract.img_processing as img_processing
 import array_analyzer.extract.txt_parser as txt_parser
 from array_analyzer.extract.metadata import MetaData
-import array_analyzer.extract.constants as c
+import array_analyzer.extract.constants as constants
 import array_analyzer.load.debug_plots as debug_plots
 import array_analyzer.transform.point_registration as registration
 import array_analyzer.transform.array_generation as array_gen
@@ -17,7 +18,7 @@ import array_analyzer.utils.io_utils as io_utils
 import array_analyzer.load.report as report
 
 
-def point_registration(input_dir, output_dir, debug=False):
+def point_registration(input_dir, output_dir):
     """
     For each image in input directory, detect spots using particle filtering
     to register fiducial spots to blobs detected in the image.
@@ -25,13 +26,14 @@ def point_registration(input_dir, output_dir, debug=False):
     :param str input_dir: Input directory containing images and an xml file
         with parameters
     :param str output_dir: Directory where output is written to
-    :param bool debug: For saving debug plots
     """
 
     MetaData(input_dir, output_dir)
 
-    xlwriter_od_well = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'median_ODs_per_well.xlsx'))
-    pdantigen = pd.DataFrame(c.ANTIGEN_ARRAY)
+    xlwriter_od_well = pd.ExcelWriter(
+        os.path.join(constants.RUN_PATH, 'median_ODs_per_well.xlsx'),
+    )
+    pdantigen = pd.DataFrame(constants.ANTIGEN_ARRAY)
     pdantigen.to_excel(xlwriter_od_well, sheet_name='antigens')
 
     # Initialize background estimator
@@ -42,9 +44,9 @@ def point_registration(input_dir, output_dir, debug=False):
     )
 
     # Get grid rows and columns from params
-    nbr_grid_rows = c.params['rows']
-    nbr_grid_cols = c.params['columns']
-    fiducials_idx = c.FIDUCIALS_IDX
+    nbr_grid_rows = constants.params['rows']
+    nbr_grid_cols = constants.params['columns']
+    fiducials_idx = constants.FIDUCIALS_IDX
 
     # ================
     # loop over well images
@@ -60,8 +62,8 @@ def point_registration(input_dir, output_dir, debug=False):
             min_area=250,
             min_thresh=25,
             max_thresh=255,
-            min_circularity=0,
-            min_convexity=0,
+            min_circularity=0.1,
+            min_convexity=0.1,
             min_dist_between_blobs=10,
             min_repeatability=2,
         )
@@ -72,38 +74,40 @@ def point_registration(input_dir, output_dir, debug=False):
             mean_point=mean_point,
             nbr_grid_rows=nbr_grid_rows,
             nbr_grid_cols=nbr_grid_cols,
-            spot_dist=c.SPOT_DIST_PIX,
+            spot_dist=constants.SPOT_DIST_PIX,
         )
         fiducial_coords = grid_coords[fiducials_idx, :]
 
         particles = registration.create_gaussian_particles(
             mean_point=(0, 0),
-            stds=np.array(c.STDS),
+            stds=np.array(constants.STDS),
             scale_mean=1.,
             angle_mean=0.,
-            nbr_particles=1000,
+            nbr_particles=4000,
         )
         # Optimize estimated coordinates with iterative closest point
         t_matrix, min_dist = registration.particle_filter(
             fiducial_coords=fiducial_coords,
             spot_coords=spot_coords,
             particles=particles,
-            stds=np.array(c.STDS),
+            stds=np.array(constants.STDS),
             stop_criteria=0.1,
-            debug=debug,
+            debug=constants.DEBUG,
         )
-        if min_dist > c.REG_DIST_THRESH:
-            print("Registration failed, repeat with outlier removal")
+        if min_dist > constants.REG_DIST_THRESH:
+            warnings.warn("Registration failed, repeat with outlier removal")
             t_matrix, min_dist = registration.particle_filter(
                 fiducial_coords=fiducial_coords,
                 spot_coords=spot_coords,
                 particles=particles,
-                stds=np.array(c.STDS),
+                stds=np.array(constants.STDS),
                 stop_criteria=0.1,
                 remove_outlier=True,
-                debug=debug,
+                debug=constants.DEBUG,
             )
-            # TODO: Flag bad fit if min_dist is still above threshold
+            # Warn if fit is still bad
+            if min_dist > constants.REG_DIST_THRESH:
+                warnings.warn("Final registration failed, registration may be flawed")
 
         # Transform grid coordinates
         reg_coords = np.squeeze(cv.transform(np.array([grid_coords]), t_matrix))
@@ -120,17 +124,17 @@ def point_registration(input_dir, output_dir, debug=False):
             coords=crop_coords,
             im_int=im_crop,
             background=background,
-            params=c.params,
+            params=constants.params,
         )
         # Create arrays and assign properties
         props_array = txt_parser.create_array(
-            c.params['rows'],
-            c.params['columns'],
+            constants.params['rows'],
+            constants.params['columns'],
             dtype=object,
         )
         bgprops_array = txt_parser.create_array(
-            c.params['rows'],
-            c.params['columns'],
+            constants.params['rows'],
+            constants.params['columns'],
             dtype=object,
         )
         props_array_placed = image_parser.assign_props_to_array(
@@ -162,11 +166,11 @@ def point_registration(input_dir, output_dir, debug=False):
 
         # ==================================
         # SAVE FOR DEBUGGING
-        if debug:
+        if constants.DEBUG:
             start_time = time.time()
             # Save spot and background intensities
 
-            output_name = os.path.join(c.RUN_PATH, well_name)
+            output_name = os.path.join(constants.RUN_PATH, well_name)
             # Save OD plots, composite spots and registration
             debug_plots.plot_od(
                 od_well,
@@ -196,9 +200,15 @@ def point_registration(input_dir, output_dir, debug=False):
                 time.time() - start_time),
             )
 
-    xlwriter_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'median_ODs.xlsx'))
-    xlwriter_int = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'median_intensities.xlsx'))
-    xlwriter_bg = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'median_backgrounds.xlsx'))
+    xlwriter_od = pd.ExcelWriter(
+        os.path.join(constants.RUN_PATH, 'median_ODs.xlsx'),
+    )
+    xlwriter_int = pd.ExcelWriter(
+        os.path.join(constants.RUN_PATH, 'median_intensities.xlsx'),
+    )
+    xlwriter_bg = pd.ExcelWriter(
+        os.path.join(constants.RUN_PATH, 'median_backgrounds.xlsx'),
+    )
 
     report.write_antigen_report(xlwriter_od, 'od')
     report.write_antigen_report(xlwriter_int, 'int')

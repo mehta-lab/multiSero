@@ -1,6 +1,6 @@
 import array_analyzer.extract.image_parser as image_parser
 import array_analyzer.extract.img_processing as processing
-import array_analyzer.extract.constants as c
+import array_analyzer.extract.constants as constants
 from array_analyzer.extract.metadata import MetaData
 import array_analyzer.utils.io_utils as io_utils
 
@@ -13,7 +13,7 @@ import re
 import numpy as np
 
 
-def well_analysis(input_dir, output_dir, method='segmentation', debug=False):
+def well_analysis(input_dir, output_dir, method='segmentation'):
     """
     Workflow that pulls all images scanned on a multi-well plate in a standard ELISA format (one antigen per well)
     It loops over the images in the input_folder (for images acquired using Micro-Manager ONLY).
@@ -23,17 +23,12 @@ def well_analysis(input_dir, output_dir, method='segmentation', debug=False):
     :param input_dir: str path to experiment directory
     :param output_dir: str output path to write report and diagnostic images
     :param method: str 'segmentation' or 'crop'.  Methods to estimate the boundaries of the well
-    :param debug: bool.  Whether to write debug images.
     :return:
     """
     start = time.time()
-    # Make directory for processing run
-    run_dir = io_utils.make_run_dir(input_dir, output_dir)
 
     # metadata isn't used for the well format
     MetaData(input_dir, output_dir)
-
-    os.makedirs(c.RUN_PATH, exist_ok=True)
 
     # Read plate info
     plate_info = pd.read_excel(
@@ -43,7 +38,7 @@ def well_analysis(input_dir, output_dir, method='segmentation', debug=False):
         index_col=0,
     )
     # Write an excel file that can be read into jupyter notebook with minimal parsing.
-    xlwriter_int = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'intensities.xlsx'))
+    xlwriter_int = pd.ExcelWriter(os.path.join(constants.RUN_PATH, 'intensities.xlsx'))
     # get well directories
     well_images = io_utils.get_image_paths(input_dir)
 
@@ -73,8 +68,8 @@ def well_analysis(input_dir, output_dir, method='segmentation', debug=False):
         int_well.append(int_well_)
 
         # SAVE FOR DEBUGGING
-        if debug:
-            output_name = os.path.join(run_dir, well_name)
+        if constants.DEBUG:
+            output_name = os.path.join(constants.RUN_PATH, well_name)
 
             # Save mask of the well, cropped grayscale image, cropped spot segmentation.
             io.imsave(output_name + "_well_mask.png",

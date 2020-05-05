@@ -56,7 +56,7 @@ FIDUCIALS_IDX = []
 # values used by point_registration.py
 SPOT_DIST_PIX = int()
 SPOT_DIST_UM = int()
-STDS = [500, 500, .1, .001]  # x, y, angle, scale
+STDS = [100, 100, 2, .01]  # x, y, angle, scale
 REG_DIST_THRESH = 1000
 
 # constants for saving

@@ -1,7 +1,7 @@
 import pytest
 
 from array_analyzer.extract.metadata import MetaData
-import array_analyzer.extract.constants as c
+import array_analyzer.extract.constants as constants
 import os
 
 """
@@ -39,14 +39,14 @@ bad operation:
 
 
 def test_one_xml(create_good_xml):
-    c.METADATA_EXTENSION = 'xml'
+    constants.METADATA_EXTENSION = 'xml'
 
     output_dir = create_good_xml
     MetaData(output_dir, output_dir)
 
 
 def test_two_xml(create_good_xml):
-    c.METADATA_EXTENSION = 'xml'
+    constants.METADATA_EXTENSION = 'xml'
     output_dir = create_good_xml
 
     with open(os.path.join(output_dir, 'second_xml.xml'), 'w') as fp:
@@ -56,7 +56,7 @@ def test_two_xml(create_good_xml):
 
 
 def test_xlsx(create_good_xlsx):
-    c.METADATA_EXTENSION = 'xlsx'
+    constants.METADATA_EXTENSION = 'xlsx'
     output_dir = create_good_xlsx
     MetaData(output_dir, output_dir)
 

@@ -8,7 +8,7 @@ import array_analyzer.extract.image_parser as image_parser
 import array_analyzer.extract.txt_parser as txt_parser
 import array_analyzer.extract.img_processing as img_processing
 import array_analyzer.load.debug_plots as debug_plots
-import array_analyzer.extract.constants as c
+import array_analyzer.extract.constants as constants
 import array_analyzer.transform.array_generation as array_gen
 import array_analyzer.extract.background_estimator as background_estimator
 import array_analyzer.utils.io_utils as io_utils
@@ -17,12 +17,14 @@ from array_analyzer.extract.metadata import MetaData
 import array_analyzer.load.report as report
 
 
-def interp(input_dir, output_dir, debug=False):
+def interp(input_dir, output_dir):
 
     MetaData(input_dir, output_dir)
 
     # Write an excel file that can be read into jupyter notebook with minimal parsing.
-    xlwriter_od_well = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'median_ODs_per_well.xlsx'))
+    xlwriter_od_well = pd.ExcelWriter(
+        os.path.join(constants.RUN_PATH, 'median_ODs_per_well.xlsx'),
+    )
 
     # Initialize background estimator
     bg_estimator = background_estimator.BackgroundEstimator2D(
@@ -40,8 +42,16 @@ def interp(input_dir, output_dir, debug=False):
         start = time.time()
         image = io_utils.read_gray_im(im_path)
 
-        spot_props_array = txt_parser.create_array(c.params['rows'], c.params['columns'], dtype=object)
-        bgprops_array = txt_parser.create_array(c.params['rows'], c.params['columns'], dtype=object)
+        spot_props_array = txt_parser.create_array(
+            constants.params['rows'],
+            constants.params['columns'],
+            dtype=object,
+        )
+        bgprops_array = txt_parser.create_array(
+            constants.params['rows'],
+            constants.params['columns'],
+            dtype=object,
+        )
 
         # finding center of well and cropping
         well_center, well_radi, well_mask = image_parser.find_well_border(image, detmethod='region', segmethod='otsu')
@@ -60,8 +70,8 @@ def interp(input_dir, output_dir, debug=False):
 
         crop_coords = image_parser.grid_from_centroids(
             spot_props,
-            c.params['rows'],
-            c.params['columns']
+            constants.params['rows'],
+            constants.params['columns']
         )
 
         # convert to float64
@@ -71,7 +81,7 @@ def interp(input_dir, output_dir, debug=False):
             coords=crop_coords,
             im_int=im_crop,
             background=background,
-            params=c.params
+            params=constants.params
         )
         props_array_placed = image_parser.assign_props_to_array(spot_props_array, props_by_loc)
         bgprops_array = image_parser.assign_props_to_array(bgprops_array, bgprops_by_loc)
@@ -90,9 +100,9 @@ def interp(input_dir, output_dir, debug=False):
         print(f"\ttime to process={stop-start}")
 
         # SAVE FOR DEBUGGING
-        if debug:
+        if constants.DEBUG:
             # Save spot and background intensities.
-            output_name = os.path.join(c.RUN_PATH, well_name)
+            output_name = os.path.join(constants.RUN_PATH, well_name)
 
             # # Save mask of the well, cropped grayscale image, cropped spot segmentation.
             io.imsave(output_name + "_well_mask.png",
@@ -111,7 +121,7 @@ def interp(input_dir, output_dir, debug=False):
             # This plot shows which spots have been assigned what index.
             debug_plots.plot_centroid_overlay(
                 im_crop,
-                c.params,
+                constants.params,
                 props_by_loc,
                 bgprops_by_loc,
                 output_name,
@@ -132,9 +142,9 @@ def interp(input_dir, output_dir, debug=False):
     xlwriter_od_well.close()
 
     # create excel writers to write reports
-    xlwriter_od = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_ODs.xlsx'))
-    xlwriter_int = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_intensities.xlsx'))
-    xlwriter_bg = pd.ExcelWriter(os.path.join(c.RUN_PATH, 'python_median_backgrounds.xlsx'))
+    xlwriter_od = pd.ExcelWriter(os.path.join(constants.RUN_PATH, 'python_median_ODs.xlsx'))
+    xlwriter_int = pd.ExcelWriter(os.path.join(constants.RUN_PATH, 'python_median_intensities.xlsx'))
+    xlwriter_bg = pd.ExcelWriter(os.path.join(constants.RUN_PATH, 'python_median_backgrounds.xlsx'))
 
     report.write_antigen_report(xlwriter_od, 'od')
     report.write_antigen_report(xlwriter_int, 'int')
