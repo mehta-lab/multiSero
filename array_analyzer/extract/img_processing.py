@@ -122,6 +122,18 @@ def create_multiotsu_mask(input_image, n_class, fg_class, str_elem_size=3):
     return mask
 
 
+def log_filter(sigma):
+    n = np.ceil(sigma * 6)
+    y, x = np.ogrid[-n // 2:n // 2 + 1, -n // 2:n // 2 + 1]
+    sigma_sq = 2 * sigma ** 2
+    y_filter = np.exp(-(y ** 2 / sigma_sq))
+    x_filter = np.exp(-(x ** 2 / sigma_sq))
+    log_filter = (-sigma_sq + x ** 2 + y ** 2) * \
+                   (x_filter * y_filter) * (1 / (np.pi * sigma_sq * sigma ** 2))
+    log_filter = log_filter / sum(sum(log_filter))
+    return log_filter
+
+
 def get_spot_coords(im,
                     min_thresh=0,
                     max_thresh=255,
@@ -170,13 +182,25 @@ def get_spot_coords(im,
     blob_params.minRepeatability = min_repeatability
     # This detects bright spots, which they are after top hat
     blob_params.blobColor = 255
-
     detector = cv.SimpleBlobDetector_create(blob_params)
 
-    im_norm = cv.GaussianBlur(im, (blur_sigma, blur_sigma), 0)
-    # Black top hat filter, turns spots bright
-    im_norm = black_tophat(im_norm, size=(tophat_size, tophat_size))
-    im_norm = ((im_norm - im_norm.min()) / (im_norm.max() - im_norm.min()) * 255).astype(np.uint8)
+    # First invert image to detect peaks
+    im_norm = (im.max() - im) / 255
+    # Filter with Laplacian of Gaussian
+    im_norm = cv.filter2D(im_norm, -1, log_filter(19))
+    # Normalize
+    im_norm = im_norm / im_norm.std() * 50
+    im_norm = im_norm - im_norm.mean() + 100
+    im_norm[im_norm < 0] = 0
+    im_norm[im_norm > 255] = 255
+    im_norm = im_norm.astype(np.uint8)
+    # im_norm = ((im_norm - im_norm.min()) / (im_norm.max() - im_norm.min())
+    #            * 255).astype(np.uint8)
+
+    # im_norm = cv.GaussianBlur(im, (blur_sigma, blur_sigma), 0)
+    # # Black top hat filter, turns spots bright
+    # im_norm = black_tophat(im_norm, size=(tophat_size, tophat_size))
+    # im_norm = ((im_norm - im_norm.min()) / (im_norm.max() - im_norm.min()) * 255).astype(np.uint8)
     # Detect blobs
     keypoints = detector.detect(im_norm)
 

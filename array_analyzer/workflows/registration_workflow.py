@@ -59,14 +59,23 @@ def point_registration(input_dir, output_dir):
 
         spot_coords = img_processing.get_spot_coords(
             image,
-            min_area=250,
-            min_thresh=25,
+            min_area=500,
+            min_thresh=100,
             max_thresh=255,
             min_circularity=0.1,
-            min_convexity=0.1,
+            min_convexity=0.5,
             min_dist_between_blobs=10,
             min_repeatability=2,
         )
+
+        # im_roi = image.copy()
+        # im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
+        # for c in range(spot_coords.shape[0]):
+        #     coord = tuple(spot_coords[c, :].astype(np.int))
+        #     cv.circle(im_roi, coord, 2, (0, 0, 255), 10)
+        # plt.imshow(im_roi)
+        # plt.axis('off')
+        # plt.show()
 
         # Initial estimate of spot center
         mean_point = tuple(np.mean(spot_coords, axis=0))
