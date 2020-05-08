@@ -46,7 +46,6 @@ def write_antigen_report(writer, array_type):
             print(f"writing antigen {antigen} to excel sheets")
 
         sheet = deepcopy(constants.WELL_OUTPUT_TEMPLATE)
-        print(antigen_position)
         # loop all wells and write OD, INT, BG of this antigen
         if array_type == 'od':
             for od_position, od_well in np.ndenumerate(constants.WELL_OD_ARRAY):

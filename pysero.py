@@ -58,10 +58,10 @@ def parse_args():
     parser.add_argument(
         '-m', '--metadata',
         type=str,
-        required=True,
         choices=['xml', 'xlsx', 'well'],
         help="specify the file extension for the experiment metadata"
     )
+    parser.set_defaults(metadata='xlsx')
 
     return parser.parse_args()
 

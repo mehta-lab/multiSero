@@ -57,6 +57,7 @@ def point_registration(input_dir, output_dir):
         start_time = time.time()
         image = io_utils.read_gray_im(im_path)
 
+        nbr_expected_spots = nbr_grid_cols * nbr_grid_rows
         spot_coords = img_processing.get_spot_coords(
             image,
             min_area=500,
@@ -66,13 +67,14 @@ def point_registration(input_dir, output_dir):
             min_convexity=0.5,
             min_dist_between_blobs=10,
             min_repeatability=2,
+            nbr_expected_spots=nbr_expected_spots,
         )
 
         # im_roi = image.copy()
         # im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
         # for c in range(spot_coords.shape[0]):
         #     coord = tuple(spot_coords[c, :].astype(np.int))
-        #     cv.circle(im_roi, coord, 2, (0, 0, 255), 10)
+        #     cv.circle(im_roi, coord, 2, (255, 0, 0), 10)
         # plt.imshow(im_roi)
         # plt.axis('off')
         # plt.show()
@@ -181,23 +183,23 @@ def point_registration(input_dir, output_dir):
 
             output_name = os.path.join(constants.RUN_PATH, well_name)
             # Save OD plots, composite spots and registration
-            debug_plots.plot_od(
-                od_well,
-                int_well,
-                bg_well,
-                output_name,
-            )
+            # debug_plots.plot_od(
+            #     od_well,
+            #     int_well,
+            #     bg_well,
+            #     output_name,
+            # )
             debug_plots.save_composite_spots(
                 im_crop,
                 props_array_placed,
                 output_name,
                 from_source=True,
             )
-            debug_plots.plot_background_overlay(
-                im_crop,
-                background,
-                output_name,
-            )
+            # debug_plots.plot_background_overlay(
+            #     im_crop,
+            #     background,
+            #     output_name,
+            # )
             debug_plots.plot_registration(
                 image,
                 spot_coords,

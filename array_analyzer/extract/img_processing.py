@@ -143,8 +143,9 @@ def get_spot_coords(im,
                     min_convexity=0.5,
                     min_dist_between_blobs=10,
                     min_repeatability=2,
-                    blur_sigma=31,
-                    tophat_size=35):
+                    margin = 100,
+                    sigma_gauss=19,
+                    nbr_expected_spots=48):
     """
     Use OpenCVs simple blob detector (thresholdings and grouping by properties)
     to detect all dark spots in the image
@@ -187,7 +188,7 @@ def get_spot_coords(im,
     # First invert image to detect peaks
     im_norm = (im.max() - im) / 255
     # Filter with Laplacian of Gaussian
-    im_norm = cv.filter2D(im_norm, -1, log_filter(19))
+    im_norm = cv.filter2D(im_norm, -1, log_filter(sigma_gauss))
     # Normalize
     im_norm = im_norm / im_norm.std() * 50
     im_norm = im_norm - im_norm.mean() + 100
@@ -204,12 +205,25 @@ def get_spot_coords(im,
     # Detect blobs
     keypoints = detector.detect(im_norm)
 
+    # If few spots detected, lower threshold and try again
+    if len(keypoints) < nbr_expected_spots:
+        print(len(keypoints))
+        blob_params.minRepeatability = 1
+        detector = cv.SimpleBlobDetector_create(blob_params)
+        keypoints = detector.detect(im_norm)
+    print(len(keypoints))
+
     spot_coords = np.zeros((len(keypoints), 2))
-    # Convert to np.arrays
-    for c in range(len(keypoints)):
-        pt = keypoints[c].pt
-        spot_coords[c, 0] = pt[0]
-        spot_coords[c, 1] = pt[1]
+    # Remove outliers and convert to np.arrays
+    x_max, y_max = im.shape
+    idx = 0
+    for keypoint in range(len(keypoints)):
+        pt = keypoints[keypoint].pt
+        if margin < pt[0] < x_max - margin and margin < pt[1] < y_max - margin:
+            spot_coords[idx, 0] = pt[0]
+            spot_coords[idx, 1] = pt[1]
+            idx += 1
+    spot_coords = spot_coords[:idx, :]
 
     return spot_coords
 
