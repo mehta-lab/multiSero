@@ -123,6 +123,12 @@ def create_multiotsu_mask(input_image, n_class, fg_class, str_elem_size=3):
 
 
 def log_filter(sigma):
+    """
+    Creates a uniform 2D Laplacian of Gaussian filter with given sigma.
+
+    :param int sigma: Standard deviation of Gaussian
+    :return np.array log_filter: 2D LoG filter
+    """
     n = np.ceil(sigma * 6)
     y, x = np.ogrid[-n // 2:n // 2 + 1, -n // 2:n // 2 + 1]
     sigma_sq = 2 * sigma ** 2
@@ -130,6 +136,7 @@ def log_filter(sigma):
     x_filter = np.exp(-(x ** 2 / sigma_sq))
     log_filter = (-sigma_sq + x ** 2 + y ** 2) * \
                    (x_filter * y_filter) * (1 / (np.pi * sigma_sq * sigma ** 2))
+    # Total filter should sum to 1 to not alter mean intensity
     log_filter = log_filter / sum(sum(log_filter))
     return log_filter
 
@@ -143,12 +150,14 @@ def get_spot_coords(im,
                     min_convexity=0.5,
                     min_dist_between_blobs=10,
                     min_repeatability=2,
-                    margin = 100,
                     sigma_gauss=19,
-                    nbr_expected_spots=48):
+                    nbr_expected_spots=48,
+                    margin=100):
     """
     Use OpenCVs simple blob detector (thresholdings and grouping by properties)
-    to detect all dark spots in the image
+    to detect all dark spots in the image. First filter with a Laplacian of
+    Gaussian with sigma matching spots to enhance spots in image.
+
     :param np.array im: uint8 mage containing spots
     :param int min_thresh: Minimum threshold
     :param int max_thresh: Maximum threshold
@@ -156,16 +165,23 @@ def get_spot_coords(im,
     :param int max_area: Maximum spot area in pixels
     :param float min_circularity: Minimum circularity of spots
     :param float min_convexity: Minimum convexity of spots
-    :param float min_dist_between_blobs: minimal distance in pixels between two spots
-        for them to be called as different spots
-    :param int min_repeatability: minimal number of times the same spot has to be detected
-        at different thresholds
-    :param blur_sigma: sigma of Gaussian filter to blur the image
-    :param int tophat_size: Size of black tophat filter
+    :param float min_dist_between_blobs: minimal distance in pixels between two
+        spots for them to be called as different spots
+    :param int min_repeatability: minimal number of times the same spot has to be
+        detected at different thresholds
+    :param sigma_gauss: Sigma of Laplacian of Gaussian filter
+    :param int nbr_expected_spots: Expected spots in image grid. If not enough
+        spots are detected, lower repeatability and repeat spot detection
+    :param int margin: Pixel margin around image edged where spots should be
+        ignored (to ignore boundary effects)
     :return np.array spot_coords: x, y coordinates of spot centroids (nbr spots x 2)
     """
-    blob_params = cv.SimpleBlobDetector_Params()
+    max_intensity = 255
+    if np.issubdtype(im.dtype, np.integer):
+        max_intensity = np.iinfo(im.dtype).max
 
+    # Set spot detection parameters
+    blob_params = cv.SimpleBlobDetector_Params()
     # Change thresholds
     blob_params.minThreshold = min_thresh
     blob_params.maxThreshold = max_thresh
@@ -182,39 +198,30 @@ def get_spot_coords(im,
     blob_params.minDistBetweenBlobs = min_dist_between_blobs
     blob_params.minRepeatability = min_repeatability
     # This detects bright spots, which they are after top hat
-    blob_params.blobColor = 255
+    blob_params.blobColor = max_intensity
     detector = cv.SimpleBlobDetector_create(blob_params)
 
     # First invert image to detect peaks
-    im_norm = (im.max() - im) / 255
+    im_norm = (im.max() - im) / max_intensity
     # Filter with Laplacian of Gaussian
     im_norm = cv.filter2D(im_norm, -1, log_filter(sigma_gauss))
     # Normalize
     im_norm = im_norm / im_norm.std() * 50
     im_norm = im_norm - im_norm.mean() + 100
     im_norm[im_norm < 0] = 0
-    im_norm[im_norm > 255] = 255
+    im_norm[im_norm > max_intensity] = max_intensity
     im_norm = im_norm.astype(np.uint8)
-    # im_norm = ((im_norm - im_norm.min()) / (im_norm.max() - im_norm.min())
-    #            * 255).astype(np.uint8)
-
-    # im_norm = cv.GaussianBlur(im, (blur_sigma, blur_sigma), 0)
-    # # Black top hat filter, turns spots bright
-    # im_norm = black_tophat(im_norm, size=(tophat_size, tophat_size))
-    # im_norm = ((im_norm - im_norm.min()) / (im_norm.max() - im_norm.min()) * 255).astype(np.uint8)
-    # Detect blobs
+    # Detect peaks in filtered image
     keypoints = detector.detect(im_norm)
 
     # If few spots detected, lower threshold and try again
     if len(keypoints) < nbr_expected_spots:
-        print(len(keypoints))
         blob_params.minRepeatability = 1
         detector = cv.SimpleBlobDetector_create(blob_params)
         keypoints = detector.detect(im_norm)
-    print(len(keypoints))
 
     spot_coords = np.zeros((len(keypoints), 2))
-    # Remove outliers and convert to np.arrays
+    # Remove outliers and convert to np.array
     x_max, y_max = im.shape
     idx = 0
     for keypoint in range(len(keypoints)):

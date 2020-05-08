@@ -70,15 +70,6 @@ def point_registration(input_dir, output_dir):
             nbr_expected_spots=nbr_expected_spots,
         )
 
-        # im_roi = image.copy()
-        # im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
-        # for c in range(spot_coords.shape[0]):
-        #     coord = tuple(spot_coords[c, :].astype(np.int))
-        #     cv.circle(im_roi, coord, 2, (255, 0, 0), 10)
-        # plt.imshow(im_roi)
-        # plt.axis('off')
-        # plt.show()
-
         # Initial estimate of spot center
         mean_point = tuple(np.mean(spot_coords, axis=0))
         grid_coords = registration.create_reference_grid(
@@ -183,23 +174,23 @@ def point_registration(input_dir, output_dir):
 
             output_name = os.path.join(constants.RUN_PATH, well_name)
             # Save OD plots, composite spots and registration
-            # debug_plots.plot_od(
-            #     od_well,
-            #     int_well,
-            #     bg_well,
-            #     output_name,
-            # )
+            debug_plots.plot_od(
+                od_well,
+                int_well,
+                bg_well,
+                output_name,
+            )
             debug_plots.save_composite_spots(
                 im_crop,
                 props_array_placed,
                 output_name,
                 from_source=True,
             )
-            # debug_plots.plot_background_overlay(
-            #     im_crop,
-            #     background,
-            #     output_name,
-            # )
+            debug_plots.plot_background_overlay(
+                im_crop,
+                background,
+                output_name,
+            )
             debug_plots.plot_registration(
                 image,
                 spot_coords,
