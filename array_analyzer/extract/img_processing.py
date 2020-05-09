@@ -211,6 +211,7 @@ def get_spot_coords(im,
     im_norm[im_norm < 0] = 0
     im_norm[im_norm > max_intensity] = max_intensity
     im_norm = im_norm.astype(np.uint8)
+
     # Detect peaks in filtered image
     keypoints = detector.detect(im_norm)
 
@@ -232,7 +233,7 @@ def get_spot_coords(im,
             idx += 1
     spot_coords = spot_coords[:idx, :]
 
-    return spot_coords
+    return spot_coords, im_norm
 
 
 def find_profile_peaks(profile, margin, prominence):

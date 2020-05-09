@@ -52,13 +52,15 @@ def point_registration(input_dir, output_dir):
     # loop over well images
     # ================
     well_images = io_utils.get_image_paths(input_dir)
-
+    well_failed = []
+    # well_names = ['A6', 'A11', 'D12', 'E1', 'E6', 'F1', 'F6']
+    # well_images = {well: well_images[well] for well in well_names}
     for well_name, im_path in well_images.items():
         start_time = time.time()
         image = io_utils.read_gray_im(im_path)
 
         nbr_expected_spots = nbr_grid_cols * nbr_grid_rows
-        spot_coords = img_processing.get_spot_coords(
+        spot_coords, im_filtered = img_processing.get_spot_coords(
             image,
             min_area=500,
             min_thresh=100,
@@ -96,20 +98,43 @@ def point_registration(input_dir, output_dir):
             stop_criteria=0.1,
             debug=constants.DEBUG,
         )
+
+        # Warn if fit is still bad
         if min_dist > constants.REG_DIST_THRESH:
-            warnings.warn("Registration failed, repeat with outlier removal")
+            spot_coords, im_filtered = img_processing.get_spot_coords(
+                image,
+                min_area=200,
+                min_thresh=100,
+                max_thresh=255,
+                min_circularity=0.1,
+                min_convexity=0.5,
+                min_dist_between_blobs=10,
+                min_repeatability=2,
+                sigma_gauss=10,
+                nbr_expected_spots=nbr_expected_spots,
+            )
             t_matrix, min_dist = registration.particle_filter(
                 fiducial_coords=fiducial_coords,
                 spot_coords=spot_coords,
                 particles=particles,
                 stds=np.array(constants.STDS),
                 stop_criteria=0.1,
-                remove_outlier=True,
                 debug=constants.DEBUG,
             )
-            # Warn if fit is still bad
             if min_dist > constants.REG_DIST_THRESH:
-                warnings.warn("Final registration failed, registration may be flawed")
+                warnings.warn("Registration failed, repeat with outlier removal")
+                t_matrix, min_dist = registration.particle_filter(
+                    fiducial_coords=fiducial_coords,
+                    spot_coords=spot_coords,
+                    particles=particles,
+                    stds=np.array(constants.STDS),
+                    stop_criteria=0.1,
+                    remove_outlier=True,
+                    debug=constants.DEBUG,
+                )
+                if min_dist > constants.REG_DIST_THRESH:
+                    warnings.warn("Final registration failed, registration may be flawed")
+                    well_failed.append(well_name)
 
         # Transform grid coordinates
         reg_coords = np.squeeze(cv.transform(np.array([grid_coords]), t_matrix))
@@ -198,10 +223,12 @@ def point_registration(input_dir, output_dir):
                 reg_coords,
                 output_name,
             )
+            im_filtered_name = '_'.join([output_name, 'LoG_filtered.png'])
+            cv.imwrite(im_filtered_name, im_filtered)
             print("Time to save debug images: {:.3f} s".format(
                 time.time() - start_time),
             )
-
+    print('Registration for well {} failed.'.format(', '.join(well_failed)))
     xlwriter_od = pd.ExcelWriter(
         os.path.join(constants.RUN_PATH, 'median_ODs.xlsx'),
     )
