@@ -11,6 +11,7 @@ import numpy as np
 import os
 import matplotlib
 import skimage.io as io
+from natsort import natsorted
 import seaborn as sns; sns.set_context("talk")
 font = {'size'   : 16, 'weight' : 'normal', 'family' : 'arial'}
 matplotlib.rc('font', **font)
@@ -53,13 +54,28 @@ def well2D_to_df1D(xlsx_path, sheet, data_col):
 # # antigens_path=os.path.join(data_folder,'python_antigens.xlsx')
 # scienion_path=os.path.join(data_folder, 'Scienion_reader_output', '2020-04-08-14-57-09-COVID_concentrationtest_April8_analysis2.xlsx')
 
-data_folder=r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-05-01-17-29-54-COVID_May1_JBassay_images'
+# data_folder=r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-05-01-17-29-54-COVID_May1_JBassay_images'
+# metadata_path=os.path.join(data_folder, 'pysero_output_data_metadata.xlsx')
+# OD_path=os.path.join(data_folder, 'median_ODs.xlsx')
+# int_path=os.path.join(data_folder, 'median_intensities.xlsx')
+# bg_path=os.path.join(data_folder, 'median_backgrounds.xlsx')
+# # antigens_path=os.path.join(data_folder,'python_antigens.xlsx')
+# scienion_path=os.path.join(data_folder, '2020-05-01-17-37-17-COVID_May1_JBassay_analysis.xlsx')
+
+# data_folder=r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-05-02-13-49-02-COVID_May2_JVassay_FcIgGplate_images'
+# metadata_path=os.path.join(data_folder, 'pysero_output_data_metadata.xlsx')
+# OD_path=os.path.join(data_folder, 'median_ODs.xlsx')
+# int_path=os.path.join(data_folder, 'median_intensities.xlsx')
+# bg_path=os.path.join(data_folder, 'median_backgrounds.xlsx')
+# scienion_path=os.path.join(data_folder, '2020-05-02-13-59-43-COVID_May2_JVassay_FcIgGplate_analysis.xlsx')
+
+data_folder=r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-05-02-13-52-33-COVID_May2_JVassay_kappalambdaplate_images'
 metadata_path=os.path.join(data_folder, 'pysero_output_data_metadata.xlsx')
 OD_path=os.path.join(data_folder, 'median_ODs.xlsx')
 int_path=os.path.join(data_folder, 'median_intensities.xlsx')
 bg_path=os.path.join(data_folder, 'median_backgrounds.xlsx')
-# antigens_path=os.path.join(data_folder,'python_antigens.xlsx')
-scienion_path=os.path.join(data_folder, '2020-05-01-17-37-17-COVID_May1_JBassay_analysis.xlsx')
+scienion_path=os.path.join(data_folder, '2020-05-02-14-31-23-COVID_May2_JVassay_kappalambdaplate_analysis.xlsx')
+# scienion_path = os.path.join(data_folder, os.path.basename(data_folder)[:-6] + 'analysis.xlsx')
 #%% Read antigen and plate info
 sheet_names = ['serum ID',
                'serum dilution',
@@ -240,6 +256,7 @@ def fit2df(df, model, pipeline):
     print('4PL fitting finished')
     return df_fit
 python_df_fit = fit2df(python_df, fourPL, 'python')
+#%%
 fig_path = os.path.join(data_folder, 'pysero_plots')
 os.makedirs(fig_path, exist_ok=True)
 # serum_type = 'Control'
@@ -248,28 +265,36 @@ pipeline = 'python'
 sera_list = ['CR3022']
 # sera_list = ['Neg 1']
 # sera_list = ['neg ' + str(i) for i in range(11, 16)]
+# sera_list = ['positive ' + str(i) for i in range(1, 6)] + ['negative ' + str(i) for i in range(1, 7)]
+# markers = ['o'] * 5 + ['x'] * 6
+markers = 'o'
 hue = 'secondary dilution'
 # hue = 'serum ID'
-
+# sec_dilutions = [2e-4]
+# sec_dilutions = [5e-5]
+sec_dilutions = python_df['secondary dilution'].unique()
 # style = 'secondary ID'
 style = 'serum type'
-serum_df = python_df[(python_df['pipeline']==pipeline) & python_df['serum ID'].isin(sera_list)]
+antigens = natsorted(python_df['antigen'].unique())
+serum_df = python_df[(python_df['pipeline']==pipeline) & python_df['serum ID'].isin(sera_list)
+                     & python_df['secondary dilution'].isin(sec_dilutions)]
 assert not serum_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
 for sec_id in serum_df['secondary ID'].unique():
     sub_df = serum_df[(serum_df['secondary ID'] == sec_id)]
     palette = sns.color_palette(n_colors=len(sub_df[hue].unique()))
     print('plotting...')
-    g = sns.lmplot(x="serum dilution", y="OD",
-                    hue=hue, col="antigen", ci='sd', palette=palette,
-                     data=sub_df, col_wrap=3, fit_reg=False, x_estimator=np.mean)
+    g = sns.lmplot(x="serum dilution", y="OD", col_order=antigens,
+                    hue=hue, col="antigen", ci='sd', palette=palette, markers=markers,
+                     data=sub_df, col_wrap=5, fit_reg=False, x_estimator=np.mean)
 
     sera_fit_list = [' '.join([x, 'fit']) for x in sera_list]
     sub_python_df_fit=python_df_fit[(python_df_fit['pipeline']==pipeline) &
                                    python_df_fit['serum ID'].isin(sera_fit_list) &
-                                    (python_df_fit['secondary ID'] == sec_id)
+                                    (python_df_fit['secondary ID'] == sec_id) &
+                                    python_df_fit['secondary dilution'].isin(sec_dilutions)
                                     ]
     palette = sns.color_palette(n_colors=len(sub_python_df_fit[hue].unique()))
-    for antigen, ax in zip(sub_df['antigen'].unique(), g.axes.flat):
+    for antigen, ax in zip(antigens, g.axes.flat):
         df_fit = sub_python_df_fit[(sub_python_df_fit['antigen'] == antigen)]
         sns.lineplot(x="serum dilution", y="OD", hue=hue, data=df_fit, style=style, palette=palette,
                      ax=ax, legend=False)
@@ -277,10 +302,74 @@ for sec_id in serum_df['secondary ID'].unique():
         # ax.set(ylim=[-0.05, 1.5])
 
     # plt.savefig(os.path.join(fig_path, 'pyseroOD_neg_sera_11_16_fit.jpg'), dpi=300, bbox_inches='tight')
-    plt.savefig(os.path.join(fig_path, '{}_{}_fit.jpg'.format('_'.join(sera_list), sec_id)),
+    plt.savefig(os.path.join(fig_path, '{}_{}_{}_fit.jpg'.format('_'.join(sera_list), sec_id, sec_dilutions)),
+                             dpi=300, bbox_inches='tight')
+#%%
+from sklearn.metrics import roc_curve, roc_auc_score
+
+def roc_from_df(df):
+    s = {}
+    y_test = df['serum type']
+    y_prob = df['OD']
+    s['False positive rate'], s['True positive rate'], _ = roc_curve(y_test, y_prob, pos_label='positive')
+    s['AUC'] = [roc_auc_score(y_test, y_prob)] * len(s['False positive rate'])
+    return pd.Series(s)
+
+def get_roc_df(df):
+    """fit model to x, y data in dataframe.
+    Return a dataframe with fit x, y for plotting
+    """
+    df = df[df['serum type'].isin(['positive', 'negative'])]
+    roc_df = df[['antigen',
+                 'serum type',
+                 'secondary ID',
+                 'secondary dilution',
+                 'serum dilution',
+                 'OD',
+                 'pipeline']].drop_duplicates()
+    roc_df = roc_df.groupby(['antigen',
+                             'secondary ID',
+                             'secondary dilution',
+                             'serum dilution',
+                             'pipeline']).apply(roc_from_df)
+    roc_df = roc_df.apply(pd.Series.explode).astype(float).reset_index()
+    return roc_df
+roc_df = get_roc_df(python_df)
+#%%
+# hue = 'secondary dilution'
+hue = "serum dilution"
+# hue = 'serum ID'
+sec_dilutions = [2e-4]
+# sec_dilutions = [5e-5]
+# sec_dilutions = roc_df['secondary dilution'].unique()
+# style = 'secondary ID'
+style = 'serum type'
+pipeline='python'
+antigens = natsorted(roc_df['antigen'].unique())
+roc_py_df = roc_df[(roc_df['pipeline']==pipeline)
+                & roc_df['secondary dilution'].isin(sec_dilutions)]
+
+assert not roc_py_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
+for sec_id in roc_py_df['secondary ID'].unique():
+
+    # palette = sns.color_palette(n_colors=len(sub_df[hue].unique()))
+    print('plotting...')
+    g = sns.relplot(x='False positive rate', y='True positive rate',
+                        hue=hue, col="antigen",
+                         data=roc_py_df, col_wrap=5, kind='line')
+    g.set(xscale="log")
+    # g = sns.lmplot(x="serum dilution", y="OD", col_order=antigens,
+    #                 hue=hue, col="antigen", ci='sd', palette=palette, markers=markers,
+    #                  data=sub_df, col_wrap=5, fit_reg=False, x_estimator=np.mean)
+
+
+
+    # plt.savefig(os.path.join(fig_path, 'pyseroOD_neg_sera_11_16_fit.jpg'), dpi=300, bbox_inches='tight')
+    plt.savefig(os.path.join(fig_path, 'ROC_{}_{}.jpg'.format(sec_id, sec_dilutions)),
                              dpi=300, bbox_inches='tight')
 
 
+#%%
 # #%% Generate plots from pysero
 #
 # # 4 positive sera vs 4 negative sera for control antigens
