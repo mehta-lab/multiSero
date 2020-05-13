@@ -79,7 +79,7 @@ def get_spot_intensity(coords, im_int, background, params):
     """
     # values in mm
     spot_width = params['spot_width']
-    pix_size = params['pixel_size_scienion']
+    pix_size = params['pixel_size']
     n_rows = params['rows']
     n_cols = params['columns']
     # make spot size always odd

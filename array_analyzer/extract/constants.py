@@ -57,7 +57,7 @@ FIDUCIALS_IDX = []
 SPOT_DIST_PIX = int()
 SPOT_DIST_UM = int()
 STDS = [100, 100, 2, .01]  # x, y, angle, scale
-REG_DIST_THRESH = 1000
+REG_DIST_THRESH = 500
 
 # constants for saving
 RUN_PATH = ''

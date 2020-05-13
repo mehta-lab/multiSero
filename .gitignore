@@ -3,3 +3,4 @@
 *pycache*
 .DS_Store
 *.pyc
+venv/*

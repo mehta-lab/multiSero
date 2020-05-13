@@ -47,6 +47,10 @@ def point_registration(input_dir, output_dir):
     nbr_grid_rows = constants.params['rows']
     nbr_grid_cols = constants.params['columns']
     fiducials_idx = constants.FIDUCIALS_IDX
+    # Create spot detector instance
+    spot_detector = img_processing.SpotDetector(
+        imaging_params=constants.params,
+    )
 
     # ================
     # loop over well images
@@ -56,44 +60,46 @@ def point_registration(input_dir, output_dir):
     for well_name, im_path in well_images.items():
         start_time = time.time()
         image = io_utils.read_gray_im(im_path)
-
-        nbr_expected_spots = nbr_grid_cols * nbr_grid_rows
-        spot_coords = img_processing.get_spot_coords(
-            image,
-            min_area=500,
-            min_thresh=100,
-            max_thresh=255,
-            min_circularity=0.1,
-            min_convexity=0.5,
-            min_dist_between_blobs=10,
-            min_repeatability=2,
-            nbr_expected_spots=nbr_expected_spots,
-        )
+        # Crop image to well only
+        try:
+            well_center, well_radi, well_mask = image_parser.find_well_border(
+                image,
+                detmethod='region',
+                segmethod='otsu',
+            )
+            im_well, _ = img_processing.crop_image_at_center(
+                image,
+                well_center,
+                2 * well_radi,
+                2 * well_radi,
+            )
+        except IndexError:
+            warnings.warn("Couldn't find well in {}".format(well_name))
+            im_well = image
+        # Find spot center coordinates
+        spot_coords = spot_detector.get_spot_coords(im_well)
 
         # Initial estimate of spot center
-        mean_point = tuple(np.mean(spot_coords, axis=0))
+        center_point = tuple((im_well.shape[1] / 2, im_well.shape[0] / 2))
         grid_coords = registration.create_reference_grid(
-            mean_point=mean_point,
+            center_point=center_point,
             nbr_grid_rows=nbr_grid_rows,
             nbr_grid_cols=nbr_grid_cols,
             spot_dist=constants.SPOT_DIST_PIX,
         )
         fiducial_coords = grid_coords[fiducials_idx, :]
 
+        # Use particle filter to register fiducials to detected spots
+        reg_ok = True
         particles = registration.create_gaussian_particles(
-            mean_point=(0, 0),
             stds=np.array(constants.STDS),
-            scale_mean=1.,
-            angle_mean=0.,
             nbr_particles=4000,
         )
-        # Optimize estimated coordinates with iterative closest point
         t_matrix, min_dist = registration.particle_filter(
             fiducial_coords=fiducial_coords,
             spot_coords=spot_coords,
             particles=particles,
             stds=np.array(constants.STDS),
-            stop_criteria=0.1,
             debug=constants.DEBUG,
         )
         if min_dist > constants.REG_DIST_THRESH:
@@ -103,19 +109,33 @@ def point_registration(input_dir, output_dir):
                 spot_coords=spot_coords,
                 particles=particles,
                 stds=np.array(constants.STDS),
-                stop_criteria=0.1,
                 remove_outlier=True,
                 debug=constants.DEBUG,
             )
             # Warn if fit is still bad
             if min_dist > constants.REG_DIST_THRESH:
-                warnings.warn("Final registration failed, registration may be flawed")
+                reg_ok = False
+
+        if not reg_ok:
+            warnings.warn("Final registration failed,"
+                          "will not write OD for {}".format(well_name))
+            if constants.DEBUG:
+                reg_coords = np.squeeze(cv.transform(np.array([grid_coords]), t_matrix))
+                debug_plots.plot_registration(
+                    im_well,
+                    spot_coords,
+                    grid_coords[fiducials_idx, :],
+                    reg_coords,
+                    os.path.join(constants.RUN_PATH, well_name),
+                )
+            continue
 
         # Transform grid coordinates
         reg_coords = np.squeeze(cv.transform(np.array([grid_coords]), t_matrix))
+
         # Crop image
         im_crop, crop_coords = img_processing.crop_image_from_coords(
-            im=image,
+            im=im_well,
             grid_coords=reg_coords,
         )
         im_crop = im_crop / np.iinfo(im_crop.dtype).max
@@ -192,7 +212,7 @@ def point_registration(input_dir, output_dir):
                 output_name,
             )
             debug_plots.plot_registration(
-                image,
+                im_well,
                 spot_coords,
                 grid_coords[fiducials_idx, :],
                 reg_coords,

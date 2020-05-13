@@ -84,17 +84,20 @@ def save_composite_spots(source_array_,
         False : images are pulled from regionprops.intensity_image
     :return:
     """
-
-    t = np.mean(source_array_) * np.ones(shape=(source_array_.shape[0], source_array_.shape[1]))
+    t = np.mean(source_array_) * np.ones(source_array_.shape)
 
     if from_source:
         t = create_composite_spots(t, region_props_array_, source_array_)
-        si.io.imsave(output_name + f"_composite_spots_img.png",
-                     (255 * t).astype('uint8'))
+        cv.imwrite(
+            output_name + "_composite_spots_img.png",
+            (255 * t).astype('uint8'),
+        )
     else:
         t = create_composite_spots(t, region_props_array_)
-        si.io.imsave(output_name + f"_composite_spots_prop.png",
-                     (255 * t).astype('uint8'))
+        cv.imwrite(
+            output_name + "_composite_spots_prop.png",
+            (255 * t).astype('uint8'),
+        )
 
 
 def plot_centroid_overlay(im_crop,
