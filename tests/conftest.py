@@ -5,6 +5,9 @@ import pandas as pd
 import cv2 as cv
 import numpy as np
 
+from google_drive_downloader import GoogleDriveDownloader as gdd
+import shutil
+
 
 @pytest.fixture(scope="session")
 def create_good_xml(tmp_path_factory):
@@ -166,3 +169,34 @@ def micromanager_dir(tmpdir_factory):
         sub_dir.mkdir()
         cv.imwrite(os.path.join(sub_dir, 'micromanager_name.tif'), im)
     return input_dir
+
+
+# ================  fixtures for registration_workflow unit tests =========
+
+@pytest.fixture(scope="session")
+def scienion_clean(tmpdir_factory):
+    """
+    downloads and provides "clean" data acquired on scienion
+    zip includes:
+    - (raw).png
+    - im_well.npy (cropped well)
+    - grid_coords.npy (create_reference_grid)
+    - spot_coords.npy (get_spot_coords)
+    - reg_coords.npy (output of full registration)
+    :param tmpdir_factory:
+    :return:
+    """
+
+    input_dir = tmpdir_factory.mktemp("scienion_clean")
+
+    clean_march_25_c4_zip = '13D2EHjg--dLTx3OkyqJCRacoEJHTg-9r'
+    target_dir = input_dir + "/srczip.zip"
+
+    gdd.download_file_from_google_drive(file_id=clean_march_25_c4_zip,
+                                        dest_path=target_dir,
+                                        unzip=True,
+                                        showsize=True,
+                                        overwrite=True)
+    return input_dir
+
+
