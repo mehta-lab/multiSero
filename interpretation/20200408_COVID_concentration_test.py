@@ -13,7 +13,7 @@ import matplotlib
 import skimage.io as io
 from natsort import natsorted
 import seaborn as sns; sns.set_context("talk")
-font = {'size'   : 16, 'weight' : 'normal', 'family' : 'arial'}
+font = {'size'   : 10, 'weight' : 'normal', 'family' : 'arial'}
 matplotlib.rc('font', **font)
 
 def antigen2D_to_df1D(xlsx_path, sheet, data_col):
@@ -62,19 +62,19 @@ def well2D_to_df1D(xlsx_path, sheet, data_col):
 # # antigens_path=os.path.join(data_folder,'python_antigens.xlsx')
 # scienion_path=os.path.join(data_folder, '2020-05-01-17-37-17-COVID_May1_JBassay_analysis.xlsx')
 
-# data_folder=r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-05-02-13-49-02-COVID_May2_JVassay_FcIgGplate_images'
-# metadata_path=os.path.join(data_folder, 'pysero_output_data_metadata.xlsx')
-# OD_path=os.path.join(data_folder, 'median_ODs.xlsx')
-# int_path=os.path.join(data_folder, 'median_intensities.xlsx')
-# bg_path=os.path.join(data_folder, 'median_backgrounds.xlsx')
-# scienion_path=os.path.join(data_folder, '2020-05-02-13-59-43-COVID_May2_JVassay_FcIgGplate_analysis.xlsx')
-
-data_folder=r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-05-02-13-52-33-COVID_May2_JVassay_kappalambdaplate_images'
+data_folder=r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-05-02-13-49-02-COVID_May2_JVassay_FcIgGplate_images'
 metadata_path=os.path.join(data_folder, 'pysero_output_data_metadata.xlsx')
 OD_path=os.path.join(data_folder, 'median_ODs.xlsx')
 int_path=os.path.join(data_folder, 'median_intensities.xlsx')
 bg_path=os.path.join(data_folder, 'median_backgrounds.xlsx')
-scienion_path=os.path.join(data_folder, '2020-05-02-14-31-23-COVID_May2_JVassay_kappalambdaplate_analysis.xlsx')
+scienion_path=os.path.join(data_folder, '2020-05-02-13-59-43-COVID_May2_JVassay_FcIgGplate_analysis.xlsx')
+
+# data_folder=r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-05-02-13-52-33-COVID_May2_JVassay_kappalambdaplate_images'
+# metadata_path=os.path.join(data_folder, 'pysero_output_data_metadata.xlsx')
+# OD_path=os.path.join(data_folder, 'median_ODs.xlsx')
+# int_path=os.path.join(data_folder, 'median_intensities.xlsx')
+# bg_path=os.path.join(data_folder, 'median_backgrounds.xlsx')
+# scienion_path=os.path.join(data_folder, '2020-05-02-14-31-23-COVID_May2_JVassay_kappalambdaplate_analysis.xlsx')
 # scienion_path = os.path.join(data_folder, os.path.basename(data_folder)[:-6] + 'analysis.xlsx')
 #%% Read antigen and plate info
 sheet_names = ['serum ID',
@@ -205,10 +205,7 @@ python_df.replace([np.inf, -np.inf], np.nan, inplace=True)
 python_df.dropna(subset=['OD'], inplace=True)
 # ## Fit curves to above plots
 
-# In[154]:
-
-
-# Compare sera for each antigen
+#%%
 import scipy.optimize as optimization
 import itertools
 
@@ -256,7 +253,7 @@ def fit2df(df, model, pipeline):
     print('4PL fitting finished')
     return df_fit
 python_df_fit = fit2df(python_df, fourPL, 'python')
-#%%
+#%% plot the ODs and fits
 fig_path = os.path.join(data_folder, 'pysero_plots')
 os.makedirs(fig_path, exist_ok=True)
 # serum_type = 'Control'
@@ -301,10 +298,9 @@ for sec_id in serum_df['secondary ID'].unique():
         ax.set(xscale="log")
         # ax.set(ylim=[-0.05, 1.5])
 
-    # plt.savefig(os.path.join(fig_path, 'pyseroOD_neg_sera_11_16_fit.jpg'), dpi=300, bbox_inches='tight')
-    plt.savefig(os.path.join(fig_path, '{}_{}_{}_fit.jpg'.format('_'.join(sera_list), sec_id, sec_dilutions)),
-                             dpi=300, bbox_inches='tight')
-#%%
+    # plt.savefig(os.path.join(fig_path, '{}_{}_{}_fit.jpg'.format('_'.join(sera_list), sec_id, sec_dilutions)),
+    #                          dpi=300, bbox_inches='tight')
+#%% functions to compute ROC curves and AUC
 from sklearn.metrics import roc_curve, roc_auc_score
 
 def roc_from_df(df):
@@ -312,6 +308,7 @@ def roc_from_df(df):
     y_test = df['serum type']
     y_prob = df['OD']
     s['False positive rate'], s['True positive rate'], _ = roc_curve(y_test, y_prob, pos_label='positive')
+    # s['AUC'] = roc_auc_score(y_test, y_prob)
     s['AUC'] = [roc_auc_score(y_test, y_prob)] * len(s['False positive rate'])
     return pd.Series(s)
 
@@ -332,10 +329,11 @@ def get_roc_df(df):
                              'secondary dilution',
                              'serum dilution',
                              'pipeline']).apply(roc_from_df)
+    # roc_df = roc_df.reset_index()
     roc_df = roc_df.apply(pd.Series.explode).astype(float).reset_index()
     return roc_df
 roc_df = get_roc_df(python_df)
-#%%
+#%% Plot ROC curves
 # hue = 'secondary dilution'
 hue = "serum dilution"
 # hue = 'serum ID'
@@ -348,23 +346,16 @@ pipeline='python'
 antigens = natsorted(roc_df['antigen'].unique())
 roc_py_df = roc_df[(roc_df['pipeline']==pipeline)
                 & roc_df['secondary dilution'].isin(sec_dilutions)]
-
+sns.set_context("notebook")
 assert not roc_py_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
 for sec_id in roc_py_df['secondary ID'].unique():
-
-    # palette = sns.color_palette(n_colors=len(sub_df[hue].unique()))
+    palette = sns.color_palette(n_colors=len(sub_df[hue].unique()))
     print('plotting...')
-    g = sns.relplot(x='False positive rate', y='True positive rate',
-                        hue=hue, col="antigen",
-                         data=roc_py_df, col_wrap=5, kind='line')
-    g.set(xscale="log")
-    # g = sns.lmplot(x="serum dilution", y="OD", col_order=antigens,
-    #                 hue=hue, col="antigen", ci='sd', palette=palette, markers=markers,
-    #                  data=sub_df, col_wrap=5, fit_reg=False, x_estimator=np.mean)
 
+    g = sns.FacetGrid(roc_py_df, hue=hue, col="antigen", col_wrap=5, aspect=1.05,
+                      hue_kws={'linestyle': ['-', '--', '-.', ':']})
+    g = (g.map(plt.plot, 'False positive rate', 'True positive rate').add_legend())
 
-
-    # plt.savefig(os.path.join(fig_path, 'pyseroOD_neg_sera_11_16_fit.jpg'), dpi=300, bbox_inches='tight')
     plt.savefig(os.path.join(fig_path, 'ROC_{}_{}.jpg'.format(sec_id, sec_dilutions)),
                              dpi=300, bbox_inches='tight')
 
