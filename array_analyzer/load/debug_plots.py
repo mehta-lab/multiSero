@@ -39,10 +39,9 @@ def assign_region(target_, props_, intensity_image_=None):
 
     min_row, min_col, max_row, max_col = props_.bbox
     if intensity_image_ is None:
-        target_[min_row:max_row, min_col:max_col] = props_.intensity_image
+        target_[min_col:max_col, min_row:max_row] = props_.intensity_image
     else:
-        target_[min_row:max_row, min_col:max_col] = intensity_image_[min_row:max_row, min_col:max_col]
-
+        target_[min_col:max_col, min_row:max_row] = intensity_image_[min_col:max_col, min_row:max_row]
     return target_
 
 
