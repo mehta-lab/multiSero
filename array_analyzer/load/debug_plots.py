@@ -84,17 +84,20 @@ def save_composite_spots(source_array_,
         False : images are pulled from regionprops.intensity_image
     :return:
     """
-
-    t = np.mean(source_array_) * np.ones(shape=(source_array_.shape[0], source_array_.shape[1]))
+    t = np.mean(source_array_) * np.ones(source_array_.shape)
 
     if from_source:
         t = create_composite_spots(t, region_props_array_, source_array_)
-        si.io.imsave(output_name + f"_composite_spots_img.png",
-                     (255 * t).astype('uint8'))
+        cv.imwrite(
+            output_name + "_composite_spots_img.png",
+            (255 * t).astype('uint8'),
+        )
     else:
         t = create_composite_spots(t, region_props_array_)
-        si.io.imsave(output_name + f"_composite_spots_prop.png",
-                     (255 * t).astype('uint8'))
+        cv.imwrite(
+            output_name + "_composite_spots_prop.png",
+            (255 * t).astype('uint8'),
+        )
 
 
 def plot_centroid_overlay(im_crop,
@@ -188,10 +191,10 @@ def plot_registration(image,
 
     all_coords = np.vstack([spot_coords, grid_coords, reg_coords])
     im_shape = image.shape
-    x_min = int(max(margin, np.min(all_coords[:, 0]) - margin))
-    x_max = int(min(im_shape[1] - margin, np.max(all_coords[:, 0]) + margin))
-    y_min = int(max(margin, np.min(all_coords[:, 1]) - margin))
-    y_max = int(min(im_shape[0] - margin, np.max(all_coords[:, 1]) + margin))
+    x_min = int(max(0, np.min(all_coords[:, 0]) - margin))
+    x_max = int(min(im_shape[1], np.max(all_coords[:, 0]) + margin))
+    y_min = int(max(0, np.min(all_coords[:, 1]) - margin))
+    y_max = int(min(im_shape[0], np.max(all_coords[:, 1]) + margin))
     im_roi = image[y_min:y_max, x_min:x_max]
 
     im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)

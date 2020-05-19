@@ -2,7 +2,7 @@ import cv2 as cv
 import numpy as np
 
 
-def create_reference_grid(mean_point,
+def create_reference_grid(center_point,
                           nbr_grid_rows=6,
                           nbr_grid_cols=6,
                           spot_dist=83):
@@ -10,14 +10,14 @@ def create_reference_grid(mean_point,
     Generate initial spot grid based on image scale, center point, spot distance
     and spot layout (nbr rows and cols).
 
-    :param tuple start_point: (x,y) coordinates of center of grid
+    :param tuple center_point: (x,y) coordinates of center of grid
     :param int nbr_grid_rows: Number of spot rows
     :param int nbr_grid_cols: Number of spot columns
     :param int spot_dist: Distance between spots
     :return np.array grid_coords: (x, y) coordinates for reference spots (nbr x 2)
     """
-    start_x = mean_point[0] - spot_dist * (nbr_grid_cols - 1) / 2
-    start_y = mean_point[1] - spot_dist * (nbr_grid_rows - 1) / 2
+    start_x = center_point[0] - spot_dist * (nbr_grid_cols - 1) / 2
+    start_y = center_point[1] - spot_dist * (nbr_grid_rows - 1) / 2
     x_vals = np.linspace(start_x, start_x + (nbr_grid_cols - 1) * spot_dist, nbr_grid_cols)
     y_vals = np.linspace(start_y, start_y + (nbr_grid_rows - 1) * spot_dist, nbr_grid_rows)
     grid_x, grid_y = np.meshgrid(x_vals, y_vals)
@@ -87,8 +87,8 @@ def icp(source, target, max_iterate=50, matrix_diff=1.):
     return t_matrix[:2]
 
 
-def create_gaussian_particles(mean_point,
-                              stds,
+def create_gaussian_particles(stds,
+                              mean_point=(0, 0),
                               scale_mean=1.,
                               angle_mean=0.,
                               nbr_particles=100):
@@ -96,8 +96,8 @@ def create_gaussian_particles(mean_point,
     Create particles from parameters x, y, scale and angle given mean and std.
     A particle is considered one set of parameters for a 2D translation matrix.
 
-    :param tuple mean_point: Mean offset in x and y
     :param np.array stds: Standard deviations of x, y, angle and scale
+    :param tuple mean_point: Mean offset in x and y
     :param float scale_mean: Mean scale of translation
     :param float angle_mean: Mean angle of translation estimation
     :param int nbr_particles: Number of particles
@@ -130,7 +130,7 @@ def particle_filter(fiducial_coords,
                     particles,
                     stds,
                     max_iter=100,
-                    stop_criteria=.01,
+                    stop_criteria=.1,
                     iter_decrease=.8,
                     remove_outlier=False,
                     debug=False):

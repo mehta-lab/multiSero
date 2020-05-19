@@ -2,3 +2,5 @@
 .ipynb_checkpoints
 *pycache*
 .DS_Store
+*.pyc
+venv/*
