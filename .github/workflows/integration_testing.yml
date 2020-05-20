@@ -30,6 +30,8 @@ jobs:
         pip install flake8
         pip install pytest
         pip install pytest-cov
+        pip install googledrivedownloader
+        pip install requests
         pip install -r requirements.txt
 
     - name: Lint with flake8
