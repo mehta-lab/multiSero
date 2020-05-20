@@ -48,24 +48,16 @@ def write_antigen_report(writer, array_type):
         sheet = deepcopy(constants.WELL_OUTPUT_TEMPLATE)
         # loop all wells and write OD, INT, BG of this antigen
         if array_type == 'od':
-            for od_position, od_well in np.ndenumerate(constants.WELL_OD_ARRAY):
-                od_val = od_well[antigen_position[0], antigen_position[1]]
-                well_name = well_to_image[(od_position[0] + 1, od_position[1] + 1)]
-                sheet[well_name[0]][int(well_name[1:])] = od_val
+            sheet = write_to_sheet(sheet, constants.WELL_OD_ARRAY, antigen_position, well_to_image)
         elif array_type == 'int':
-            for int_position, int_well in np.ndenumerate(constants.WELL_INT_ARRAY):
-                int_val = int_well[antigen_position[0], antigen_position[1]]
-                well_name = well_to_image[(int_position[0] + 1, int_position[1] + 1)]
-                sheet[well_name[0]][int(well_name[1:])] = int_val
+            sheet = write_to_sheet(sheet, constants.WELL_INT_ARRAY, antigen_position, well_to_image)
         elif array_type == 'bg':
-            for bg_position, bg_well in np.ndenumerate(constants.WELL_BG_ARRAY):
-                bg_val = bg_well[antigen_position[0], antigen_position[1]]
-                well_name = well_to_image[(bg_position[0] + 1, bg_position[1] + 1)]
-                sheet[well_name[0]][int(well_name[1:])] = bg_val
+            sheet = write_to_sheet(sheet, constants.WELL_BG_ARRAY, antigen_position, well_to_image)
         else:
             raise AttributeError(f"report array type {array_type} not supported")
 
-        # write the outputs from the above three to a worksheet
+        # write the outputs from ONE of the above three to a worksheet
+        # (this function is called once for each OD, INT, BG)
         od_sheet_df = pd.DataFrame(sheet).T
 
         od_sheet_df.to_excel(writer,
@@ -74,3 +66,30 @@ def write_antigen_report(writer, array_type):
                              f'{antigen_position[0]}_'
                              f'{antigen_position[1]}_'
                              f'{antigen}')
+
+
+def write_to_sheet(sheet_, well_array_, antigen_position_, well_to_image_):
+    """
+
+    :param sheet_:
+    :param well_array_:
+    :param antigen_position_:
+    :param well_to_image_:
+    :return:
+    """
+    # iterate over all 96 well positions
+    for position, well in np.ndenumerate(well_array_):
+        # extract intensity at antigen_position within this well
+        if well is None:
+            print(f"WELL IS NONE, position = {position}")
+            val = -999
+        else:
+            val = well[antigen_position_[0], antigen_position_[1]]
+
+        # get the well name describing this position in form "A#"
+        well_name = well_to_image_[(position[0] + 1, position[1] + 1)]
+
+        # write a new sheet named "A#"
+        sheet_[well_name[0]][int(well_name[1:])] = val
+
+    return sheet_
