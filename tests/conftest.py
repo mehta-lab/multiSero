@@ -9,6 +9,26 @@ from google_drive_downloader import GoogleDriveDownloader as gdd
 import shutil
 
 
+def pytest_addoption(parser):
+    parser.addoption(
+        "--runslow", action="store_true", default=False, help="run slow tests"
+    )
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "slow: mark test as slow to run")
+
+
+def pytest_collection_modifyitems(config, items):
+    if config.getoption("--runslow"):
+        # --runslow given in cli: do not skip slow tests
+        return
+    skip_slow = pytest.mark.skip(reason="need --runslow option to run")
+    for item in items:
+        if "slow" in item.keywords:
+            item.add_marker(skip_slow)
+
+
 @pytest.fixture(scope="session")
 def create_good_xml(tmp_path_factory):
     input_dir = tmp_path_factory.mktemp("input_dir")
@@ -200,3 +220,40 @@ def scienion_clean(tmpdir_factory):
     return input_dir
 
 
+@pytest.fixture(scope="session")
+def scienion_dir(tmpdir_factory):
+    """
+    Creates a directory with scienion well images.
+
+    :param tmpdir_factory: PyTest factory for temporary directories
+    :return input_dir: Directory with well images in subdirectories
+    :return output_dir: Directory for writing output
+    """
+    input_dir = tmpdir_factory.mktemp("input_dir")
+    output_dir = input_dir / "integration_dir"
+    output_dir.mkdir()
+
+    # Get images and metadata
+    # clean, comet, missing fiducial, particles and metadata
+    image_ids = [
+        '116oiRJSX4FNWWxtqxuu-YsfAC10iBF7a',
+        '1-VCwS5PvJnGID-3wQEiPVDoGH4LOkF0P',
+        '11DlsQjJJurDQ960oEc3mgZnjGO1vyLL2',
+        '1-XjOog2pzI8U9JyOV7orn1fRuYq9cNcS',
+    ]
+    meta_id = '10x7LIWJa_IBTGkKC8ZUq_3JiqBGd3uui'
+    # Download images
+    well_names = ['A1', 'A2', 'B11', 'B12']
+    for i, gdrive_id in enumerate(image_ids):
+        target_path = os.path.join(input_dir, well_names[i] + '.png')
+        gdd.download_file_from_google_drive(
+            file_id=gdrive_id,
+            dest_path=target_path,
+        )
+    # Download metadata
+    target_path = os.path.join(input_dir, 'pysero_output_data_metadata.xlsx')
+    gdd.download_file_from_google_drive(
+        file_id=meta_id,
+        dest_path=target_path,
+    )
+    return input_dir, output_dir

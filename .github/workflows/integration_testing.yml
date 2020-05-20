@@ -1,6 +1,12 @@
-name: unittests
+name: integrationtests
 
-on: [push]
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
 
 jobs:
   build:
@@ -24,7 +30,6 @@ jobs:
         pip install flake8
         pip install pytest
         pip install pytest-cov
-        pip install googledrivedownloader
         pip install -r requirements.txt
 
     - name: Lint with flake8
@@ -37,11 +42,11 @@ jobs:
 
     - name: Test with pytest
       run: |
-        pytest -v
+        pytest -v --runslow
         pytest --cov=./ --cov-report=xml
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
       with:
-        flags: unittests
+        flags: integrationtests
         name: codecov-umbrella
         fail_ci_if_error: true

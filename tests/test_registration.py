@@ -7,6 +7,7 @@ import warnings
 import numpy as np
 
 
+@pytest.mark.slow
 def test_scienion_clean_well_crop(scienion_clean):
     """
     test the function image_parser.find_well_border on "good" data
@@ -42,6 +43,7 @@ def test_scienion_clean_well_crop(scienion_clean):
     # todo: add more assertions
 
 
+@pytest.mark.slow
 def test_scienion_clean_spot_coords(scienion_clean):
     """
     test
