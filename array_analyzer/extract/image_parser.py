@@ -151,6 +151,39 @@ def generate_spot_background(spotmask, distance=3, annulus=5):
     return spot_background
 
 
+def generate_props(mask,
+                   intensity_image=None,
+                   dataframe=False,
+                   properties=('label', 'centroid', 'mean_intensity',
+                    'intensity_image', 'image', 'area', 'bbox')):
+    """
+    converts binarized image into a list of region-properties using scikit-image
+        first generates labels for the cleaned (binary_closing) binary image
+        then generates regionprops on the remaining
+
+    :param mask: np.ndarray
+        binary version of cropped image
+    :param intensity_image: np.ndarray
+        intensity image corresponding to this binary
+    :param dataframe: bool
+        return pandas dataframe instead of list of prop objects if true
+    :param tuple properties: Dataframe labels
+    :return: list
+        of skimage region-props object
+    """
+    labels = measure.label(mask)
+    if dataframe:
+        props = measure.regionprops_table(
+            labels,
+            intensity_image=intensity_image,
+            properties=properties,
+        )
+        props = pd.DataFrame(props)
+    else:
+        props = measure.regionprops(labels, intensity_image=intensity_image)
+    return props
+
+
 def select_props(props_, attribute, condition, condition_value):
     """
 

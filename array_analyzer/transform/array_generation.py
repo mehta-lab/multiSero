@@ -162,7 +162,7 @@ def get_spot_intensity(coords, im_int, background, params, search_range=2):
         else:
             # TODO: fix this
             prop_int.assign_props(mask=None)
-            
+
         cent_map[grid_id] = prop_int
         cent_map_bg[grid_id] = prop_bg
 
