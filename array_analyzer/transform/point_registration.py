@@ -10,12 +10,14 @@ def create_reference_grid(center_point,
     Generate initial spot grid based on image scale, center point, spot distance
     and spot layout (nbr rows and cols).
 
-    :param tuple center_point: (x,y) coordinates of center of grid
+    :param tuple center_point: (row, col) coordinates of center of grid
     :param int nbr_grid_rows: Number of spot rows
     :param int nbr_grid_cols: Number of spot columns
     :param int spot_dist: Distance between spots
-    :return np.array grid_coords: (x, y) coordinates for reference spots (nbr x 2)
+    :return np.array grid_coords: (row, col) coordinates for reference spots (nbr x 2)
     """
+    #TODO: Metadata fiducial indexing needs update before switching to
+    # row, col I think...
     start_x = center_point[0] - spot_dist * (nbr_grid_cols - 1) / 2
     start_y = center_point[1] - spot_dist * (nbr_grid_rows - 1) / 2
     x_vals = np.linspace(start_x, start_x + (nbr_grid_cols - 1) * spot_dist, nbr_grid_cols)
@@ -23,7 +25,7 @@ def create_reference_grid(center_point,
     grid_x, grid_y = np.meshgrid(x_vals, y_vals)
     grid_x = grid_x.flatten()
     grid_y = grid_y.flatten()
-    grid_coords = np.vstack([grid_x.T, grid_y.T]).T
+    grid_coords = np.vstack([grid_y.T, grid_x.T]).T
 
     return grid_coords
 
