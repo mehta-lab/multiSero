@@ -307,8 +307,7 @@ class SpotDetector:
                  min_circularity=.1,
                  min_convexity=.5,
                  min_dist_between_blobs=10,
-                 min_repeatability=2,
-                 max_intensity=255):
+                 min_repeatability=2):
         """
         :param int min_thresh: Minimum threshold
         :param int max_thresh: Maximum threshold
@@ -318,7 +317,6 @@ class SpotDetector:
             spots for them to be called as different spots
         :param int min_repeatability: minimal number of times the same spot has to be
             detected at different thresholds
-        :param int max_intensity: Maximum image intensity (default uint8)
         """
 
         self.min_thresh = min_thresh
@@ -327,7 +325,6 @@ class SpotDetector:
         self.min_repeatability = min_repeatability
         self.min_circularity = min_circularity
         self.min_convexity = min_convexity
-        self.max_intensity = max_intensity
         self.sigma_gauss = int(np.round(imaging_params['spot_width'] /
                                 imaging_params['pixel_size'] / 4))
         self.min_area = 4 * self.sigma_gauss ** 2
@@ -356,7 +353,7 @@ class SpotDetector:
         blob_params.minDistBetweenBlobs = self.min_dist_between_blobs
         blob_params.minRepeatability = self.min_repeatability
         # This detects bright spots, which they are after top hat
-        blob_params.blobColor = self.max_intensity
+        blob_params.blobColor = 255
         detector = cv.SimpleBlobDetector_create(blob_params)
         return detector
 
@@ -379,7 +376,12 @@ class SpotDetector:
         log_filter = log_filter / sum(sum(log_filter))
         return log_filter
 
-    def get_spot_coords(self, im, margin=0, im_mean=100, im_std=25):
+    def get_spot_coords(self,
+                        im,
+                        margin=0,
+                        im_mean=100,
+                        im_std=25,
+                        max_intensity=255):
         """
         Use OpenCVs simple blob detector (thresholdings and grouping by properties)
         to detect all dark spots in the image. First filter with a Laplacian of
@@ -390,17 +392,17 @@ class SpotDetector:
             ignored (to ignore boundary effects)
         :param float im_mean: Set normalized image to fixed mean
         :param float im_std: Set normalized image to fixed std
+        :param int max_intensity: Maximum image intensity (default uint8)
         :return np.array spot_coords: row, col coordinates of spot centroids
             (nbr spots x 2)
         """
         # First invert image to detect peaks
-        im_norm = (im.max() - im) / self.max_intensity
+        im_norm = (max_intensity - im) / max_intensity
         # Filter with Laplacian of Gaussian
         im_norm = cv.filter2D(im_norm, -1, self.log_filter)
         # Normalize
         im_norm = im_norm / im_norm.std() * im_std
         im_norm = im_norm - im_norm.mean() + im_mean
-        print(im_norm.min(), im_norm.max())
         im_norm[im_norm < 0] = 0
         im_norm[im_norm > 255] = 255
         im_norm = im_norm.astype(np.uint8)

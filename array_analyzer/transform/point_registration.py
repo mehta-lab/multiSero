@@ -16,16 +16,22 @@ def create_reference_grid(center_point,
     :param int spot_dist: Distance between spots
     :return np.array grid_coords: (row, col) coordinates for reference spots (nbr x 2)
     """
-    #TODO: Metadata fiducial indexing needs update before switching to
-    # row, col I think...
-    start_x = center_point[0] - spot_dist * (nbr_grid_cols - 1) / 2
-    start_y = center_point[1] - spot_dist * (nbr_grid_rows - 1) / 2
-    x_vals = np.linspace(start_x, start_x + (nbr_grid_cols - 1) * spot_dist, nbr_grid_cols)
-    y_vals = np.linspace(start_y, start_y + (nbr_grid_rows - 1) * spot_dist, nbr_grid_rows)
-    grid_x, grid_y = np.meshgrid(x_vals, y_vals)
-    grid_x = grid_x.flatten()
-    grid_y = grid_y.flatten()
-    grid_coords = np.vstack([grid_y.T, grid_x.T]).T
+    start_row = center_point[0] - spot_dist * (nbr_grid_rows - 1) / 2
+    start_col = center_point[1] - spot_dist * (nbr_grid_cols - 1) / 2
+    row_vals = np.linspace(
+        start_row,
+        start_row + (nbr_grid_rows - 1) * spot_dist,
+        nbr_grid_rows,
+    )
+    col_vals = np.linspace(
+        start_col,
+        start_col + (nbr_grid_cols - 1) * spot_dist,
+        nbr_grid_cols,
+    )
+    grid_cols, grid_rows = np.meshgrid(col_vals, row_vals)
+    grid_cols = grid_cols.flatten()
+    grid_rows = grid_rows.flatten()
+    grid_coords = np.vstack([grid_rows.T, grid_cols.T]).T
 
     return grid_coords
 

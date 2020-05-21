@@ -47,24 +47,21 @@ def point_registration(input_dir, output_dir):
     nbr_grid_rows = constants.params['rows']
     nbr_grid_cols = constants.params['columns']
     fiducials_idx = constants.FIDUCIALS_IDX
+    # Create spot detector instance
+    spot_detector = img_processing.SpotDetector(
+        imaging_params=constants.params,
+    )
 
     # ================
     # loop over well images
     # ================
     well_images = io_utils.get_image_paths(input_dir)
-    # Get max intensity
-    im_path = well_images[list(well_images.keys())[0]]
-    image = io_utils.read_gray_im(im_path)
-    max_intensity = np.iinfo(image.dtype).max
-    # Create spot detector instance
-    spot_detector = img_processing.SpotDetector(
-        imaging_params=constants.params,
-        max_intensity=max_intensity,
-    )
 
     for well_name, im_path in well_images.items():
         start_time = time.time()
         image = io_utils.read_gray_im(im_path)
+        # Get max intensity
+        max_intensity = np.iinfo(image.dtype).max
         # Crop image to well only
         try:
             well_center, well_radi, well_mask = image_parser.find_well_border(
