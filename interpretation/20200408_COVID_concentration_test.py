@@ -29,6 +29,7 @@ def antigen2D_to_df1D(xlsx_path, sheet, data_col):
     df.rename(columns={'level_1': 'antigen_row', 'level_0': 'antigen_col'}, inplace=True)
     df[['antigen_row', 'antigen_col']] = df[['antigen_row', 'antigen_col']].applymap(int)
     df = df[['antigen_row', 'antigen_col', data_col]]
+    df.dropna(inplace=True)
     return df
     
 def well2D_to_df1D(xlsx_path, sheet, data_col):
@@ -62,12 +63,12 @@ def well2D_to_df1D(xlsx_path, sheet, data_col):
 # # antigens_path=os.path.join(data_folder,'python_antigens.xlsx')
 # scienion_path=os.path.join(data_folder, '2020-05-01-17-37-17-COVID_May1_JBassay_analysis.xlsx')
 
-data_folder=r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-05-02-13-49-02-COVID_May2_JVassay_FcIgGplate_images'
-metadata_path=os.path.join(data_folder, 'pysero_output_data_metadata.xlsx')
-OD_path=os.path.join(data_folder, 'median_ODs.xlsx')
-int_path=os.path.join(data_folder, 'median_intensities.xlsx')
-bg_path=os.path.join(data_folder, 'median_backgrounds.xlsx')
-scienion_path=os.path.join(data_folder, '2020-05-02-13-59-43-COVID_May2_JVassay_FcIgGplate_analysis.xlsx')
+# data_folder=r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-05-02-13-49-02-COVID_May2_JVassay_FcIgGplate_images'
+# metadata_path=os.path.join(data_folder, 'pysero_output_data_metadata.xlsx')
+# OD_path=os.path.join(data_folder, 'median_ODs.xlsx')
+# int_path=os.path.join(data_folder, 'median_intensities.xlsx')
+# bg_path=os.path.join(data_folder, 'median_backgrounds.xlsx')
+# scienion_path=os.path.join(data_folder, '2020-05-02-13-59-43-COVID_May2_JVassay_FcIgGplate_analysis.xlsx')
 
 # data_folder=r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-05-02-13-52-33-COVID_May2_JVassay_kappalambdaplate_images'
 # metadata_path=os.path.join(data_folder, 'pysero_output_data_metadata.xlsx')
@@ -76,6 +77,13 @@ scienion_path=os.path.join(data_folder, '2020-05-02-13-59-43-COVID_May2_JVassay_
 # bg_path=os.path.join(data_folder, 'median_backgrounds.xlsx')
 # scienion_path=os.path.join(data_folder, '2020-05-02-14-31-23-COVID_May2_JVassay_kappalambdaplate_analysis.xlsx')
 # scienion_path = os.path.join(data_folder, os.path.basename(data_folder)[:-6] + 'analysis.xlsx')
+
+data_folder=r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_cuttlefish/2020-05-19-16-22-57-COVID_May18_JVassay_images_655nm/Results_5-20-2020'
+metadata_path=os.path.join(data_folder, 'pysero_output_data_metadata.xlsx')
+OD_path=os.path.join(data_folder, 'median_ODs.xlsx')
+int_path=os.path.join(data_folder, 'median_intensities.xlsx')
+bg_path=os.path.join(data_folder, 'median_backgrounds.xlsx')
+scienion_path=os.path.join(data_folder, '2020-05-18-17-59-01-COVID_May18_JVassay_analysis.xlsx')
 #%% Read antigen and plate info
 sheet_names = ['serum ID',
                'serum dilution',
@@ -109,6 +117,7 @@ if np.all(plate_info_df['serum dilution'] >= 1):
 plate_info_df.drop(['row_id', 'col_id'], axis=1, inplace=True)
 #%% Read antigen information.
 antigen_df = antigen2D_to_df1D(xlsx_path=metadata_path, sheet='antigen_array', data_col='antigen')
+
 #%% Read analysis output from Scienion
 # Read all wells into dictionary. 
 scienion_df = pd.DataFrame()
@@ -258,18 +267,20 @@ fig_path = os.path.join(data_folder, 'pysero_plots')
 os.makedirs(fig_path, exist_ok=True)
 # serum_type = 'Control'
 pipeline = 'python'
+sera_list = natsorted(python_df['serum ID'].unique())
+sera_fit_list = [' '.join([x, 'fit']) for x in sera_list]
 # sera_list = ['pos 1', 'pos 2', 'pos 3', 'pos 4', 'neg 1', 'neg 2', 'neg 3', 'neg 4']
-sera_list = ['CR3022']
+# sera_list = ['CR3022']
 # sera_list = ['Neg 1']
 # sera_list = ['neg ' + str(i) for i in range(11, 16)]
 # sera_list = ['positive ' + str(i) for i in range(1, 6)] + ['negative ' + str(i) for i in range(1, 7)]
 # markers = ['o'] * 5 + ['x'] * 6
 markers = 'o'
-hue = 'secondary dilution'
-# hue = 'serum ID'
-# sec_dilutions = [2e-4]
+# hue = 'secondary dilution'
+hue = 'serum ID'
+sec_dilutions = [2e-4]
 # sec_dilutions = [5e-5]
-sec_dilutions = python_df['secondary dilution'].unique()
+# sec_dilutions = python_df['secondary dilution'].unique()
 # style = 'secondary ID'
 style = 'serum type'
 antigens = natsorted(python_df['antigen'].unique())
@@ -281,10 +292,8 @@ for sec_id in serum_df['secondary ID'].unique():
     palette = sns.color_palette(n_colors=len(sub_df[hue].unique()))
     print('plotting...')
     g = sns.lmplot(x="serum dilution", y="OD", col_order=antigens,
-                    hue=hue, col="antigen", ci='sd', palette=palette, markers=markers,
+                    hue=hue, hue_order=sera_list, col="antigen", ci='sd', palette=palette, markers=markers,
                      data=sub_df, col_wrap=5, fit_reg=False, x_estimator=np.mean)
-
-    sera_fit_list = [' '.join([x, 'fit']) for x in sera_list]
     sub_python_df_fit=python_df_fit[(python_df_fit['pipeline']==pipeline) &
                                    python_df_fit['serum ID'].isin(sera_fit_list) &
                                     (python_df_fit['secondary ID'] == sec_id) &
@@ -293,13 +302,14 @@ for sec_id in serum_df['secondary ID'].unique():
     palette = sns.color_palette(n_colors=len(sub_python_df_fit[hue].unique()))
     for antigen, ax in zip(antigens, g.axes.flat):
         df_fit = sub_python_df_fit[(sub_python_df_fit['antigen'] == antigen)]
-        sns.lineplot(x="serum dilution", y="OD", hue=hue, data=df_fit, style=style, palette=palette,
+        sns.lineplot(x="serum dilution", y="OD", hue=hue, hue_order=sera_fit_list, data=df_fit,
+                     style=style, palette=palette,
                      ax=ax, legend=False)
         ax.set(xscale="log")
         # ax.set(ylim=[-0.05, 1.5])
 
-    # plt.savefig(os.path.join(fig_path, '{}_{}_{}_fit.jpg'.format('_'.join(sera_list), sec_id, sec_dilutions)),
-    #                          dpi=300, bbox_inches='tight')
+    plt.savefig(os.path.join(fig_path, '{}_{}_{}_fit.jpg'.format('_'.join(sera_list), sec_id, sec_dilutions)),
+                             dpi=300, bbox_inches='tight')
 #%% functions to compute ROC curves and AUC
 from sklearn.metrics import roc_curve, roc_auc_score
 
