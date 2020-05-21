@@ -1,6 +1,7 @@
 import cv2 as cv
 from datetime import datetime
 import glob
+import logging
 import natsort
 import numpy as np
 import os
@@ -97,13 +98,35 @@ def make_run_dir(input_dir, output_dir):
     """
     run_dir = os.path.join(
         output_dir,
-        '_'.join([os.path.basename(os.path.normpath(input_dir)),
-                  str(datetime.now().month),
-                  str(datetime.now().day),
-                  str(datetime.now().hour),
-                  str(datetime.now().minute),
-                  str(datetime.now().second)]),
+        '_'.join(['pysero',
+                  os.path.basename(os.path.normpath(input_dir)),
+                  f"{datetime.now().year:04d}" +
+                  f"{datetime.now().month:02d}" +
+                  f"{datetime.now().day:02d}",
+                  f"{datetime.now().hour:02d}" +
+                  f"{datetime.now().minute:02d}"])
     )
     os.makedirs(run_dir, exist_ok=True)
     return run_dir
 
+
+def make_logger(logger_name, log_dir, log_level=20):
+    """
+    Creates a logger which writes to a file
+
+    :param str logger_name: name of the logger instance
+    :param str log_dir: Path to directory where log file will be written
+    :param int log_level: DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50
+    """
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(log_level)
+    logger.propagate = False
+
+    log_name = os.path.join(log_dir, 'pysero_logger.log')
+    file_handler = logging.FileHandler(log_name)
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(log_level)
+    logger.addHandler(file_handler)

@@ -1,10 +1,11 @@
 import argparse
 import os
 
+import array_analyzer.extract.constants as constants
+import array_analyzer.utils.io_utils as io_utils
 import array_analyzer.workflows.registration_workflow as registration_wf
 import array_analyzer.workflows.interpolation_wf as interpolation_wf
 import array_analyzer.workflows.well_wf as well_wf
-import array_analyzer.extract.constants as constants
 
 
 def parse_args():
