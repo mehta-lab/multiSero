@@ -130,41 +130,39 @@ def get_spot_intensity(coords, im_int, background, params, search_range=2):
             bbox_height,
             bbox_width,
         )
+        mask_spot = img_processing.thresh_and_binarize(
+            image=im_spot_lg,
+            method='bimodal',
+        )
+        # Create spot and background instance
         prop_int = MockRegionprop(
-            intensity_image=im_spot,
+            image=im_spot,
             centroid=coord,
             label=label,
             bbox=bbox,
         )
         prop_bg = MockRegionprop(
-            intensity_image=bg_spot,
+            image=bg_spot,
             centroid=coord,
             label=label,
             bbox=bbox,
         )
-        mask_spot = img_processing.thresh_and_binarize(
-            image=im_spot_lg,
-            method='bimodal',
-        )
         if np.any(mask_spot):
-            for prop, im in zip([prop_int, prop_bg], [im_spot_lg, bg_spot_lg]):
-                prop_df = generate_props(
-                    mask_spot,
-                    intensity_image=im,
-                    dataframe=True,
-                )
-                prop.mean_intensity = prop_df.at[0, 'mean_intensity']
-                prop.intensity_image = prop_df.at[0, 'intensity_image']
-                prop.image = prop_df.at[0, 'image']
-                prop.median_intensity = np.median(prop.intensity_image[prop.image])
-                prop.centroid = [bbox_lg[0] + prop_df.at[0, 'centroid-0'],
-                                 bbox_lg[1] + prop_df.at[0, 'centroid-1']]
-                prop.bbox = [bbox_lg[0] + prop_df.at[0, 'bbox-0'],
-                             bbox_lg[1] + prop_df.at[0, 'bbox-1'],
-                             bbox_lg[0] + prop_df.at[0, 'bbox-2'],
-                             bbox_lg[1] + prop_df.at[0, 'bbox-3']
-                             ]
-
+            # TODO: What can be done only once?
+            prop_int.generate_props(
+                image=im_spot_lg,
+                mask=mask_spot,
+                bbox=bbox_lg,
+            )
+            prop_bg.generate_props(
+                image=bg_spot_lg,
+                mask=mask_spot,
+                bbox=bbox_lg,
+            )
+        else:
+            # TODO: fix this
+            prop_int.assign_props(mask=None)
+            
         cent_map[grid_id] = prop_int
         cent_map_bg[grid_id] = prop_bg
 

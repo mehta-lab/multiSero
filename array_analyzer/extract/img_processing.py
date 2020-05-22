@@ -265,7 +265,7 @@ def get_largest_component(spot_segm):
     largest_component = labels.copy()
     if labels.max() > 0:
         largest_component = labels == np.argmax(np.bincount(labels.flat)[1:]) + 1
-    return largest_component.astype(np.uint8)
+    return largest_component.astype(labels.dtype)
 
 
 def thresh_and_binarize(image,
