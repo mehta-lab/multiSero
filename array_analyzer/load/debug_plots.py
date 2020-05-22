@@ -177,31 +177,34 @@ def plot_registration(image,
                       grid_coords,
                       reg_coords,
                       output_name,
+                      max_intensity=255,
                       margin=100):
     """
     Plots all detected spots, initial fiducial coordinates and registered grid.
 
     :param np.array image: Input image
-    :param np.array spot_coords: Detected spot coordinates (nbr spots x 2)
+    :param np.array spot_coords: Detected spot coordinates (nbr spots x rows, cols)
     :param np.array grid_coords: Initial estimate of fiducial coordinates
     :param np.array reg_coords: Registered coordinates
     :param str output_name: Path + well name, _registration.png will be added
+    :param int max_intensity: Maximum image intensity (expecting uint8 or 16)
     :param int margin: Margin around spots to crop image before plotting
     """
+    im = (image / max_intensity * 255).astype(np.uint8)
 
     all_coords = np.vstack([spot_coords, grid_coords, reg_coords])
     im_shape = image.shape
-    x_min = int(max(0, np.min(all_coords[:, 0]) - margin))
-    x_max = int(min(im_shape[1], np.max(all_coords[:, 0]) + margin))
-    y_min = int(max(0, np.min(all_coords[:, 1]) - margin))
-    y_max = int(min(im_shape[0], np.max(all_coords[:, 1]) + margin))
-    im_roi = image[y_min:y_max, x_min:x_max]
+    row_min = int(max(0, np.min(all_coords[:, 0]) - margin))
+    row_max = int(min(im_shape[0], np.max(all_coords[:, 0]) + margin))
+    col_min = int(max(0, np.min(all_coords[:, 1]) - margin))
+    col_max = int(min(im_shape[1], np.max(all_coords[:, 1]) + margin))
+    im_roi = im[row_min:row_max, col_min:col_max]
 
     im_roi = cv.cvtColor(im_roi, cv.COLOR_GRAY2RGB)
     plt.imshow(im_roi)
-    plt.plot(spot_coords[:, 0] - x_min + 1, spot_coords[:, 1] - y_min + 1, 'rx', ms=8)
-    plt.plot(grid_coords[:, 0] - x_min + 1, grid_coords[:, 1] - y_min + 1, 'b+', ms=8)
-    plt.plot(reg_coords[:, 0] - x_min + 1, reg_coords[:, 1] - y_min + 1, 'g.', ms=8)
+    plt.plot(spot_coords[:, 1] - col_min + 1, spot_coords[:, 0] - row_min + 1, 'rx', ms=8)
+    plt.plot(grid_coords[:, 1] - col_min + 1, grid_coords[:, 0] - row_min + 1, 'b+', ms=8)
+    plt.plot(reg_coords[:, 1] - col_min + 1, reg_coords[:, 0] - row_min + 1, 'g.', ms=8)
     plt.axis('off')
     fig_save = plt.gcf()
     fig_save.savefig(output_name + '_registration.png', bbox_inches='tight')

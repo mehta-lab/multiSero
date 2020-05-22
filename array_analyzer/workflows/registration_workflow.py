@@ -60,6 +60,8 @@ def point_registration(input_dir, output_dir):
     for well_name, im_path in well_images.items():
         start_time = time.time()
         image = io_utils.read_gray_im(im_path)
+        # Get max intensity
+        max_intensity = np.iinfo(image.dtype).max
         # Crop image to well only
         try:
             well_center, well_radi, well_mask = image_parser.find_well_border(
@@ -80,7 +82,7 @@ def point_registration(input_dir, output_dir):
         spot_coords = spot_detector.get_spot_coords(im_well)
 
         # Initial estimate of spot center
-        center_point = tuple((im_well.shape[1] / 2, im_well.shape[0] / 2))
+        center_point = tuple((im_well.shape[0] / 2, im_well.shape[1] / 2))
         grid_coords = registration.create_reference_grid(
             center_point=center_point,
             nbr_grid_rows=nbr_grid_rows,
@@ -126,19 +128,19 @@ def point_registration(input_dir, output_dir):
                     spot_coords,
                     grid_coords[fiducials_idx, :],
                     reg_coords,
-                    os.path.join(constants.RUN_PATH, well_name),
+                    os.path.join(constants.RUN_PATH, well_name + '_failed'),
+                    max_intensity=max_intensity,
                 )
             continue
 
         # Transform grid coordinates
         reg_coords = np.squeeze(cv.transform(np.array([grid_coords]), t_matrix))
-
         # Crop image
         im_crop, crop_coords = img_processing.crop_image_from_coords(
             im=im_well,
             grid_coords=reg_coords,
         )
-        im_crop = im_crop / np.iinfo(im_crop.dtype).max
+        im_crop = im_crop / max_intensity
         # Estimate background
         background = bg_estimator.get_background(im_crop)
         # Find spots near grid locations
@@ -191,7 +193,6 @@ def point_registration(input_dir, output_dir):
         if constants.DEBUG:
             start_time = time.time()
             # Save spot and background intensities
-
             output_name = os.path.join(constants.RUN_PATH, well_name)
             # Save OD plots, composite spots and registration
             debug_plots.plot_od(
@@ -217,6 +218,7 @@ def point_registration(input_dir, output_dir):
                 grid_coords[fiducials_idx, :],
                 reg_coords,
                 output_name,
+                max_intensity=max_intensity,
             )
             print("Time to save debug images: {:.3f} s".format(
                 time.time() - start_time),
