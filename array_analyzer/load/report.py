@@ -38,6 +38,7 @@ def write_antigen_report(writer, array_type):
     :param array_type: str one of 'od', 'int', 'bg'
     :return:
     """
+    #todo: loops over all antigens for every well.  So if 6x6 arrays of antigens, 6x6x96 calls
     well_to_image = {v: k for k, v in constants.IMAGE_TO_WELL.items()}
     for antigen_position, antigen in np.ndenumerate(constants.ANTIGEN_ARRAY):
         if antigen == '' or antigen is None:
@@ -81,7 +82,6 @@ def write_to_sheet(sheet_, well_array_, antigen_position_, well_to_image_):
     for position, well in np.ndenumerate(well_array_):
         # extract intensity at antigen_position within this well
         if well is None:
-            print(f"WELL IS NONE, position = {position}")
             val = -999
         else:
             val = well[antigen_position_[0], antigen_position_[1]]
