@@ -21,6 +21,10 @@ def write_od_to_plate(data, well_name, array_type):
     else:
         raise AttributeError(f"well name {well_name} is not recognized")
 
+    if data is None:
+        print("\tDATA IS NONE FOR THIS WELL")
+        data = np.ones(shape=(constants.params['rows'], constants.params['columns']))
+
     if array_type == 'od':
         constants.WELL_OD_ARRAY[row-1, col-1] = data
     if array_type == 'int':
