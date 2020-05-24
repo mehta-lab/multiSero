@@ -2,6 +2,7 @@ import array_analyzer.extract.constants as constants
 from copy import deepcopy
 import numpy as np
 import pandas as pd
+import warnings
 
 
 def write_od_to_plate(data, well_name, array_type):
@@ -43,6 +44,7 @@ def write_antigen_report(writer, array_type):
     :return:
     """
     #todo: loops over all antigens for every well.  So if 6x6 arrays of antigens, 6x6x96 calls
+    # is there a more efficent way to do this?
     well_to_image = {v: k for k, v in constants.IMAGE_TO_WELL.items()}
     for antigen_position, antigen in np.ndenumerate(constants.ANTIGEN_ARRAY):
         if antigen == '' or antigen is None:
@@ -65,12 +67,13 @@ def write_antigen_report(writer, array_type):
         # (this function is called once for each OD, INT, BG)
         od_sheet_df = pd.DataFrame(sheet).T
 
+        sheet_name = f'{array_type}_{antigen_position[0]}_{antigen_position[1]}_{antigen}'
+        if len(sheet_name) >= 31:
+            warnings.warn("antigen sheet name is too long, truncating")
+            sheet_name = sheet_name[:31]
+
         od_sheet_df.to_excel(writer,
-                             sheet_name=f''
-                             f'{array_type}_'
-                             f'{antigen_position[0]}_'
-                             f'{antigen_position[1]}_'
-                             f'{antigen}')
+                             sheet_name=sheet_name)
 
 
 def write_to_sheet(sheet_, well_array_, antigen_position_, well_to_image_):
