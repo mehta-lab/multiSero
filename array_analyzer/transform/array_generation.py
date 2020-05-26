@@ -1,9 +1,10 @@
 # bchhun, {2020-04-06}
 
 import numpy as np
+import array_analyzer.extract.constants as constants
 import array_analyzer.extract.img_processing as img_processing
-from array_analyzer.extract.image_parser import generate_props
-from array_analyzer.utils.mock_regionprop import MockRegionprop
+import array_analyzer.extract.txt_parser as txt_parser
+import array_analyzer.utils.spot_regionprop as regionprop
 
 
 def build_centroid_binary_blocks(cent_list, image_, params_, return_type='region'):
@@ -93,11 +94,20 @@ def get_spot_intensity(coords, im_int, background, params, search_range=2):
     col_min = np.min(coords[:, 1])
     col_max = np.max(coords[:, 1])
 
+    spot_props = txt_parser.create_array(
+        constants.params['rows'],
+        constants.params['columns'],
+        dtype=object,
+    )
+    bg_props = txt_parser.create_array(
+        constants.params['rows'],
+        constants.params['columns'],
+        dtype=object,
+    )
+
     # scaled max-col, max-row
     row_range = row_max - row_min
     col_range = col_max - col_min
-    cent_map = {}
-    cent_map_bg = {}
     for label, coord in enumerate(coords):
         # convert the centroid position to an integer that maps to array indices
         grid_row_idx = int(round((n_rows - 1) * ((coord[0] - row_min) / row_range)))
@@ -106,64 +116,75 @@ def get_spot_intensity(coords, im_int, background, params, search_range=2):
         # make bounding boxes larger to account for interpolation errors
         spot_height = int(np.round(search_range * bbox_height))
         spot_width = int(np.round(search_range * bbox_width))
+        # Create large bounding box around spot and segment
         im_spot_lg, bbox_lg = img_processing.crop_image_at_center(
             im=im_int,
             center=coord,
             height=spot_height,
             width=spot_width,
         )
-        bg_spot_lg, _ = img_processing.crop_image_at_center(
-            im=background,
-            center=coord,
-            height=spot_height,
-            width=spot_width,
-        )
-        im_spot, bbox = img_processing.crop_image_at_center(
-            im_int,
-            coord,
-            bbox_height,
-            bbox_width,
-        )
-        bg_spot, _ = img_processing.crop_image_at_center(
-            background,
-            coord,
-            bbox_height,
-            bbox_width,
-        )
         mask_spot = img_processing.thresh_and_binarize(
             image=im_spot_lg,
-            method='bimodal',
+            method='bright_spots',
+            thr_percent=75,
+            get_lcc=True,
         )
         # Create spot and background instance
-        prop_int = MockRegionprop(
-            image=im_spot,
-            centroid=coord,
+        spot_prop = regionprop.SpotRegionprop(
             label=label,
-            bbox=bbox,
         )
-        prop_bg = MockRegionprop(
-            image=bg_spot,
-            centroid=coord,
+        bg_prop = regionprop.SpotRegionprop(
             label=label,
-            bbox=bbox,
         )
-        if np.any(mask_spot):
-            # TODO: What can be done only once?
-            prop_int.generate_props(
+        # Mask spot should cover a certain percentage of ROI
+        if np.mean(mask_spot) > constants.SPOT_MIN_PERCENT_AREA:
+            # Mask detected
+            bg_spot_lg, _ = img_processing.crop_image_at_center(
+                im=background,
+                center=coord,
+                height=spot_height,
+                width=spot_width,
+            )
+            spot_prop.generate_props_from_mask(
                 image=im_spot_lg,
                 mask=mask_spot,
                 bbox=bbox_lg,
             )
-            prop_bg.generate_props(
+            bg_prop.generate_props_from_mask(
                 image=bg_spot_lg,
                 mask=mask_spot,
                 bbox=bbox_lg,
             )
         else:
-            # TODO: fix this
-            prop_int.assign_props(mask=None)
+            # Crop around assumed spot size
+            im_spot, bbox = img_processing.crop_image_at_center(
+                im_int,
+                coord,
+                bbox_height,
+                bbox_width,
+            )
+            bg_spot, _ = img_processing.crop_image_at_center(
+                background,
+                coord,
+                bbox_height,
+                bbox_width,
+            )
+            # Create disk mask
+            mask_spot = spot_prop.make_mask(im_spot.shape[0])
+            spot_prop.generate_props_from_disk(
+                image=im_spot,
+                mask=mask_spot,
+                bbox=bbox,
+                centroid=coord,
+            )
+            bg_prop.generate_props_from_disk(
+                image=bg_spot,
+                mask=mask_spot,
+                bbox=bbox,
+                centroid=coord,
+            )
 
-        cent_map[grid_id] = prop_int
-        cent_map_bg[grid_id] = prop_bg
+        spot_props[grid_id] = spot_prop
+        bg_props[grid_id] = bg_prop
 
-    return cent_map, cent_map_bg
+    return spot_props, bg_props

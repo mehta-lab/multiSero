@@ -77,16 +77,16 @@ def interp(input_dir, output_dir):
         # convert to float64
         im_crop = im_crop / np.iinfo(im_crop.dtype).max
         background = bg_estimator.get_background(im_crop)
-        props_by_loc, bgprops_by_loc = array_gen.get_spot_intensity(
+        spot_props, bg_props = array_gen.get_spot_intensity(
             coords=crop_coords,
             im_int=im_crop,
             background=background,
             params=constants.params
         )
-        props_array_placed = image_parser.assign_props_to_array(spot_props_array, props_by_loc)
-        bgprops_array = image_parser.assign_props_to_array(bgprops_array, bgprops_by_loc)
-
-        od_well, int_well, bg_well = image_parser.compute_od(props_array_placed, bgprops_array)
+        od_well, int_well, bg_well = image_parser.compute_od(
+            spot_props,
+            bg_props,
+        )
 
         pd_OD = pd.DataFrame(od_well)
         pd_OD.to_excel(xlwriter_od_well, sheet_name=well_name)

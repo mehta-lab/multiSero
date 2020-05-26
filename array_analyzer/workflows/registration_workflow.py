@@ -8,7 +8,6 @@ import warnings
 import array_analyzer.extract.background_estimator as background_estimator
 import array_analyzer.extract.image_parser as image_parser
 import array_analyzer.extract.img_processing as img_processing
-import array_analyzer.extract.txt_parser as txt_parser
 from array_analyzer.extract.metadata import MetaData
 import array_analyzer.extract.constants as constants
 import array_analyzer.load.debug_plots as debug_plots
@@ -143,37 +142,17 @@ def point_registration(input_dir, output_dir):
         im_crop = im_crop / max_intensity
         # Estimate background
         background = bg_estimator.get_background(im_crop)
-        # Find spots near grid locations
-        props_placed_by_loc, bgprops_by_loc = array_gen.get_spot_intensity(
+        # Find spots near grid locations and compute properties
+        spot_props, bg_props = array_gen.get_spot_intensity(
             coords=crop_coords,
             im_int=im_crop,
             background=background,
             params=constants.params,
         )
-        # Create arrays and assign properties
-        props_array = txt_parser.create_array(
-            constants.params['rows'],
-            constants.params['columns'],
-            dtype=object,
-        )
-        bgprops_array = txt_parser.create_array(
-            constants.params['rows'],
-            constants.params['columns'],
-            dtype=object,
-        )
-        props_array_placed = image_parser.assign_props_to_array(
-            props_array,
-            props_placed_by_loc,
-        )
-        bgprops_array = image_parser.assign_props_to_array(
-            bgprops_array,
-            bgprops_by_loc,
-        )
         od_well, int_well, bg_well = image_parser.compute_od(
-            props_array_placed,
-            bgprops_array,
+            spot_props,
+            bg_props,
         )
-
         # populate 96-well plate constants with OD, INT, BG arrays
         report.write_od_to_plate(od_well, well_name, constants.WELL_OD_ARRAY)
         report.write_od_to_plate(int_well, well_name, constants.WELL_INT_ARRAY)
@@ -203,7 +182,7 @@ def point_registration(input_dir, output_dir):
             )
             debug_plots.save_composite_spots(
                 im_crop,
-                props_array_placed,
+                spot_props,
                 output_name,
                 from_source=True,
             )

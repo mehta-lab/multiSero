@@ -272,7 +272,8 @@ def thresh_and_binarize(image,
                         method='rosin',
                         invert=True,
                         min_size=10,
-                        thr_percent=95):
+                        thr_percent=95,
+                        get_lcc=False):
     """
     receives greyscale np.ndarray image
         inverts the intensities
@@ -284,6 +285,7 @@ def thresh_and_binarize(image,
     :param bool invert: Invert image if spots are dark
     :param int min_size: Minimum structuring element disk size
     :param int thr_percent: Thresholding percentile
+    :param bool get_lcc: Returns only the largest connected component
     :return: spots threshold_min on this image
     """
     image_ = image.copy()
@@ -308,8 +310,9 @@ def thresh_and_binarize(image,
 
     else:
         raise ModuleNotFoundError("not a supported method for thresh_and_binarize")
-    # Keep only largest connected component
-    spots = get_largest_component(spots)
+
+    if get_lcc:
+        spots = get_largest_component(spots)
 
     return spots
 
