@@ -430,6 +430,34 @@ def grid_from_centroids(props_, n_rows, n_cols, grid_spacing=82):
     return coords
 
 
+def generate_props(mask,
+                   intensity_image_=None,
+                   dataframe=False,
+                   properties=
+                   ('label', 'centroid', 'mean_intensity',
+                    'intensity_image', 'image', 'area', 'bbox')):
+    """
+    converts binarized image into a list of region-properties using scikit-image
+        first generates labels for the cleaned (binary_closing) binary image
+        then generates regionprops on the remaining
+    :param mask: np.ndarray
+        binary version of cropped image
+    :param intensity_image_: np.ndarray
+        intensity image corresponding to this binary
+    :param dataframe: bool
+        return pandas dataframe instead of list of prop objects if true
+    :return: list
+        of skimage region-props object
+    """
+    labels = measure.label(mask)
+    if dataframe:
+        props = measure.regionprops_table(labels, intensity_image=intensity_image_, properties=properties)
+        props = pd.DataFrame(props)
+    else:
+        props = measure.regionprops(labels, intensity_image=intensity_image_)
+    return props
+
+
 def assign_props_to_array(arr, cent_map_):
     """
     takes an empty array and assigns region_property objects to each position, based on print array position
@@ -601,7 +629,7 @@ def build_and_place_block_array(props_array_, spot_mask_, params_, return_type='
         return target
 
 
-def compute_od(props_array,bgprops_array):
+def compute_od(props_array, bgprops_array):
     """
 
     Parameters

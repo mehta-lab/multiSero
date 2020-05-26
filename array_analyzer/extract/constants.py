@@ -59,6 +59,9 @@ SPOT_DIST_UM = int()
 STDS = [100, 100, 2, .01]  # x, y, angle, scale
 REG_DIST_THRESH = 500
 
+# Minimum detected spot area percentage
+SPOT_MIN_PERCENT_AREA = .1
+
 # constants for saving
 RUN_PATH = ''
 
