@@ -122,8 +122,8 @@ def interp(input_dir, output_dir):
             debug_plots.plot_centroid_overlay(
                 im_crop,
                 constants.params,
-                props_by_loc,
-                bgprops_by_loc,
+                spot_props,
+                bg_props,
                 output_name,
             )
             debug_plots.plot_od(
@@ -133,8 +133,8 @@ def interp(input_dir, output_dir):
                 output_name,
             )
             # save a composite of all spots, where spots are from source or from region prop
-            debug_plots.save_composite_spots(im_crop, props_array_placed, output_name, from_source=True)
-            debug_plots.save_composite_spots(im_crop, props_array_placed, output_name, from_source=False)
+            debug_plots.save_composite_spots(im_crop, spot_props, output_name, from_source=True)
+            debug_plots.save_composite_spots(im_crop, bg_props, output_name, from_source=False)
 
             stop2 = time.time()
             print(f"\ttime to save debug={stop2-stop}")
