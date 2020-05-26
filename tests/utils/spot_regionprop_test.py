@@ -78,7 +78,8 @@ def test_generate_props_from_mask(spot_and_mask):
     prop.generate_props_from_mask(im_spot, mask_spot, bbox)
     assert prop.label == 4
     assert prop.image.all() == im_spot.all()
-    assert prop.centroid == [24 + bbox[0], 24 + bbox[1]]
+    assert 29 <= prop.centroid[0] <= 30
+    assert 34 <= prop.centroid[1] <= 35
     # There are the coordinates for the mask bounding box
     assert prop.bbox == [18, 23, 42, 47]
     assert prop.mask.all() == mask_spot.all()
