@@ -2,6 +2,7 @@ import cv2 as cv
 import numpy as np
 import itertools
 import math
+import pandas as pd
 from types import SimpleNamespace
 from scipy import spatial
 
