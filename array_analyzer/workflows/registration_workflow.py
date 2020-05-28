@@ -175,9 +175,9 @@ def point_registration(input_dir, output_dir):
         )
 
         # populate 96-well plate constants with OD, INT, BG arrays
-        report.write_od_to_plate(od_well, well_name, 'od')
-        report.write_od_to_plate(int_well, well_name, 'int')
-        report.write_od_to_plate(bg_well, well_name, 'bg')
+        report.write_od_to_plate(od_well, well_name, constants.WELL_OD_ARRAY)
+        report.write_od_to_plate(int_well, well_name, constants.WELL_INT_ARRAY)
+        report.write_od_to_plate(bg_well, well_name, constants.WELL_BG_ARRAY)
 
         # Write ODs per well
         pd_od = pd.DataFrame(od_well)
@@ -234,9 +234,9 @@ def point_registration(input_dir, output_dir):
         os.path.join(constants.RUN_PATH, 'median_backgrounds.xlsx'),
     )
 
-    report.write_antigen_report(xlwriter_od, 'od')
-    report.write_antigen_report(xlwriter_int, 'int')
-    report.write_antigen_report(xlwriter_bg, 'bg')
+    report.write_antigen_report(xlwriter_od, constants.WELL_OD_ARRAY, 'od')
+    report.write_antigen_report(xlwriter_int, constants.WELL_INT_ARRAY, 'int')
+    report.write_antigen_report(xlwriter_bg, constants.WELL_BG_ARRAY, 'bg')
 
     xlwriter_od.close()
     xlwriter_int.close()

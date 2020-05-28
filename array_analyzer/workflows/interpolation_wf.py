@@ -92,9 +92,9 @@ def interp(input_dir, output_dir):
         pd_OD.to_excel(xlwriter_od_well, sheet_name=well_name)
 
         # populate 96-well plate constants with OD, INT, BG arrays
-        report.write_od_to_plate(od_well, well_name, 'od')
-        report.write_od_to_plate(int_well, well_name, 'int')
-        report.write_od_to_plate(bg_well, well_name, 'bg')
+        report.write_od_to_plate(od_well, well_name, constants.WELL_OD_ARRAY)
+        report.write_od_to_plate(int_well, well_name, constants.WELL_INT_ARRAY)
+        report.write_od_to_plate(bg_well, well_name, constants.WELL_BG_ARRAY)
 
         stop = time.time()
         print(f"\ttime to process={stop-start}")
@@ -142,13 +142,19 @@ def interp(input_dir, output_dir):
     xlwriter_od_well.close()
 
     # create excel writers to write reports
-    xlwriter_od = pd.ExcelWriter(os.path.join(constants.RUN_PATH, 'python_median_ODs.xlsx'))
-    xlwriter_int = pd.ExcelWriter(os.path.join(constants.RUN_PATH, 'python_median_intensities.xlsx'))
-    xlwriter_bg = pd.ExcelWriter(os.path.join(constants.RUN_PATH, 'python_median_backgrounds.xlsx'))
+    xlwriter_od = pd.ExcelWriter(
+        os.path.join(constants.RUN_PATH, 'python_median_ODs.xlsx')
+    )
+    xlwriter_int = pd.ExcelWriter(
+        os.path.join(constants.RUN_PATH, 'python_median_intensities.xlsx')
+    )
+    xlwriter_bg = pd.ExcelWriter(
+        os.path.join(constants.RUN_PATH, 'python_median_backgrounds.xlsx')
+    )
 
-    report.write_antigen_report(xlwriter_od, 'od')
-    report.write_antigen_report(xlwriter_int, 'int')
-    report.write_antigen_report(xlwriter_bg, 'bg')
+    report.write_antigen_report(xlwriter_od, constants.WELL_OD_ARRAY, 'od')
+    report.write_antigen_report(xlwriter_int, constants.WELL_INT_ARRAY, 'int')
+    report.write_antigen_report(xlwriter_bg, constants.WELL_BG_ARRAY, 'bg')
 
     xlwriter_od.close()
     xlwriter_int.close()
