@@ -271,7 +271,7 @@ def get_largest_component(spot_segm):
 def thresh_and_binarize(image,
                         method='rosin',
                         invert=True,
-                        min_size=10,
+                        disk_size=10,
                         thr_percent=95,
                         get_lcc=False):
     """
@@ -283,7 +283,7 @@ def thresh_and_binarize(image,
     :param np.ndarray image: 2D grayscale image
     :param str method: Trheshold type: 'bimodal', 'otsu', 'rosin' or 'bright_spots'
     :param bool invert: Invert image if spots are dark
-    :param int min_size: Minimum structuring element disk size
+    :param int disk_size: Structuring element disk size
     :param int thr_percent: Thresholding percentile
     :param bool get_lcc: Returns only the largest connected component
     :return: spots threshold_min on this image
@@ -304,8 +304,9 @@ def thresh_and_binarize(image,
 
     elif method == 'bright_spots':
         spots = image_ > np.percentile(image_, thr_percent)
-        str_elem = disk(min_size)
+        str_elem = disk(disk_size)
         spots = binary_opening(spots, str_elem)
+        spots = binary_fill_holes(spots, str_elem)
         spots = clear_border(spots)
 
     else:

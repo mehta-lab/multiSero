@@ -108,7 +108,7 @@ def get_spot_intensity(coords, im_int, background, params, search_range=2):
     # scaled max-col, max-row
     row_range = row_max - row_min
     col_range = col_max - col_min
-    for label, coord in enumerate(coords):
+    for count, coord in enumerate(coords):
         # convert the centroid position to an integer that maps to array indices
         grid_row_idx = int(round((n_rows - 1) * ((coord[0] - row_min) / row_range)))
         grid_col_idx = int(round((n_cols - 1) * ((coord[1] - col_min) / col_range)))
@@ -131,10 +131,10 @@ def get_spot_intensity(coords, im_int, background, params, search_range=2):
         )
         # Create spot and background instance
         spot_prop = regionprop.SpotRegionprop(
-            label=label,
+            label=count,
         )
         bg_prop = regionprop.SpotRegionprop(
-            label=label,
+            label=count,
         )
         # Mask spot should cover a certain percentage of ROI
         if np.mean(mask_spot) > constants.SPOT_MIN_PERCENT_AREA:

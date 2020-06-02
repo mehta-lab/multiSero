@@ -1,3 +1,4 @@
+import cv2 as cv
 import numpy as np
 import pandas as pd
 from skimage import measure
@@ -78,6 +79,7 @@ class SpotRegionprop:
 
         self.centroid = [bbox[0] + skimage_props.at[0, 'centroid-0'],
                          bbox[1] + skimage_props.at[0, 'centroid-1']]
+
         self.bbox = [bbox[0] + skimage_props.at[0, 'bbox-0'],
                      bbox[1] + skimage_props.at[0, 'bbox-1'],
                      bbox[0] + skimage_props.at[0, 'bbox-2'],
