@@ -5,6 +5,7 @@ import numpy as np
 
 from scipy.signal import find_peaks
 from scipy.ndimage.filters import gaussian_filter1d
+from skimage.measure import label
 from skimage import util as u
 from skimage.morphology import disk, ball, binary_opening, binary_erosion
 from skimage.filters import threshold_otsu, threshold_multiotsu, threshold_minimum
@@ -212,21 +213,22 @@ def crop_image_from_coords(im, grid_coords, margin=200):
 
 def crop_image_at_center(im, center, height, width):
     """
-    crop the supplied image to include only the well and its spots
+    Crop the supplied image to include only the well and its spots
 
     :param im: image
-    :param float center_: Center (row, col) of the crop box
+    :param float center: Center (row, col) of the crop box
     :param float height: height of the crop box
     :param float width: width of the crop box
     :return np.array crop: Cropped image
+    :return list bbox: Bounding box coordinates [row min, col min, row max, col max]
     """
-    cy, cx = center
+    c_row, c_col = center
     im_h, im_w = im.shape
     # truncate the bounding box when it exceeds image size
-    bbox = np.rint([max(cy - height / 2, 0),
-                   max(cx - width / 2, 0),
-                   min(cy + height / 2, im_h),
-                   min(cx + width / 2, im_w)]).astype(np.int32)
+    bbox = np.rint([max(c_row - height / 2, 0),
+                   max(c_col - width / 2, 0),
+                   min(c_row + height / 2, im_h),
+                   min(c_col + width / 2, im_w)]).astype(np.int32)
     crop = im[bbox[0]:bbox[2], bbox[1]:bbox[3]]
     return crop, bbox
 
@@ -252,28 +254,47 @@ def crop_image(arr, cx_, cy_, radius_, border_=200):
     return crop
 
 
-def thresh_and_binarize(image_, method='rosin', invert=True, min_size=10, thr_percent=95):
+def get_largest_component(spot_segm):
+    """
+    Remove everything but the largest connected component from segmented image.
+
+    :param np.array spot_segm: Binary segmented 2D image
+    :return np.array largest_component: Largest connected component in image
+    """
+    labels = label(spot_segm)
+    largest_component = labels.copy()
+    if labels.max() > 0:
+        largest_component = labels == np.argmax(np.bincount(labels.flat)[1:]) + 1
+    return largest_component.astype(labels.dtype)
+
+
+def thresh_and_binarize(image,
+                        method='rosin',
+                        invert=True,
+                        disk_size=10,
+                        thr_percent=95,
+                        get_lcc=False):
     """
     receives greyscale np.ndarray image
         inverts the intensities
         thresholds on the minimum peak
         converts the image into binary about that threshold
 
-    :param image_: np.ndarray
-    :param method: str
-        'bimodal' or 'unimodal'
+    :param np.ndarray image: 2D grayscale image
+    :param str method: Trheshold type: 'bimodal', 'otsu', 'rosin' or 'bright_spots'
+    :param bool invert: Invert image if spots are dark
+    :param int disk_size: Structuring element disk size
+    :param int thr_percent: Thresholding percentile
+    :param bool get_lcc: Returns only the largest connected component
     :return: spots threshold_min on this image
     """
-
+    image_ = image.copy()
     if invert:
         image_ = u.invert(image_)
 
     if method == 'bimodal':
         thresh = threshold_minimum(image_, nbins=512)
-
-        spots = copy(image_)
-        spots[image_ < thresh] = 0
-        spots[image_ >= thresh] = 1
+        spots = (image_ > thresh).astype(np.uint8)
 
     elif method == 'otsu':
         spots = create_otsu_mask(image_, scale=1)
@@ -283,13 +304,16 @@ def thresh_and_binarize(image_, method='rosin', invert=True, min_size=10, thr_pe
 
     elif method == 'bright_spots':
         spots = image_ > np.percentile(image_, thr_percent)
-        str_elem = disk(min_size)
-        # spots = binary_closing(spots, str_elem)
+        str_elem = disk(disk_size)
         spots = binary_opening(spots, str_elem)
+        spots = binary_fill_holes(spots, str_elem)
         spots = clear_border(spots)
 
     else:
         raise ModuleNotFoundError("not a supported method for thresh_and_binarize")
+
+    if get_lcc:
+        spots = get_largest_component(spots)
 
     return spots
 
