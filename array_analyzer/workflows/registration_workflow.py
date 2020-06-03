@@ -8,7 +8,6 @@ import warnings
 import array_analyzer.extract.background_estimator as background_estimator
 import array_analyzer.extract.image_parser as image_parser
 import array_analyzer.extract.img_processing as img_processing
-import array_analyzer.extract.txt_parser as txt_parser
 from array_analyzer.extract.metadata import MetaData
 import array_analyzer.extract.constants as constants
 import array_analyzer.load.debug_plots as debug_plots
@@ -60,6 +59,8 @@ def point_registration(input_dir, output_dir):
     for well_name, im_path in well_images.items():
         start_time = time.time()
         image = io_utils.read_gray_im(im_path)
+        # Get max intensity
+        max_intensity = np.iinfo(image.dtype).max
         # Crop image to well only
         try:
             well_center, well_radi, well_mask = image_parser.find_well_border(
@@ -80,7 +81,7 @@ def point_registration(input_dir, output_dir):
         spot_coords = spot_detector.get_spot_coords(im_well)
 
         # Initial estimate of spot center
-        center_point = tuple((im_well.shape[1] / 2, im_well.shape[0] / 2))
+        center_point = tuple((im_well.shape[0] / 2, im_well.shape[1] / 2))
         grid_coords = registration.create_reference_grid(
             center_point=center_point,
             nbr_grid_rows=nbr_grid_rows,
@@ -126,56 +127,36 @@ def point_registration(input_dir, output_dir):
                     spot_coords,
                     grid_coords[fiducials_idx, :],
                     reg_coords,
-                    os.path.join(constants.RUN_PATH, well_name),
+                    os.path.join(constants.RUN_PATH, well_name + '_failed'),
+                    max_intensity=max_intensity,
                 )
             continue
 
         # Transform grid coordinates
         reg_coords = np.squeeze(cv.transform(np.array([grid_coords]), t_matrix))
-
         # Crop image
         im_crop, crop_coords = img_processing.crop_image_from_coords(
             im=im_well,
             grid_coords=reg_coords,
         )
-        im_crop = im_crop / np.iinfo(im_crop.dtype).max
+        im_crop = im_crop / max_intensity
         # Estimate background
         background = bg_estimator.get_background(im_crop)
-        # Find spots near grid locations
-        props_placed_by_loc, bgprops_by_loc = array_gen.get_spot_intensity(
+        # Find spots near grid locations and compute properties
+        spot_props, bg_props = array_gen.get_spot_intensity(
             coords=crop_coords,
             im_int=im_crop,
             background=background,
             params=constants.params,
         )
-        # Create arrays and assign properties
-        props_array = txt_parser.create_array(
-            constants.params['rows'],
-            constants.params['columns'],
-            dtype=object,
-        )
-        bgprops_array = txt_parser.create_array(
-            constants.params['rows'],
-            constants.params['columns'],
-            dtype=object,
-        )
-        props_array_placed = image_parser.assign_props_to_array(
-            props_array,
-            props_placed_by_loc,
-        )
-        bgprops_array = image_parser.assign_props_to_array(
-            bgprops_array,
-            bgprops_by_loc,
-        )
         od_well, int_well, bg_well = image_parser.compute_od(
-            props_array_placed,
-            bgprops_array,
+            spot_props,
+            bg_props,
         )
-
         # populate 96-well plate constants with OD, INT, BG arrays
-        report.write_od_to_plate(od_well, well_name, 'od')
-        report.write_od_to_plate(int_well, well_name, 'int')
-        report.write_od_to_plate(bg_well, well_name, 'bg')
+        report.write_od_to_plate(od_well, well_name, constants.WELL_OD_ARRAY)
+        report.write_od_to_plate(int_well, well_name, constants.WELL_INT_ARRAY)
+        report.write_od_to_plate(bg_well, well_name, constants.WELL_BG_ARRAY)
 
         # Write ODs per well
         pd_od = pd.DataFrame(od_well)
@@ -191,7 +172,6 @@ def point_registration(input_dir, output_dir):
         if constants.DEBUG:
             start_time = time.time()
             # Save spot and background intensities
-
             output_name = os.path.join(constants.RUN_PATH, well_name)
             # Save OD plots, composite spots and registration
             debug_plots.plot_od(
@@ -202,7 +182,7 @@ def point_registration(input_dir, output_dir):
             )
             debug_plots.save_composite_spots(
                 im_crop,
-                props_array_placed,
+                spot_props,
                 output_name,
                 from_source=True,
             )
@@ -217,6 +197,7 @@ def point_registration(input_dir, output_dir):
                 grid_coords[fiducials_idx, :],
                 reg_coords,
                 output_name,
+                max_intensity=max_intensity,
             )
             print("Time to save debug images: {:.3f} s".format(
                 time.time() - start_time),
@@ -232,9 +213,9 @@ def point_registration(input_dir, output_dir):
         os.path.join(constants.RUN_PATH, 'median_backgrounds.xlsx'),
     )
 
-    report.write_antigen_report(xlwriter_od, 'od')
-    report.write_antigen_report(xlwriter_int, 'int')
-    report.write_antigen_report(xlwriter_bg, 'bg')
+    report.write_antigen_report(xlwriter_od, constants.WELL_OD_ARRAY, 'od')
+    report.write_antigen_report(xlwriter_int, constants.WELL_INT_ARRAY, 'int')
+    report.write_antigen_report(xlwriter_bg, constants.WELL_BG_ARRAY, 'bg')
 
     xlwriter_od.close()
     xlwriter_int.close()

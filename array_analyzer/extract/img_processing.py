@@ -5,6 +5,7 @@ import numpy as np
 
 from scipy.signal import find_peaks
 from scipy.ndimage.filters import gaussian_filter1d
+from skimage.measure import label
 from skimage import util as u
 from skimage.morphology import disk, ball, binary_opening, binary_erosion
 from skimage.filters import threshold_otsu, threshold_multiotsu, threshold_minimum
@@ -194,39 +195,40 @@ def crop_image_from_coords(im, grid_coords, margin=200):
         in the cropped image (nbr points x 2)
     :param int margin: How much margin around the coordinates
     :return np.array im_roi: Cropped image
-    :return np.array grid_coords: Grid coordinates with new origin
+    :return np.array grid_coords: Grid coordinates with new origin (rows, cols)
     """
     im_shape = im.shape
-    x_min = int(max(0, np.min(grid_coords[:, 0]) - margin))
-    x_max = int(min(im_shape[1], np.max(grid_coords[:, 0]) + margin))
-    y_min = int(max(0, np.min(grid_coords[:, 1]) - margin))
-    y_max = int(min(im_shape[0], np.max(grid_coords[:, 1]) + margin))
-    im_crop = im[y_min:y_max, x_min:x_max]
+    row_min = int(max(0, np.min(grid_coords[:, 0]) - margin))
+    row_max = int(min(im_shape[0], np.max(grid_coords[:, 0]) + margin))
+    col_min = int(max(0, np.min(grid_coords[:, 1]) - margin))
+    col_max = int(min(im_shape[1], np.max(grid_coords[:, 1]) + margin))
+    im_crop = im[row_min:row_max, col_min:col_max]
 
     # Update coordinates with new origin
     crop_coords = grid_coords.copy()
-    crop_coords[:, 0] = crop_coords[:, 0] - x_min + 1
-    crop_coords[:, 1] = crop_coords[:, 1] - y_min + 1
+    crop_coords[:, 0] = crop_coords[:, 0] - row_min + 1
+    crop_coords[:, 1] = crop_coords[:, 1] - col_min + 1
     return im_crop, crop_coords
 
 
 def crop_image_at_center(im, center, height, width):
     """
-    crop the supplied image to include only the well and its spots
+    Crop the supplied image to include only the well and its spots
 
     :param im: image
-    :param float center_: Center (row, col) of the crop box
+    :param float center: Center (row, col) of the crop box
     :param float height: height of the crop box
     :param float width: width of the crop box
     :return np.array crop: Cropped image
+    :return list bbox: Bounding box coordinates [row min, col min, row max, col max]
     """
-    cy, cx = center
+    c_row, c_col = center
     im_h, im_w = im.shape
     # truncate the bounding box when it exceeds image size
-    bbox = np.rint([max(cy - height / 2, 0),
-                   max(cx - width / 2, 0),
-                   min(cy + height / 2, im_h),
-                   min(cx + width / 2, im_w)]).astype(np.int32)
+    bbox = np.rint([max(c_row - height / 2, 0),
+                   max(c_col - width / 2, 0),
+                   min(c_row + height / 2, im_h),
+                   min(c_col + width / 2, im_w)]).astype(np.int32)
     crop = im[bbox[0]:bbox[2], bbox[1]:bbox[3]]
     return crop, bbox
 
@@ -252,28 +254,47 @@ def crop_image(arr, cx_, cy_, radius_, border_=200):
     return crop
 
 
-def thresh_and_binarize(image_, method='rosin', invert=True, min_size=10, thr_percent=95):
+def get_largest_component(spot_segm):
+    """
+    Remove everything but the largest connected component from segmented image.
+
+    :param np.array spot_segm: Binary segmented 2D image
+    :return np.array largest_component: Largest connected component in image
+    """
+    labels = label(spot_segm)
+    largest_component = labels.copy()
+    if labels.max() > 0:
+        largest_component = labels == np.argmax(np.bincount(labels.flat)[1:]) + 1
+    return largest_component.astype(labels.dtype)
+
+
+def thresh_and_binarize(image,
+                        method='rosin',
+                        invert=True,
+                        disk_size=10,
+                        thr_percent=95,
+                        get_lcc=False):
     """
     receives greyscale np.ndarray image
         inverts the intensities
         thresholds on the minimum peak
         converts the image into binary about that threshold
 
-    :param image_: np.ndarray
-    :param method: str
-        'bimodal' or 'unimodal'
+    :param np.ndarray image: 2D grayscale image
+    :param str method: Trheshold type: 'bimodal', 'otsu', 'rosin' or 'bright_spots'
+    :param bool invert: Invert image if spots are dark
+    :param int disk_size: Structuring element disk size
+    :param int thr_percent: Thresholding percentile
+    :param bool get_lcc: Returns only the largest connected component
     :return: spots threshold_min on this image
     """
-
+    image_ = image.copy()
     if invert:
         image_ = u.invert(image_)
 
     if method == 'bimodal':
         thresh = threshold_minimum(image_, nbins=512)
-
-        spots = copy(image_)
-        spots[image_ < thresh] = 0
-        spots[image_ >= thresh] = 1
+        spots = (image_ > thresh).astype(np.uint8)
 
     elif method == 'otsu':
         spots = create_otsu_mask(image_, scale=1)
@@ -283,13 +304,16 @@ def thresh_and_binarize(image_, method='rosin', invert=True, min_size=10, thr_pe
 
     elif method == 'bright_spots':
         spots = image_ > np.percentile(image_, thr_percent)
-        str_elem = disk(min_size)
-        # spots = binary_closing(spots, str_elem)
+        str_elem = disk(disk_size)
         spots = binary_opening(spots, str_elem)
+        spots = binary_fill_holes(spots, str_elem)
         spots = clear_border(spots)
 
     else:
         raise ModuleNotFoundError("not a supported method for thresh_and_binarize")
+
+    if get_lcc:
+        spots = get_largest_component(spots)
 
     return spots
 
@@ -304,24 +328,19 @@ class SpotDetector:
                  imaging_params,
                  min_thresh=100,
                  max_thresh=255,
-                 max_area=10000,
                  min_circularity=.1,
                  min_convexity=.5,
                  min_dist_between_blobs=10,
-                 min_repeatability=2,
-                 max_intensity=255):
+                 min_repeatability=2):
         """
         :param int min_thresh: Minimum threshold
         :param int max_thresh: Maximum threshold
-        :param int min_area: Minimum spot area in pixels
-        :param int max_area: Maximum spot area in pixels
         :param float min_circularity: Minimum circularity of spots
         :param float min_convexity: Minimum convexity of spots
         :param float min_dist_between_blobs: minimal distance in pixels between two
             spots for them to be called as different spots
         :param int min_repeatability: minimal number of times the same spot has to be
             detected at different thresholds
-        :param int max_intensity: Maximum image intensity (default uint8)
         """
 
         self.min_thresh = min_thresh
@@ -330,11 +349,10 @@ class SpotDetector:
         self.min_repeatability = min_repeatability
         self.min_circularity = min_circularity
         self.min_convexity = min_convexity
-        self.max_intensity = max_intensity
         self.sigma_gauss = int(np.round(imaging_params['spot_width'] /
                                 imaging_params['pixel_size'] / 4))
         self.min_area = 4 * self.sigma_gauss ** 2
-        self.max_area = max_area
+        self.max_area = 50 * self.min_area
         self.nbr_expected_spots = imaging_params['rows'] * imaging_params['columns']
 
         self.blob_detector = self._make_blob_detector()
@@ -359,7 +377,7 @@ class SpotDetector:
         blob_params.minDistBetweenBlobs = self.min_dist_between_blobs
         blob_params.minRepeatability = self.min_repeatability
         # This detects bright spots, which they are after top hat
-        blob_params.blobColor = self.max_intensity
+        blob_params.blobColor = 255
         detector = cv.SimpleBlobDetector_create(blob_params)
         return detector
 
@@ -371,18 +389,23 @@ class SpotDetector:
         :return np.array log_filter: 2D LoG filter
         """
         n = np.ceil(self.sigma_gauss * 6)
-        y, x = np.ogrid[-n // 2:n // 2 + 1, -n // 2:n // 2 + 1]
+        rows, cols = np.ogrid[-n // 2:n // 2 + 1, -n // 2:n // 2 + 1]
         sigma_sq = 2 * self.sigma_gauss ** 2
-        y_filter = np.exp(-(y ** 2 / sigma_sq))
-        x_filter = np.exp(-(x ** 2 / sigma_sq))
-        log_filter = (-sigma_sq + x ** 2 + y ** 2) * \
-                     (x_filter * y_filter) * \
+        row_filter = np.exp(-(rows ** 2 / sigma_sq))
+        col_filter = np.exp(-(cols ** 2 / sigma_sq))
+        log_filter = (-sigma_sq + cols ** 2 + rows ** 2) * \
+                     (col_filter * row_filter) * \
                      (1 / (np.pi * sigma_sq * self.sigma_gauss ** 2))
         # Total filter should sum to 1 to not alter mean intensity
         log_filter = log_filter / sum(sum(log_filter))
         return log_filter
 
-    def get_spot_coords(self, im, margin=0, im_mean=100, im_std=25):
+    def get_spot_coords(self,
+                        im,
+                        margin=0,
+                        im_mean=100,
+                        im_std=25,
+                        max_intensity=255):
         """
         Use OpenCVs simple blob detector (thresholdings and grouping by properties)
         to detect all dark spots in the image. First filter with a Laplacian of
@@ -393,18 +416,19 @@ class SpotDetector:
             ignored (to ignore boundary effects)
         :param float im_mean: Set normalized image to fixed mean
         :param float im_std: Set normalized image to fixed std
-        :return np.array spot_coords: x, y coordinates of spot centroids
+        :param int max_intensity: Maximum image intensity (default uint8)
+        :return np.array spot_coords: row, col coordinates of spot centroids
             (nbr spots x 2)
         """
         # First invert image to detect peaks
-        im_norm = (im.max() - im) / self.max_intensity
+        im_norm = (max_intensity - im) / max_intensity
         # Filter with Laplacian of Gaussian
         im_norm = cv.filter2D(im_norm, -1, self.log_filter)
         # Normalize
         im_norm = im_norm / im_norm.std() * im_std
         im_norm = im_norm - im_norm.mean() + im_mean
         im_norm[im_norm < 0] = 0
-        im_norm[im_norm > self.max_intensity] = self.max_intensity
+        im_norm[im_norm > 255] = 255
         im_norm = im_norm.astype(np.uint8)
 
         # Detect peaks in filtered image
@@ -412,13 +436,13 @@ class SpotDetector:
 
         spot_coords = np.zeros((len(keypoints), 2))
         # Remove outliers and convert to np.array
-        x_max, y_max = im.shape
+        row_max, col_max = im.shape
         idx = 0
         for keypoint in range(len(keypoints)):
             pt = keypoints[keypoint].pt
-            if margin < pt[0] < x_max - margin and margin < pt[1] < y_max - margin:
-                spot_coords[idx, 0] = pt[0]
-                spot_coords[idx, 1] = pt[1]
+            if margin < pt[0] < row_max - margin and margin < pt[1] < col_max - margin:
+                spot_coords[idx, 0] = pt[1]
+                spot_coords[idx, 1] = pt[0]
                 idx += 1
         spot_coords = spot_coords[:idx, :]
         return spot_coords
