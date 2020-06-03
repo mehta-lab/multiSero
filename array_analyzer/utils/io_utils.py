@@ -110,23 +110,27 @@ def make_run_dir(input_dir, output_dir):
     return run_dir
 
 
-def make_logger(logger_name, log_dir, log_level=20):
+def make_logger(log_dir, logger_name='pysero.log', log_level=20):
     """
-    Creates a logger which writes to a file
+    Creates a logger which writes to a file, not to console.
 
-    :param str logger_name: name of the logger instance
     :param str log_dir: Path to directory where log file will be written
+    :param str logger_name: name of the logger instance
     :param int log_level: DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50
+    :return logging instance logger
     """
+    log_path = os.path.join(log_dir, logger_name)
+    log_format = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    )
+
     logger = logging.getLogger(logger_name)
     logger.setLevel(log_level)
     logger.propagate = False
 
-    log_name = os.path.join(log_dir, 'pysero_logger.log')
-    file_handler = logging.FileHandler(log_name)
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-    file_handler.setFormatter(formatter)
+    file_handler = logging.FileHandler(log_path)
+    file_handler.setFormatter(log_format)
     file_handler.setLevel(log_level)
     logger.addHandler(file_handler)
+    return logger
+

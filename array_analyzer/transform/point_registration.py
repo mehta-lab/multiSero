@@ -137,11 +137,11 @@ def particle_filter(fiducial_coords,
                     spot_coords,
                     particles,
                     stds,
+                    logger,
                     max_iter=100,
                     stop_criteria=.1,
                     iter_decrease=.8,
-                    remove_outlier=False,
-                    debug=False):
+                    remove_outlier=False):
     """
     Particle filtering to determine best grid location.
     Start with a number of randomly placed particles. Compute distances
@@ -152,13 +152,13 @@ def particle_filter(fiducial_coords,
     :param np.array spot_coords: Coordinates of detected spots (nbr spots x 2)
     :param np.array particles: Translation matrix parameters (nbr particles x 2)
     :param np.array stds: Standard deviations of x, y, angle, scale
+    :param logging inst logger: Log total distance in each iteration
     :param int max_iter: Maximum number of iterations
     :param float stop_criteria: Absolute difference of distance between iterations
     :param float iter_decrease: Reduce standard deviations each iterations to slow
         down permutations
     :param bool remove_outlier: If registration hasn't converged, remove worst fitted
         spot when running particle filter
-    :param bool debug: Print total distance in each iteration if true
     :return np.array t_matrix: Estimated 2D translation matrix
     :return float min_dist: Minimum total distance from fiducials to spots
     """
@@ -191,8 +191,7 @@ def particle_filter(fiducial_coords,
             dists[p] = sum(dist)
 
         min_dist = np.min(dists)
-        if debug:
-            print(min_dist)
+        logger.debug("Particle filter {} min dist {}".format(i, min_dist))
         # See if min dist is not decreasing anymore
         if abs(min_dist_old - min_dist) < stop_criteria:
             break
