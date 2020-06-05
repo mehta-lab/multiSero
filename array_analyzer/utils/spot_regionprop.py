@@ -63,12 +63,10 @@ class SpotRegionprop:
         :param np.ndarray mask: Binary mask corresponding to image
         :param list bbox: Bounding box of single spot image
         """
-        self.image = image
-        self.mask = mask
         properties = ('label', 'centroid', 'mean_intensity',
                       'intensity_image', 'image', 'area', 'bbox')
         skimage_props = measure.regionprops_table(
-            self.mask,
+            mask,
             intensity_image=image,
             properties=properties,
         )
@@ -79,9 +77,17 @@ class SpotRegionprop:
         self.centroid = [bbox[0] + skimage_props.at[0, 'centroid-0'],
                          bbox[1] + skimage_props.at[0, 'centroid-1']]
 
-        self.bbox = [bbox[0] + skimage_props.at[0, 'bbox-0'],
-                     bbox[1] + skimage_props.at[0, 'bbox-1'],
-                     bbox[0] + skimage_props.at[0, 'bbox-2'],
-                     bbox[1] + skimage_props.at[0, 'bbox-3']
+        min_row = skimage_props.at[0, 'bbox-0']
+        min_col = skimage_props.at[0, 'bbox-1']
+        max_row = skimage_props.at[0, 'bbox-2']
+        max_col = skimage_props.at[0, 'bbox-3']
+
+        self.bbox = [bbox[0] + min_row,
+                     bbox[1] + min_col,
+                     bbox[0] + max_row,
+                     bbox[1] + max_col,
                      ]
+        self.image = image[min_row:max_row, min_col:max_col]
+        self.mask = mask[min_row:max_row, min_col:max_col]
+
         self.assign_median_masked()

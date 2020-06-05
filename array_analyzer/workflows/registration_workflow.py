@@ -145,7 +145,7 @@ def point_registration(input_dir, output_dir):
         # Find spots near grid locations and compute properties
         spot_props, bg_props = array_gen.get_spot_intensity(
             coords=crop_coords,
-            im_int=im_crop,
+            im=im_crop,
             background=background,
             params=constants.params,
         )
@@ -181,10 +181,9 @@ def point_registration(input_dir, output_dir):
                 output_name,
             )
             debug_plots.save_composite_spots(
-                im_crop,
-                spot_props,
-                output_name,
-                from_source=True,
+                spot_props=spot_props,
+                output_name=output_name,
+                image=im_crop,
             )
             debug_plots.plot_background_overlay(
                 im_crop,

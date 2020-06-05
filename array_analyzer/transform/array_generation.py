@@ -58,7 +58,7 @@ def build_centroid_binary_blocks(cent_list, image_, params_, return_type='region
         return target
 
 
-def get_spot_intensity(coords, im_int, background, params, search_range=2):
+def get_spot_intensity(coords, im, background, params, search_range=2):
     """
     Extract signal and background intensity at each spot given the spot coordinate
     with the following steps:
@@ -69,7 +69,7 @@ def get_spot_intensity(coords, im_int, background, params, search_range=2):
 
     :param coords: list or tuple
         [row, col] coordinates of spots
-    :param im_int: ndarray
+    :param im: ndarray
         intensity image of the spots (signals)
     :param background: ndarray
         background image without spots
@@ -118,7 +118,7 @@ def get_spot_intensity(coords, im_int, background, params, search_range=2):
         spot_width = int(np.round(search_range * bbox_width))
         # Create large bounding box around spot and segment
         im_spot_lg, bbox_lg = img_processing.crop_image_at_center(
-            im=im_int,
+            im=im,
             center=coord,
             height=spot_height,
             width=spot_width,
@@ -158,7 +158,7 @@ def get_spot_intensity(coords, im_int, background, params, search_range=2):
         else:
             # Crop around assumed spot size
             im_spot, bbox = img_processing.crop_image_at_center(
-                im_int,
+                im,
                 coord,
                 bbox_height,
                 bbox_width,
