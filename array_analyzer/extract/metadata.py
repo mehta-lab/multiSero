@@ -19,7 +19,10 @@ class MetaData:
         :param output_folder_: str full path to output folder for reports and diagnostics
         """
 
-        self.fiduc, self.spots, self.repl, self.params = None, None, None, None
+        self.fiduc = None
+        self.spots = None
+        self.repl = None
+        self.params = None
         self.xlsx_path = None
         self.xml_path = None
         constants.INPUT_FOLDER = input_folder_
@@ -75,7 +78,7 @@ class MetaData:
                 raise IOError("sheet by name 'array_antigens' not present in excel file, aborting")
 
             # parsing .xlsx
-            self.fiduc, _, self.repl, self.params = txt_parser.create_xlsx_dict(self.xlsx_path)
+            self.fiduc, _, self.repl, self.params = txt_parser.create_xlsx_dict(sheets)
 
             # parsing .xlsx using pandas !! not tested or finished yet
             # self.fiduc, _, self.repl, self.params = txt_parser.create_xlsx_array(xlsx_path)
@@ -86,7 +89,7 @@ class MetaData:
             raise NotImplementedError(f"metadata with extension {constants.METADATA_EXTENSION} is not supported")
 
         # set hardware and array parameters
-        self._assign_params(self.params)
+        self._assign_params()
 
         # setting constant arrays
         if constants.METADATA_EXTENSION == 'xml':
@@ -106,17 +109,18 @@ class MetaData:
         self._calc_image_to_well()
         self._calc_empty_plate_const()
 
-    @staticmethod
-    def _assign_params(params_):
-        constants.params['rows'] = int(params_['rows'])
-        constants.params['columns'] = int(params_['columns'])
-        constants.params['v_pitch'] = float(params_['v_pitch'])
-        constants.params['h_pitch'] = float(params_['h_pitch'])
-        constants.params['spot_width'] = float(params_['spot_width'])
+    def _assign_params(self):
+        constants.params['rows'] = int(self.params['rows'])
+        constants.params['columns'] = int(self.params['columns'])
+        constants.params['v_pitch'] = float(self.params['v_pitch'])
+        constants.params['h_pitch'] = float(self.params['h_pitch'])
+        constants.params['spot_width'] = float(self.params['spot_width'])
         if constants.METADATA_EXTENSION == 'xml':
             constants.params['pixel_size'] = constants.params['pixel_size_scienion']
         else:
-            constants.params['pixel_size'] = float(params_['pixel_size'])
+            constants.params['pixel_size'] = float(self.params['pixel_size'])
+        if 'nbr_outliers' in self.params:
+            constants.params['nbr_outliers'] = int(self.params['nbr_outliers'])
 
     def _create_spot_id_array(self):
         """

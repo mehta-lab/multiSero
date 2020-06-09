@@ -26,7 +26,8 @@ params = {
     'min_diam': None,
     'pixel_size_scienion': 0.0049,
     'pixel_size_octopi': 0.00185,
-    'pixel_size': None
+    'pixel_size': None,
+    'nbr_outliers': 1
 }
 
 # a map between Image Name : well (row, col)
@@ -57,7 +58,7 @@ FIDUCIALS_IDX = []
 SPOT_DIST_PIX = int()
 SPOT_DIST_UM = int()
 STDS = [100, 100, 2, .01]  # x, y, angle, scale
-REG_DIST_THRESH = 500
+REG_DIST_THRESH = 100
 
 # Minimum detected spot area percentage
 SPOT_MIN_PERCENT_AREA = .1

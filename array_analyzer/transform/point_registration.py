@@ -95,6 +95,27 @@ def icp(source, target, max_iterate=50, matrix_diff=1.):
     return t_matrix[:2]
 
 
+def check_reg_coords(reg_coords, im_shape, reg_ok):
+    """
+    Checks that all registered coordinates are within image bounds.
+
+    :param np.array reg_coords: Registered grid coordinates (nbr spots x 2)
+    :param tuple im_shape: Image shape (rows, cols)
+    :param bool reg_ok: Variable determining registration is ok
+    :return bool reg_ok: Variable for
+    """
+    # If registration is already deemed not ok, do nothing
+    if not reg_ok:
+        return reg_ok
+    reg_max = np.max(reg_coords, axis=0)
+    if reg_max[0] >= im_shape[0] or reg_max[1] >= im_shape[1]:
+        reg_ok = False
+    reg_min = np.min(reg_coords, axis=0)
+    if np.any(reg_min <= 0):
+        reg_ok = False
+    return reg_ok
+
+
 def create_gaussian_particles(stds,
                               mean_point=(0, 0),
                               scale_mean=1.,
@@ -140,7 +161,7 @@ def particle_filter(fiducial_coords,
                     max_iter=100,
                     stop_criteria=.1,
                     iter_decrease=.8,
-                    remove_outlier=False,
+                    nbr_outliers=0,
                     debug=False):
     """
     Particle filtering to determine best grid location.
@@ -156,8 +177,8 @@ def particle_filter(fiducial_coords,
     :param float stop_criteria: Absolute difference of distance between iterations
     :param float iter_decrease: Reduce standard deviations each iterations to slow
         down permutations
-    :param bool remove_outlier: If registration hasn't converged, remove worst fitted
-        spot when running particle filter
+    :param int nbr_outliers: If registration hasn't converged, remove worst fitted
+        spots when running particle filter
     :param bool debug: Print total distance in each iteration if true
     :return np.array t_matrix: Estimated 2D translation matrix
     :return float min_dist: Minimum total distance from fiducials to spots
@@ -167,6 +188,9 @@ def particle_filter(fiducial_coords,
     knn = cv.ml.KNearest_create()
     labels = np.array(range(dst.shape[0])).astype(np.float32)
     knn.train(dst, cv.ml.ROW_SAMPLE, labels)
+    # Make sure we don't have too many outliers
+    if nbr_outliers > 0 and len(labels) < nbr_outliers + 3:
+        nbr_outliers = 1
 
     nbr_particles = particles.shape[0]
     dists = np.zeros(nbr_particles)
@@ -184,9 +208,10 @@ def particle_filter(fiducial_coords,
             trans_coords = trans_coords[0].astype(np.float32)
             # Find nearest spots
             ret, results, neighbors, dist = knn.findNearest(trans_coords, 1)
-            if remove_outlier:
-                # Remove worst fitted spot
-                dist = dist[dist != np.amax(dist)]
+            if nbr_outliers > 0:
+                # Remove worst fitted spots
+                dist = np.sort(dist, axis=0)
+                dist = dist[:-nbr_outliers]
 
             dists[p] = sum(dist)
 

@@ -8,7 +8,7 @@ import warnings
 import array_analyzer.extract.background_estimator as background_estimator
 import array_analyzer.extract.image_parser as image_parser
 import array_analyzer.extract.img_processing as img_processing
-from array_analyzer.extract.metadata import MetaData
+import array_analyzer.extract.metadata as metadata
 import array_analyzer.extract.constants as constants
 import array_analyzer.load.debug_plots as debug_plots
 import array_analyzer.transform.point_registration as registration
@@ -27,7 +27,10 @@ def point_registration(input_dir, output_dir):
     :param str output_dir: Directory where output is written to
     """
 
-    MetaData(input_dir, output_dir)
+    metadata.MetaData(input_dir, output_dir)
+    print(constants.params)
+    nbr_outliers = constants.params['nbr_outliers']
+    print(nbr_outliers)
 
     xlwriter_od_well = pd.ExcelWriter(
         os.path.join(constants.RUN_PATH, 'median_ODs_per_well.xlsx'),
@@ -46,6 +49,7 @@ def point_registration(input_dir, output_dir):
     nbr_grid_rows = constants.params['rows']
     nbr_grid_cols = constants.params['columns']
     fiducials_idx = constants.FIDUCIALS_IDX
+    nbr_fiducials = len(fiducials_idx)
     # Create spot detector instance
     spot_detector = img_processing.SpotDetector(
         imaging_params=constants.params,
@@ -103,25 +107,32 @@ def point_registration(input_dir, output_dir):
             stds=np.array(constants.STDS),
             debug=constants.DEBUG,
         )
-        if min_dist > constants.REG_DIST_THRESH:
+        if min_dist / nbr_fiducials > constants.REG_DIST_THRESH:
             warnings.warn("Registration failed, repeat with outlier removal")
             t_matrix, min_dist = registration.particle_filter(
                 fiducial_coords=fiducial_coords,
                 spot_coords=spot_coords,
                 particles=particles,
                 stds=np.array(constants.STDS),
-                remove_outlier=True,
+                nbr_outliers=nbr_outliers,
                 debug=constants.DEBUG,
             )
             # Warn if fit is still bad
-            if min_dist > constants.REG_DIST_THRESH:
+            if min_dist / (nbr_fiducials - nbr_outliers) > constants.REG_DIST_THRESH:
                 reg_ok = False
 
+        # Transform grid coordinates
+        reg_coords = np.squeeze(cv.transform(np.array([grid_coords]), t_matrix))
+        # Check that registered coordinates are inside well
+        reg_ok = registration.check_reg_coords(
+            reg_coords=reg_coords,
+            im_shape=im_well.shape,
+            reg_ok=reg_ok,
+        )
         if not reg_ok:
             warnings.warn("Final registration failed,"
                           "will not write OD for {}".format(well_name))
             if constants.DEBUG:
-                reg_coords = np.squeeze(cv.transform(np.array([grid_coords]), t_matrix))
                 debug_plots.plot_registration(
                     im_well,
                     spot_coords,
@@ -132,8 +143,6 @@ def point_registration(input_dir, output_dir):
                 )
             continue
 
-        # Transform grid coordinates
-        reg_coords = np.squeeze(cv.transform(np.array([grid_coords]), t_matrix))
         # Crop image
         im_crop, crop_coords = img_processing.crop_image_from_coords(
             im=im_well,
