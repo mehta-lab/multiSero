@@ -28,9 +28,7 @@ def point_registration(input_dir, output_dir):
     """
 
     metadata.MetaData(input_dir, output_dir)
-    print(constants.params)
     nbr_outliers = constants.params['nbr_outliers']
-    print(nbr_outliers)
 
     xlwriter_od_well = pd.ExcelWriter(
         os.path.join(constants.RUN_PATH, 'median_ODs_per_well.xlsx'),
@@ -54,7 +52,6 @@ def point_registration(input_dir, output_dir):
     spot_detector = img_processing.SpotDetector(
         imaging_params=constants.params,
     )
-
     # ================
     # loop over well images
     # ================
@@ -73,19 +70,24 @@ def point_registration(input_dir, output_dir):
                 segmethod='otsu',
             )
             im_well, _ = img_processing.crop_image_at_center(
-                image,
-                well_center,
-                2 * well_radi,
-                2 * well_radi,
+                im=image,
+                center=well_center,
+                height=2 * well_radi,
+                width=2 * well_radi,
             )
         except IndexError:
             warnings.warn("Couldn't find well in {}".format(well_name))
             im_well = image
 
         # Find spot center coordinates
-        spot_coords = spot_detector.get_spot_coords(im_well)
-        assert(spot_coords.shape[0] >= 3), "Fewer than three spots detected."
-
+        spot_coords = spot_detector.get_spot_coords(
+            im=im_well,
+            max_intensity=max_intensity,
+        )
+        if spot_coords.shape[0] < constants.MIN_NBR_SPOTS:
+            warnings.warn("Not enough spots detected in {},"
+                          "continuing.".format(well_name))
+            continue
 
         # Initial estimate of spot center
         center_point = tuple((im_well.shape[0] / 2, im_well.shape[1] / 2))
@@ -101,7 +103,7 @@ def point_registration(input_dir, output_dir):
         reg_ok = True
         particles = registration.create_gaussian_particles(
             stds=np.array(constants.STDS),
-            nbr_particles=4000,
+            nbr_particles=constants.NBR_PARTICLES,
         )
         t_matrix, min_dist = registration.particle_filter(
             fiducial_coords=fiducial_coords,

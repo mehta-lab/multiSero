@@ -150,26 +150,30 @@ def create_xlsx_dict(xlsx):
     for idx, value in enumerate(xlsx['imaging_and_array_parameters']['Parameter']):
         array_params[value] = xlsx['imaging_and_array_parameters']['Value'][idx]
 
-    all_spots = False
-    if 'all_spots' in array_params:
-        if array_params['all_spots'] == 1:
-            all_spots = True
+    # Unless specified, run analysis with fiducials only
+    # Otherwise run with all non-negative spots
+    fiducials_only = True
+    if 'fiducials_only' in array_params:
+        if array_params['fiducials_only'] != 1:
+            fiducials_only = False
+
     # populate fiduc list
     for col in xlsx['antigen_type'].keys()[1:]:
         for row, value in enumerate(xlsx['antigen_type'][col]):
             if type(value) is float:
                 if math.isnan(value):
                     continue
-            elif all_spots and "Negative" not in value:
-                pos = {'@row': row,
-                       '@col': col,
-                       '@spot_type': "Fiducial"}
-                fiduc.append(pos)
-            elif "Fiducial" in value or "xkappa-biotin" in value or "Fiducial, Diagnostic" in value:
-                pos = {'@row': row,
-                       '@col': col,
-                       '@spot_type': "Fiducial"}
-                fiduc.append(pos)
+            else:
+                if not fiducials_only and "Negative" not in value:
+                    pos = {'@row': row,
+                           '@col': col,
+                           '@spot_type': "Fiducial"}
+                    fiduc.append(pos)
+                elif "Fiducial" in value or "xkappa-biotin" in value or "Fiducial, Diagnostic" in value:
+                    pos = {'@row': row,
+                           '@col': col,
+                           '@spot_type': "Fiducial"}
+                    fiduc.append(pos)
 
     # find and populate antigen list
     for col in xlsx['antigen_array'].keys()[1:]:
@@ -183,7 +187,7 @@ def create_xlsx_dict(xlsx):
                        '@antigen': str(value)}
                 xlsx_antigens.append(pos)
 
-    return fiduc, None, xlsx_antigens, array_params
+    return fiduc, xlsx_antigens, array_params
 
 
 def create_xlsx_array(path_):

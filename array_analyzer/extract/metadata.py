@@ -78,7 +78,7 @@ class MetaData:
                 raise IOError("sheet by name 'array_antigens' not present in excel file, aborting")
 
             # parsing .xlsx
-            self.fiduc, _, self.repl, self.params = txt_parser.create_xlsx_dict(sheets)
+            self.fiduc, self.repl, self.params = txt_parser.create_xlsx_dict(sheets)
 
             # parsing .xlsx using pandas !! not tested or finished yet
             # self.fiduc, _, self.repl, self.params = txt_parser.create_xlsx_array(xlsx_path)

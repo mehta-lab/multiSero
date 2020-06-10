@@ -405,6 +405,7 @@ class SpotDetector:
                         margin=0,
                         im_mean=100,
                         im_std=25,
+                        max_intensity=255,
                         ):
         """
         Use OpenCVs simple blob detector (thresholdings and grouping by properties)
@@ -420,8 +421,6 @@ class SpotDetector:
         :return np.array spot_coords: row, col coordinates of spot centroids
             (nbr spots x 2)
         """
-        # Calculate the max intensity from data type.
-        max_intensity=np.iinfo(im.dtype).max
         # First invert image to detect peaks
         im_norm = (max_intensity - im) / max_intensity
         # Filter with Laplacian of Gaussian

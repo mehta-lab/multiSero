@@ -189,19 +189,21 @@ def particle_filter(fiducial_coords,
     labels = np.array(range(dst.shape[0])).astype(np.float32)
     knn.train(dst, cv.ml.ROW_SAMPLE, labels)
     # Make sure we don't have too many outliers
-    if nbr_outliers > 0 and len(labels) < nbr_outliers + 3:
-        nbr_outliers = 1
+    if nbr_outliers > 0:
+        if len(labels) < nbr_outliers + 5 or fiducial_coords.shape[0] < nbr_outliers + 5:
+            nbr_outliers = 1
 
     nbr_particles = particles.shape[0]
     dists = np.zeros(nbr_particles)
     temp_stds = stds.copy()
+    temp_particles = particles.copy()
 
     # Iterate until min dist doesn't change
     min_dist_old = 10 ** 6
     for i in range(max_iter):
 
         for p in range(nbr_particles):
-            particle = particles[p]
+            particle = temp_particles[p]
             # Generate transformation matrix
             t_matrix = get_translation_matrix(particle)
             trans_coords = cv.transform(np.array([fiducial_coords]), t_matrix)
@@ -230,17 +232,17 @@ def particle_filter(fiducial_coords,
 
         # Importance sampling
         idxs = np.random.choice(nbr_particles, nbr_particles, p=weights)
-        particles = particles[idxs, :]
+        temp_particles = temp_particles[idxs, :]
 
         # Reduce standard deviations a little every iteration
         temp_stds = temp_stds * iter_decrease ** i
         # Distort particles
         for c in range(4):
             distort = np.random.randn(nbr_particles)
-            particles[:, c] = particles[:, c] + distort * temp_stds[c]
+            temp_particles[:, c] = temp_particles[:, c] + distort * temp_stds[c]
 
     # Return best particle
-    particle = particles[dists == dists.min(), :][0]
+    particle = temp_particles[dists == dists.min(), :][0]
 
     # Generate transformation matrix
     t_matrix = get_translation_matrix(particle)
