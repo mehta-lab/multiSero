@@ -81,8 +81,11 @@ def point_registration(input_dir, output_dir):
         except IndexError:
             warnings.warn("Couldn't find well in {}".format(well_name))
             im_well = image
+
         # Find spot center coordinates
         spot_coords = spot_detector.get_spot_coords(im_well)
+        assert(spot_coords.shape[0] >= 3), "Fewer than three spots detected."
+
 
         # Initial estimate of spot center
         center_point = tuple((im_well.shape[0] / 2, im_well.shape[1] / 2))
