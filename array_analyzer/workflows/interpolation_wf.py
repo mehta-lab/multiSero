@@ -64,7 +64,7 @@ def interp(input_dir, output_dir):
 
         # find center of spots from crop
         spot_mask = img_processing.thresh_and_binarize(im_crop, method='bright_spots')
-        spot_props = image_parser.generate_props(spot_mask, intensity_image_=im_crop)
+        spot_props = image_parser.generate_props(spot_mask, intensity_image=im_crop)
 
         # if debug:
 
@@ -79,7 +79,7 @@ def interp(input_dir, output_dir):
         background = bg_estimator.get_background(im_crop)
         spot_props, bg_props = array_gen.get_spot_intensity(
             coords=crop_coords,
-            im_int=im_crop,
+            im=im_crop,
             background=background,
             params=constants.params
         )
@@ -133,8 +133,17 @@ def interp(input_dir, output_dir):
                 output_name,
             )
             # save a composite of all spots, where spots are from source or from region prop
-            debug_plots.save_composite_spots(im_crop, spot_props, output_name, from_source=True)
-            debug_plots.save_composite_spots(im_crop, bg_props, output_name, from_source=False)
+            debug_plots.save_composite_spots(
+                spot_props,
+                output_name,
+                image=im_crop,
+            )
+            debug_plots.save_composite_spots(
+                bg_props,
+                output_name,
+                image=im_crop,
+                from_source=True,
+            )
 
             stop2 = time.time()
             print(f"\ttime to save debug={stop2-stop}")

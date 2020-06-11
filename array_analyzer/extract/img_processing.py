@@ -405,7 +405,8 @@ class SpotDetector:
                         margin=0,
                         im_mean=100,
                         im_std=25,
-                        max_intensity=255):
+                        max_intensity=255,
+                        ):
         """
         Use OpenCVs simple blob detector (thresholdings and grouping by properties)
         to detect all dark spots in the image. First filter with a Laplacian of
