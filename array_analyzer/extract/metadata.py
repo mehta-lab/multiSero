@@ -1,6 +1,5 @@
 import os
 import numpy as np
-from datetime import datetime
 import pandas as pd
 import shutil
 
@@ -18,7 +17,6 @@ class MetaData:
         :param input_folder_: str full path to metadata spreadsheet
         :param output_folder_: str full path to output folder for reports and diagnostics
         """
-
         self.fiduc = None
         self.spots = None
         self.repl = None
