@@ -8,7 +8,7 @@ import time
 import array_analyzer.extract.background_estimator as background_estimator
 import array_analyzer.extract.image_parser as image_parser
 import array_analyzer.extract.img_processing as img_processing
-from array_analyzer.extract.metadata import MetaData
+import array_analyzer.extract.metadata as metadata
 import array_analyzer.extract.constants as constants
 import array_analyzer.load.debug_plots as debug_plots
 import array_analyzer.transform.point_registration as registration
@@ -28,7 +28,8 @@ def point_registration(input_dir, output_dir):
     """
     logger = logging.getLogger(constants.LOG_NAME)
 
-    MetaData(input_dir, output_dir)
+    metadata.MetaData(input_dir, output_dir)
+    nbr_outliers = constants.params['nbr_outliers']
 
     xlwriter_od_well = pd.ExcelWriter(
         os.path.join(constants.RUN_PATH, 'median_ODs_per_well.xlsx'),
@@ -47,11 +48,11 @@ def point_registration(input_dir, output_dir):
     nbr_grid_rows = constants.params['rows']
     nbr_grid_cols = constants.params['columns']
     fiducials_idx = constants.FIDUCIALS_IDX
+    nbr_fiducials = len(fiducials_idx)
     # Create spot detector instance
     spot_detector = img_processing.SpotDetector(
         imaging_params=constants.params,
     )
-
     # ================
     # loop over well images
     # ================
@@ -72,16 +73,24 @@ def point_registration(input_dir, output_dir):
                 segmethod='otsu',
             )
             im_well, _ = img_processing.crop_image_at_center(
-                image,
-                well_center,
-                2 * well_radi,
-                2 * well_radi,
+                im=image,
+                center=well_center,
+                height=2 * well_radi,
+                width=2 * well_radi,
             )
         except IndexError:
             logging.warning("Couldn't find well in {}".format(well_name))
             im_well = image
+
         # Find spot center coordinates
-        spot_coords = spot_detector.get_spot_coords(im_well)
+        spot_coords = spot_detector.get_spot_coords(
+            im=im_well,
+            max_intensity=max_intensity,
+        )
+        if spot_coords.shape[0] < constants.MIN_NBR_SPOTS:
+            logging.warning("Not enough spots detected in {},"
+                            "continuing.".format(well_name))
+            continue
 
         # Initial estimate of spot center
         center_point = tuple((im_well.shape[0] / 2, im_well.shape[1] / 2))
@@ -97,7 +106,7 @@ def point_registration(input_dir, output_dir):
         reg_ok = True
         particles = registration.create_gaussian_particles(
             stds=np.array(constants.STDS),
-            nbr_particles=4000,
+            nbr_particles=constants.NBR_PARTICLES,
         )
         t_matrix, min_dist = registration.particle_filter(
             fiducial_coords=fiducial_coords,
@@ -106,26 +115,35 @@ def point_registration(input_dir, output_dir):
             stds=np.array(constants.STDS),
             logger=logger,
         )
-        if min_dist > constants.REG_DIST_THRESH:
+        reg_dist = min_dist / nbr_fiducials
+        if reg_dist > constants.REG_DIST_THRESH:
             logger.warning("Registration failed, repeat with outlier removal")
             t_matrix, min_dist = registration.particle_filter(
                 fiducial_coords=fiducial_coords,
                 spot_coords=spot_coords,
                 particles=particles,
                 stds=np.array(constants.STDS),
-                remove_outlier=True,
                 logger=logger,
+                nbr_outliers=nbr_outliers,
             )
             # Warn if fit is still bad
-            if min_dist > constants.REG_DIST_THRESH:
+            reg_dist = min_dist / (nbr_fiducials - nbr_outliers)
+            if reg_dist > constants.REG_DIST_THRESH:
                 reg_ok = False
-        logger.info("Particle filter min dist: {}".format(min_dist))
+        logger.info("Particle filter min dist: {}".format(reg_dist))
 
+        # Transform grid coordinates
+        reg_coords = np.squeeze(cv.transform(np.array([grid_coords]), t_matrix))
+        # Check that registered coordinates are inside well
+        reg_ok = registration.check_reg_coords(
+            reg_coords=reg_coords,
+            im_shape=im_well.shape,
+            reg_ok=reg_ok,
+        )
         if not reg_ok:
             logger.warning("Final registration failed,"
                            "will not write OD for {}".format(well_name))
             if constants.DEBUG:
-                reg_coords = np.squeeze(cv.transform(np.array([grid_coords]), t_matrix))
                 debug_plots.plot_registration(
                     im_well,
                     spot_coords,
@@ -136,8 +154,6 @@ def point_registration(input_dir, output_dir):
                 )
             continue
 
-        # Transform grid coordinates
-        reg_coords = np.squeeze(cv.transform(np.array([grid_coords]), t_matrix))
         # Crop image
         im_crop, crop_coords = img_processing.crop_image_from_coords(
             im=im_well,
@@ -149,7 +165,7 @@ def point_registration(input_dir, output_dir):
         # Find spots near grid locations and compute properties
         spot_props, bg_props = array_gen.get_spot_intensity(
             coords=crop_coords,
-            im_int=im_crop,
+            im=im_crop,
             background=background,
             params=constants.params,
         )
@@ -187,10 +203,9 @@ def point_registration(input_dir, output_dir):
                 output_name,
             )
             debug_plots.save_composite_spots(
-                im_crop,
-                spot_props,
-                output_name,
-                from_source=True,
+                spot_props=spot_props,
+                output_name=output_name,
+                image=im_crop,
             )
             debug_plots.plot_background_overlay(
                 im_crop,

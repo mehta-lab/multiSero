@@ -26,78 +26,47 @@ def save_all_wells(region_props_array, spot_ids_, output_folder, well_name):
                              (255 * np.ones((32, 32)).astype('uint8')))
 
 
-def assign_region(target_, props_, intensity_image_=None):
-    """
-    put underlying intensity image from props_ into the target_ array
-    assumes props_ image exists and will fit into target_
-
-    :param target_:
-    :param props_:
-    :param intensity_image_:
-    :return:
-    """
-
-    min_row, min_col, max_row, max_col = props_.bbox
-    if intensity_image_ is None:
-        target_[min_row:max_row, min_col:max_col] = props_.intensity_image
-    else:
-        target_[min_row:max_row, min_col:max_col] = intensity_image_[min_row:max_row, min_col:max_col]
-
-    return target_
-
-
-def create_composite_spots(target_array_, region_props_array_, intensity_image_=None):
-    """
-    insert all intensity images for each region prop in "region_props_array_" into the "target_array_"
-
-    :param target_array_:
-    :param region_props_array_:
-    :param intensity_image_:
-    :return:
-    """
-    for row in range(region_props_array_.shape[0]):
-        for col in range(region_props_array_.shape[1]):
-            props = region_props_array_[row, col]
-            if props is not None:
-                if intensity_image_ is None:
-                    # print(f"\t shape = {props.intensity_image.shape}")
-                    target_array_ = assign_region(target_array_, props)
-                else:
-                    target_array_ = assign_region(target_array_, props, intensity_image_)
-    return target_array_
-
-
-def save_composite_spots(source_array_,
-                         region_props_array_,
+def save_composite_spots(spot_props,
                          output_name,
+                         image,
                          from_source=False):
     """
+    Creates a grey image and plots only the grid of spots on top of it.
+    if from_source, the whole spot ROI is plotted, otherwise the
+    spot intensities inside the spot masks are plotted.
 
-    :param source_array_: np.ndarray
-        image representing original image data
-    :param region_props_array_: np.ndarray
-        region props describing segmented spots from image data
+    :param np.ndarray spot_props: Grid of props describing
+        each segmented spot from image
     :param str output_name: Path plus well name, no extension
         well name of format "A1, A2 ... C2, C3"
+    :param np.ndarray image:
+        image representing original image data with all spots
     :param from_source: bool
         True : images are extracted from source array
         False : images are pulled from regionprops.intensity_image
-    :return:
     """
-    t = np.mean(source_array_) * np.ones(source_array_.shape)
+    bbox_image = np.mean(image) * np.ones(image.shape)
 
+    # Loop through grid of all spots
+    for row in range(spot_props.shape[0]):
+        for col in range(spot_props.shape[1]):
+            # Get properties for individual spot
+            spot_prop = spot_props[row, col]
+            if spot_prop is not None:
+                min_row, min_col, max_row, max_col = spot_prop.bbox
+                if not from_source:
+                    # Plot only intensities inside mask
+                    bbox_mask = bbox_image[min_row:max_row, min_col:max_col]
+                    bbox_mask[spot_prop.mask > 0] = spot_prop.image[spot_prop.mask > 0]
+                else:
+                    # Plot all intensities within bounding box
+                    bbox_image[min_row:max_row, min_col:max_col] = \
+                        image[min_row:max_row, min_col:max_col]
+
+    write_name = output_name + "_composite_spots_prop.png"
     if from_source:
-        t = create_composite_spots(t, region_props_array_, source_array_)
-        cv.imwrite(
-            output_name + "_composite_spots_img.png",
-            (255 * t).astype('uint8'),
-        )
-    else:
-        t = create_composite_spots(t, region_props_array_)
-        cv.imwrite(
-            output_name + "_composite_spots_prop.png",
-            (255 * t).astype('uint8'),
-        )
+        write_name = output_name + "_composite_spots_img.png"
+    cv.imwrite(write_name, (255 * bbox_image).astype('uint8'))
 
 
 def plot_centroid_overlay(im_crop,

@@ -95,6 +95,27 @@ def icp(source, target, max_iterate=50, matrix_diff=1.):
     return t_matrix[:2]
 
 
+def check_reg_coords(reg_coords, im_shape, reg_ok):
+    """
+    Checks that all registered coordinates are within image bounds.
+
+    :param np.array reg_coords: Registered grid coordinates (nbr spots x 2)
+    :param tuple im_shape: Image shape (rows, cols)
+    :param bool reg_ok: Variable determining registration is ok
+    :return bool reg_ok: Variable for
+    """
+    # If registration is already deemed not ok, do nothing
+    if not reg_ok:
+        return reg_ok
+    reg_max = np.max(reg_coords, axis=0)
+    if reg_max[0] >= im_shape[0] or reg_max[1] >= im_shape[1]:
+        reg_ok = False
+    reg_min = np.min(reg_coords, axis=0)
+    if np.any(reg_min <= 0):
+        reg_ok = False
+    return reg_ok
+
+
 def create_gaussian_particles(stds,
                               mean_point=(0, 0),
                               scale_mean=1.,
@@ -141,7 +162,7 @@ def particle_filter(fiducial_coords,
                     max_iter=100,
                     stop_criteria=.1,
                     iter_decrease=.8,
-                    remove_outlier=False):
+                    nbr_outliers=0):
     """
     Particle filtering to determine best grid location.
     Start with a number of randomly placed particles. Compute distances
@@ -157,8 +178,8 @@ def particle_filter(fiducial_coords,
     :param float stop_criteria: Absolute difference of distance between iterations
     :param float iter_decrease: Reduce standard deviations each iterations to slow
         down permutations
-    :param bool remove_outlier: If registration hasn't converged, remove worst fitted
-        spot when running particle filter
+    :param int nbr_outliers: If registration hasn't converged, remove worst fitted
+        spots when running particle filter
     :return np.array t_matrix: Estimated 2D translation matrix
     :return float min_dist: Minimum total distance from fiducials to spots
     """
@@ -167,31 +188,38 @@ def particle_filter(fiducial_coords,
     knn = cv.ml.KNearest_create()
     labels = np.array(range(dst.shape[0])).astype(np.float32)
     knn.train(dst, cv.ml.ROW_SAMPLE, labels)
+    # Make sure we don't have too many outliers
+    if nbr_outliers > 0:
+        if len(labels) < nbr_outliers + 5 or fiducial_coords.shape[0] < nbr_outliers + 5:
+            nbr_outliers = 1
+    logger.debug("Particle filter, number of outliers: {}".format(nbr_outliers))
 
     nbr_particles = particles.shape[0]
     dists = np.zeros(nbr_particles)
     temp_stds = stds.copy()
+    temp_particles = particles.copy()
 
     # Iterate until min dist doesn't change
     min_dist_old = 10 ** 6
     for i in range(max_iter):
 
         for p in range(nbr_particles):
-            particle = particles[p]
+            particle = temp_particles[p]
             # Generate transformation matrix
             t_matrix = get_translation_matrix(particle)
             trans_coords = cv.transform(np.array([fiducial_coords]), t_matrix)
             trans_coords = trans_coords[0].astype(np.float32)
             # Find nearest spots
             ret, results, neighbors, dist = knn.findNearest(trans_coords, 1)
-            if remove_outlier:
-                # Remove worst fitted spot
-                dist = dist[dist != np.amax(dist)]
+            if nbr_outliers > 0:
+                # Remove worst fitted spots
+                dist = np.sort(dist, axis=0)
+                dist = dist[:-nbr_outliers]
 
             dists[p] = sum(dist)
 
         min_dist = np.min(dists)
-        logger.debug("Particle filter {} min dist {}".format(i, min_dist))
+        logger.debug("Iteration: {} min dist: {}".format(i, min_dist))
         # See if min dist is not decreasing anymore
         if abs(min_dist_old - min_dist) < stop_criteria:
             break
@@ -204,17 +232,17 @@ def particle_filter(fiducial_coords,
 
         # Importance sampling
         idxs = np.random.choice(nbr_particles, nbr_particles, p=weights)
-        particles = particles[idxs, :]
+        temp_particles = temp_particles[idxs, :]
 
         # Reduce standard deviations a little every iteration
         temp_stds = temp_stds * iter_decrease ** i
         # Distort particles
         for c in range(4):
             distort = np.random.randn(nbr_particles)
-            particles[:, c] = particles[:, c] + distort * temp_stds[c]
+            temp_particles[:, c] = temp_particles[:, c] + distort * temp_stds[c]
 
     # Return best particle
-    particle = particles[dists == dists.min(), :][0]
+    particle = temp_particles[dists == dists.min(), :][0]
 
     # Generate transformation matrix
     t_matrix = get_translation_matrix(particle)
