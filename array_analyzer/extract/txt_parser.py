@@ -1,19 +1,34 @@
 # bchhun, {2020-03-22}
 
 import numpy as np
+import csv
 import xmltodict
 from xml.parsers.expat import ExpatError
 import xml.etree.ElementTree as ET
+import pandas as pd
+import math
 
 """
-The below code should parse the .xml
+functions like "create_<extension>_dict" parse files of <extension> and return:
+fiduc: list of dict describing fiducial positions
+spots: list of dict, other spot info
+repl: list of dict describing 'replicates' AKA antigens
+params: dict containing hardware and array parameters
 
-The functions generate np.ndarrays whose indices correspond to array positions
+
+functions like "populate_array_<type>" take <type> from above (like fiduc, spots, repl, param) and 
+    populate np.ndarrays indices correspond to array positions
+    
 The values of the arrays depend on the function call
 - populate_array_id : Cell id like "spot-6-2", "spot-5-5-" etc..
 - populate_array_spots_type : Type like "Diagnostic", "Positive Control"
 - populate_array_antigen : Antigen
 
+
+*** NOTE ***
+populating antigens is more complicated for .xml parsing than for .csv or .xlsx
+    .xml files have keys:"antigen", values: multiple "spot_ID"
+    .csv or .xlsx can map (col, row) directly to "antigen"
 """
 
 
@@ -38,34 +53,167 @@ def create_xml_dict(path_):
         xmlstr = ET.tostring(xml_data, encoding='utf-8', method='xml')
         doc = xmltodict.parse(xmlstr)
 
-    # layout of array
-    layout = doc['configuration']['well_configurations']['configuration']['array']['layout']
+    try:
+        # layout of array
+        layout = doc['configuration']['well_configurations']['configuration']['array']['layout']
 
-    # fiducials
-    fiduc = layout['marker']
+        # fiducials
+        fiduc = layout['marker']
 
-    # spot IDs
-    spots = doc['configuration']['well_configurations']['configuration']['array']['spots']['spot']
+        # spot IDs
+        spots = doc['configuration']['well_configurations']['configuration']['array']['spots']['spot']
 
-    # replicates
-    repl = doc['configuration']['well_configurations']['configuration']['array']['spots']['multiplet']
+        # replicates
+        repl = doc['configuration']['well_configurations']['configuration']['array']['spots']['multiplet']
 
-    params = dict()
-    params['rows'] = int(layout['@rows'])
-    params['columns'] = int(layout['@cols'])
-    params['v_pitch'] = float(layout['@vspace'])
-    params['h_pitch'] = float(layout['@hspace'])
-    params['spot_width'] = float(layout['@expected_diameter'])
-    params['bg_offset'] = float(layout['@background_offset'])
-    params['bg_thickness'] = float(layout['@background_thickness'])
-    params['max_diam'] = float(layout['@max_diameter'])
-    params['min_diam'] = float(layout['@min_diameter'])
+        array_params = dict()
+        array_params['rows'] = int(layout['@rows'])
+        array_params['columns'] = int(layout['@cols'])
+        array_params['v_pitch'] = float(layout['@vspace'])
+        array_params['h_pitch'] = float(layout['@hspace'])
+        array_params['spot_width'] = float(layout['@expected_diameter'])
+        array_params['bg_offset'] = float(layout['@background_offset'])
+        array_params['bg_thickness'] = float(layout['@background_thickness'])
+        array_params['max_diam'] = float(layout['@max_diameter'])
+        array_params['min_diam'] = float(layout['@min_diameter'])
 
-    # todo: add param for different imaging conditions (magnificaiton, camera pixel size, etc..)
-    params['pixel_size_scienion'] = 0.0049  # scienion camera
-    params['pixel_size_octopi'] = 0.00185  # octopi camera
+    except Exception as ex:
+        raise AttributeError(f"exception while parsing .xml : {ex}")
 
-    return fiduc, spots, repl, params
+    return fiduc, spots, repl, array_params
+
+
+def create_csv_dict(path_):
+    """
+    Looks for three .csv files:
+        "array_parameters.csv" contains array printing parameters as well as hardware parameters
+        "array_format_type.csv" contains fiducial and control names, locations
+        "array_format_antigen.csv" contains specific antigen names for only diagnostic spots
+    Then, parses the .csvs and creates the four dictionaries:
+    :param path_: list
+        of strings to the .csv paths
+    :return:
+    """
+    # assign names to each of the types == params, spot types, antigens
+    fiduc = list()
+    csv_antigens = list()
+    array_params = dict()
+
+    for meta_csv in path_:
+        with open(meta_csv, newline='') as csv_file:
+            csv_reader = csv.reader(csv_file, delimiter=',')
+            for row in csv_reader:
+                # header row
+                if "Parameter" in str(row[0]) or '' in str(row[0]):
+                    continue
+
+                # parse params
+                elif "array_format_parameters" in meta_csv:
+                    array_params[row[0]] = row[1]
+
+                # parse fiducials
+                elif "array_format_type" in meta_csv:
+                    for col, value in enumerate(row[1:]):
+                        pos = {'@row': str(row[0]),
+                               '@col': str(col - 1),
+                               '@spot_type': str(value)}
+                        fiduc.append(pos)
+
+                # parse antigens
+                elif "array_format_antigen" in meta_csv:
+                    for col, value in enumerate(row[1:]):
+                        pos = {'@row': str(row[0]),
+                               '@col': str(col - 1),
+                               '@antigen': str(value)}
+                        csv_antigens.append(pos)
+
+    return fiduc, None, csv_antigens, array_params
+
+
+def create_xlsx_dict(xlsx):
+    """
+    extracts fiducial, antigen, and array parameter metadata from .xlsx sheets
+    then populates dictionaries or lists with appropriate information
+    The output dictionaries and lists conform the .xml-style parsing.  This is for consistency
+
+    :param dict xlsx: Opened xlsx sheets
+    :return list fiduc: Fiducials and control info
+    :return list spots: None.  spots IDs not needed for .xlsx
+    :return list repl: Replicate (antigen)
+    :return dict params: Additional parameters about hardware and array
+    """
+    fiduc = list()
+    xlsx_antigens = list()
+    array_params = dict()
+
+    # populate array parameters
+    for idx, value in enumerate(xlsx['imaging_and_array_parameters']['Parameter']):
+        array_params[value] = xlsx['imaging_and_array_parameters']['Value'][idx]
+
+    # Unless specified, run analysis with fiducials only
+    # Otherwise run with all non-negative spots
+    fiducials_only = True
+    if 'fiducials_only' in array_params:
+        if array_params['fiducials_only'] != 1:
+            fiducials_only = False
+
+    # populate fiduc list
+    for col in xlsx['antigen_type'].keys()[1:]:
+        for row, value in enumerate(xlsx['antigen_type'][col]):
+            if type(value) is float:
+                if math.isnan(value):
+                    continue
+            else:
+                if not fiducials_only and "Negative" not in value:
+                    pos = {'@row': row,
+                           '@col': col,
+                           '@spot_type': "Fiducial"}
+                    fiduc.append(pos)
+                elif "Fiducial" in value or "xkappa-biotin" in value or "Fiducial, Diagnostic" in value:
+                    pos = {'@row': row,
+                           '@col': col,
+                           '@spot_type': "Fiducial"}
+                    fiduc.append(pos)
+
+    # find and populate antigen list
+    for col in xlsx['antigen_array'].keys()[1:]:
+        for row, value in enumerate(xlsx['antigen_array'][col]):
+            if type(value) is float:
+                if math.isnan(value):
+                    continue
+            else:
+                pos = {'@row': row,
+                       '@col': col,
+                       '@antigen': str(value)}
+                xlsx_antigens.append(pos)
+
+    return fiduc, xlsx_antigens, array_params
+
+
+def create_xlsx_array(path_):
+    """
+    (unfinished attempt to convert arrays in xlsx to np.ndarrays directly, using pandas)
+
+    :param path_:
+    :return:
+    """
+
+    array_params = dict()
+
+    # populate array parameters
+    params = pd.read_excel(path_, sheet_name='imaging_and_array_parameters')
+    for idx, value in enumerate(params['Parameter']):
+        array_params[value] = params['Value'][idx]
+
+    # populate fiducials array
+    fiduc_df = pd.read_excel(path_, sheet_name='antigen_type')
+    fiduc = fiduc_df.to_numpy(dtype='U100')
+
+    # populate xlsx
+    xlsx_antigens_df = pd.read_excel(path_, sheet_name='antigen_array')
+    xlsx_antigens = xlsx_antigens_df.to_numpy(dtype='U100')
+
+    return fiduc, None, xlsx_antigens, array_params
 
 
 def create_array(rows_, cols_, dtype='U100'):
@@ -117,9 +265,9 @@ def populate_array_spots_type(arr, spots, fiduc):
     :param arr: np.ndarray
         numpy array generated from "create_array"
     :param spots: dict
-        dict from "create_xml_dict"
-    :param fiduc: dict
-        dict from "create_xml_dict"
+        list of dict from "create_xml_dict"
+    :param fiduc: list
+        list of dict from "create_xml_dict"
     :return: np.ndarray
         populated array
     """
@@ -146,8 +294,8 @@ def populate_array_fiduc(arr, fiduc):
     assigns only fiducials to the positions of the array
     :param arr: np.ndarray
         target array
-    :param fiduc: dict
-        output of "create_xml_dict"
+    :param fiduc: list
+        list of dict output of "create_xml_dict"
     :return: np.ndarray
         modified target array
     """
@@ -162,10 +310,10 @@ def populate_array_fiduc(arr, fiduc):
     return arr
 
 
-def populate_array_antigen(arr, id_arr_, repl):
+def populate_array_antigen_xml(arr, id_arr_, repl):
     """
     populates an array with the antigen
-    scannes through "replicate" in the .xml and assigns all spots the appropriate antigen
+    scans through "replicate" in the .xml and assigns all spots the appropriate antigen
 
     :param arr: np.ndarray
         numpy array generated from "create_array"
@@ -184,3 +332,20 @@ def populate_array_antigen(arr, id_arr_, repl):
 
     return arr
 
+
+def populate_array_antigen(arr, csv_antigens_):
+    """
+    populates an array with antigen
+        used for metadata obtained through .csv files
+    :param arr:
+    :param csv_antigens_: list
+        list of dictionaries whose keys define array coordinates and values
+    :return:
+    """
+    for antigen in csv_antigens_:
+        r = antigen['@row']
+        c = antigen['@col']
+        v = antigen['@antigen']
+        arr[r, c] = v
+
+    return arr

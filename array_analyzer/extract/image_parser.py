@@ -1,6 +1,3 @@
-# bchhun, {2020-03-22}
-
-import os
 import cv2 as cv
 import numpy as np
 import itertools
@@ -9,9 +6,6 @@ import pandas as pd
 from types import SimpleNamespace
 from scipy import spatial
 
-import skimage.io as io
-
-from skimage.color import rgb2grey
 from skimage.transform import hough_circle, hough_circle_peaks
 from skimage.feature import canny
 from skimage.morphology import binary_closing, binary_dilation, selem, disk, binary_opening
@@ -22,7 +16,6 @@ from array_analyzer.transform.point_registration import icp
 
 """
 method is
-1) read_to_grey(supplied images)
 # find center of well
 2) thresh and binarize from 1
 3) find well border from 2
@@ -35,33 +28,6 @@ method is
 8) generate props dict from 7
 9) assign props dict to array from 8
 """
-
-
-def read_to_grey(path_, wellimage_):
-    """
-    a generator that receives file path and returns the next rgb image as greyscale and its name
-
-    :param str path_: path to folder with all images
-    :param str wellimage_: name of the file with image of the well.
-    :return: next image as greyscale np.ndarray
-    """
-    image_path = os.path.join(path_, wellimage_)
-    im = io.imread(image_path)
-    im = rgb2grey(im)
-    return im, os.path.basename(image_path)
-
-
-def read_gray_im(im_path):
-    """
-    Read image from full path to file location.
-    :param str im_path: Path to image
-    :return np.array im: Grayscale image
-    """
-    try:
-        im = cv.imread(im_path, cv.IMREAD_GRAYSCALE | cv.IMREAD_ANYDEPTH)
-    except IOError as e:
-        raise("Can't read image", e)
-    return im
 
 
 def get_well_mask(image_,
@@ -187,10 +153,9 @@ def generate_spot_background(spotmask, distance=3, annulus=5):
 
 
 def generate_props(mask,
-                   intensity_image_=None,
+                   intensity_image=None,
                    dataframe=False,
-                   properties=
-                   ('label', 'centroid', 'mean_intensity',
+                   properties=('label', 'centroid', 'mean_intensity',
                     'intensity_image', 'image', 'area', 'bbox')):
     """
     converts binarized image into a list of region-properties using scikit-image
@@ -199,19 +164,24 @@ def generate_props(mask,
 
     :param mask: np.ndarray
         binary version of cropped image
-    :param intensity_image_: np.ndarray
+    :param intensity_image: np.ndarray
         intensity image corresponding to this binary
     :param dataframe: bool
         return pandas dataframe instead of list of prop objects if true
+    :param tuple properties: Dataframe labels
     :return: list
         of skimage region-props object
     """
     labels = measure.label(mask)
     if dataframe:
-        props = measure.regionprops_table(labels, intensity_image=intensity_image_, properties=properties)
+        props = measure.regionprops_table(
+            labels,
+            intensity_image=intensity_image,
+            properties=properties,
+        )
         props = pd.DataFrame(props)
     else:
-        props = measure.regionprops(labels, intensity_image=intensity_image_)
+        props = measure.regionprops(labels, intensity_image=intensity_image)
     return props
 
 
@@ -368,7 +338,7 @@ def find_fiducials_markers(props_,
     return cent_map
 
 
-def grid_from_centroids(props_, im_int, background, n_rows, n_cols, dist_flr=True, grid_spacing=82):
+def grid_from_centroids(props_, n_rows, n_cols, grid_spacing=82):
     """
     based on the region props, creates a dictionary of format:
         key = (centroid_x, centroid_y)
@@ -376,12 +346,9 @@ def grid_from_centroids(props_, im_int, background, n_rows, n_cols, dist_flr=Tru
 
     :param props_: list of region props
         approximately 36-48 of these, depending on quality of the image
-    :param im: array of the intensity image
     :param n_rows: int
     :param n_cols: int
-    :param min_area: int
-    :param im_height: int
-    :param im_width: int
+    :param grid_spacing
     :return: dict
         of format (cent_x, cent_y): prop
     """
@@ -658,7 +625,6 @@ def build_and_place_block_array(props_array_, spot_mask_, params_, return_type='
     template, temp_origin = build_block_array(params_)
 
     # center the template origin on the expected fiducial 1
-    print(x_min, y_min)
     target = np.zeros(spot_mask_.shape)
     target[int(x_min-temp_origin[0]):int(x_min+template.shape[0]-temp_origin[0]),
            int(y_min-temp_origin[1]):int(y_min+template.shape[1]-temp_origin[1])] = template
@@ -669,7 +635,7 @@ def build_and_place_block_array(props_array_, spot_mask_, params_, return_type='
         return target
 
 
-def compute_od(props_array,bgprops_array):
+def compute_od(props_array, bgprops_array):
     """
 
     Parameters
@@ -685,16 +651,17 @@ def compute_od(props_array,bgprops_array):
     i_spot
     i_bg
     """
-    assert props_array.shape == bgprops_array.shape, 'regionprops arrays representing sample and background are not the same.'
-    n_rows=props_array.shape[0]
-    n_cols=props_array.shape[1]
-    i_spot=np.empty((n_rows,n_cols))
-    i_bg=np.empty((n_rows,n_cols))
-    od_norm=np.empty((n_rows,n_cols))
+    assert props_array.shape == bgprops_array.shape, \
+        'regionprops arrays representing sample and background are not the same.'
+    n_rows = props_array.shape[0]
+    n_cols = props_array.shape[1]
+    i_spot = np.empty((n_rows, n_cols))
+    i_bg = np.empty((n_rows, n_cols))
+    od_norm = np.empty((n_rows, n_cols))
 
-    i_spot[:]=np.NaN
-    i_bg[:]=np.NaN
-    od_norm[:]=np.NaN
+    i_spot[:] = np.NaN
+    i_bg[:] = np.NaN
+    od_norm[:] = np.NaN
 
     for r in np.arange(n_rows):
         for c in np.arange(n_cols):

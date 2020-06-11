@@ -2,7 +2,7 @@ import cv2 as cv
 import numpy as np
 
 
-def create_reference_grid(mean_point,
+def create_reference_grid(center_point,
                           nbr_grid_rows=6,
                           nbr_grid_cols=6,
                           spot_dist=83):
@@ -10,20 +10,28 @@ def create_reference_grid(mean_point,
     Generate initial spot grid based on image scale, center point, spot distance
     and spot layout (nbr rows and cols).
 
-    :param tuple start_point: (x,y) coordinates of center of grid
+    :param tuple center_point: (row, col) coordinates of center of grid
     :param int nbr_grid_rows: Number of spot rows
     :param int nbr_grid_cols: Number of spot columns
     :param int spot_dist: Distance between spots
-    :return np.array grid_coords: (x, y) coordinates for reference spots (nbr x 2)
+    :return np.array grid_coords: (row, col) coordinates for reference spots (nbr x 2)
     """
-    start_x = mean_point[0] - spot_dist * (nbr_grid_cols - 1) / 2
-    start_y = mean_point[1] - spot_dist * (nbr_grid_rows - 1) / 2
-    x_vals = np.linspace(start_x, start_x + (nbr_grid_cols - 1) * spot_dist, nbr_grid_cols)
-    y_vals = np.linspace(start_y, start_y + (nbr_grid_rows - 1) * spot_dist, nbr_grid_rows)
-    grid_x, grid_y = np.meshgrid(x_vals, y_vals)
-    grid_x = grid_x.flatten()
-    grid_y = grid_y.flatten()
-    grid_coords = np.vstack([grid_x.T, grid_y.T]).T
+    start_row = center_point[0] - spot_dist * (nbr_grid_rows - 1) / 2
+    start_col = center_point[1] - spot_dist * (nbr_grid_cols - 1) / 2
+    row_vals = np.linspace(
+        start_row,
+        start_row + (nbr_grid_rows - 1) * spot_dist,
+        nbr_grid_rows,
+    )
+    col_vals = np.linspace(
+        start_col,
+        start_col + (nbr_grid_cols - 1) * spot_dist,
+        nbr_grid_cols,
+    )
+    grid_cols, grid_rows = np.meshgrid(col_vals, row_vals)
+    grid_cols = grid_cols.flatten()
+    grid_rows = grid_rows.flatten()
+    grid_coords = np.vstack([grid_rows.T, grid_cols.T]).T
 
     return grid_coords
 
@@ -87,8 +95,29 @@ def icp(source, target, max_iterate=50, matrix_diff=1.):
     return t_matrix[:2]
 
 
-def create_gaussian_particles(mean_point,
-                              stds,
+def check_reg_coords(reg_coords, im_shape, reg_ok):
+    """
+    Checks that all registered coordinates are within image bounds.
+
+    :param np.array reg_coords: Registered grid coordinates (nbr spots x 2)
+    :param tuple im_shape: Image shape (rows, cols)
+    :param bool reg_ok: Variable determining registration is ok
+    :return bool reg_ok: Variable for
+    """
+    # If registration is already deemed not ok, do nothing
+    if not reg_ok:
+        return reg_ok
+    reg_max = np.max(reg_coords, axis=0)
+    if reg_max[0] >= im_shape[0] or reg_max[1] >= im_shape[1]:
+        reg_ok = False
+    reg_min = np.min(reg_coords, axis=0)
+    if np.any(reg_min <= 0):
+        reg_ok = False
+    return reg_ok
+
+
+def create_gaussian_particles(stds,
+                              mean_point=(0, 0),
                               scale_mean=1.,
                               angle_mean=0.,
                               nbr_particles=100):
@@ -96,8 +125,8 @@ def create_gaussian_particles(mean_point,
     Create particles from parameters x, y, scale and angle given mean and std.
     A particle is considered one set of parameters for a 2D translation matrix.
 
-    :param tuple mean_point: Mean offset in x and y
     :param np.array stds: Standard deviations of x, y, angle and scale
+    :param tuple mean_point: Mean offset in x and y
     :param float scale_mean: Mean scale of translation
     :param float angle_mean: Mean angle of translation estimation
     :param int nbr_particles: Number of particles
@@ -130,9 +159,9 @@ def particle_filter(fiducial_coords,
                     particles,
                     stds,
                     max_iter=100,
-                    stop_criteria=.01,
+                    stop_criteria=.1,
                     iter_decrease=.8,
-                    remove_outlier=False,
+                    nbr_outliers=0,
                     debug=False):
     """
     Particle filtering to determine best grid location.
@@ -148,8 +177,8 @@ def particle_filter(fiducial_coords,
     :param float stop_criteria: Absolute difference of distance between iterations
     :param float iter_decrease: Reduce standard deviations each iterations to slow
         down permutations
-    :param bool remove_outlier: If registration hasn't converged, remove worst fitted
-        spot when running particle filter
+    :param int nbr_outliers: If registration hasn't converged, remove worst fitted
+        spots when running particle filter
     :param bool debug: Print total distance in each iteration if true
     :return np.array t_matrix: Estimated 2D translation matrix
     :return float min_dist: Minimum total distance from fiducials to spots
@@ -159,26 +188,32 @@ def particle_filter(fiducial_coords,
     knn = cv.ml.KNearest_create()
     labels = np.array(range(dst.shape[0])).astype(np.float32)
     knn.train(dst, cv.ml.ROW_SAMPLE, labels)
+    # Make sure we don't have too many outliers
+    if nbr_outliers > 0:
+        if len(labels) < nbr_outliers + 5 or fiducial_coords.shape[0] < nbr_outliers + 5:
+            nbr_outliers = 1
 
     nbr_particles = particles.shape[0]
     dists = np.zeros(nbr_particles)
     temp_stds = stds.copy()
+    temp_particles = particles.copy()
 
     # Iterate until min dist doesn't change
     min_dist_old = 10 ** 6
     for i in range(max_iter):
 
         for p in range(nbr_particles):
-            particle = particles[p]
+            particle = temp_particles[p]
             # Generate transformation matrix
             t_matrix = get_translation_matrix(particle)
             trans_coords = cv.transform(np.array([fiducial_coords]), t_matrix)
             trans_coords = trans_coords[0].astype(np.float32)
             # Find nearest spots
             ret, results, neighbors, dist = knn.findNearest(trans_coords, 1)
-            if remove_outlier:
-                # Remove worst fitted spot
-                dist = dist[dist != np.amax(dist)]
+            if nbr_outliers > 0:
+                # Remove worst fitted spots
+                dist = np.sort(dist, axis=0)
+                dist = dist[:-nbr_outliers]
 
             dists[p] = sum(dist)
 
@@ -197,17 +232,17 @@ def particle_filter(fiducial_coords,
 
         # Importance sampling
         idxs = np.random.choice(nbr_particles, nbr_particles, p=weights)
-        particles = particles[idxs, :]
+        temp_particles = temp_particles[idxs, :]
 
         # Reduce standard deviations a little every iteration
         temp_stds = temp_stds * iter_decrease ** i
         # Distort particles
         for c in range(4):
             distort = np.random.randn(nbr_particles)
-            particles[:, c] = particles[:, c] + distort * temp_stds[c]
+            temp_particles[:, c] = temp_particles[:, c] + distort * temp_stds[c]
 
     # Return best particle
-    particle = particles[dists == dists.min(), :][0]
+    particle = temp_particles[dists == dists.min(), :][0]
 
     # Generate transformation matrix
     t_matrix = get_translation_matrix(particle)
