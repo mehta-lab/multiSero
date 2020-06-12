@@ -685,13 +685,17 @@ def fit2df(df, model, pipeline):
             df_fit = df_fit.append(df_fit_temp)
     print('4PL fitting finished')
     return df_fit
-python_df_fit = fit2df(python_df, fourPL, 'python')
+python_df_fit = fit2df(stitchedpython_df, fourPL, 'python')
 #%% plot the ODs and fits
-fig_path = os.path.join(data_folder1, 'pysero_plots')
+fig_path = os.path.join(data_folder1, 'pysero_plots2')
 os.makedirs(fig_path, exist_ok=True)
 # serum_type = 'Control'
 pipeline = 'python'
-sera_list = natsorted(python_df['serum ID'].unique())
+#sera_list = natsorted(stitchedpython_df['serum ID'].unique())
+# 200612 JRB ADJUSTMENTS
+
+sera_list= ['Neg pool', 'Neg pool 1/200 + CR3022', 'Pos Pool']
+# 200612 JRB ADJUSTMENTS
 sera_fit_list = [' '.join([x, 'fit']) for x in sera_list]
 # sera_list = ['pos 1', 'pos 2', 'pos 3', 'pos 4', 'neg 1', 'neg 2', 'neg 3', 'neg 4']
 # sera_list = ['CR3022']
@@ -704,12 +708,12 @@ markers = 'o'
 hue = 'serum ID'
 sec_dilutions = [2e-4]
 # sec_dilutions = [5e-5]
-# sec_dilutions = python_df['secondary dilution'].unique()
+# sec_dilutions = stitchedpython_df['secondary dilution'].unique()
 # style = 'secondary ID'
 style = 'serum type'
-antigens = natsorted(python_df['antigen'].unique())
-serum_df = python_df[(python_df['pipeline']==pipeline) & python_df['serum ID'].isin(sera_list)
-                     & python_df['secondary dilution'].isin(sec_dilutions)]
+antigens = natsorted(stitchedpython_df['antigen'].unique())
+serum_df = stitchedpython_df[(stitchedpython_df['pipeline']==pipeline) & stitchedpython_df['serum ID'].isin(sera_list)
+                     & stitchedpython_df['secondary dilution'].isin(sec_dilutions)]
 assert not serum_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
 for sec_id in serum_df['secondary ID'].unique():
     sub_df = serum_df[(serum_df['secondary ID'] == sec_id)]
@@ -732,7 +736,7 @@ for sec_id in serum_df['secondary ID'].unique():
         ax.set(xscale="log")
         # ax.set(ylim=[-0.05, 1.5])
 
-    plt.savefig(os.path.join(fig_path, '{}_{}_{}_fit.jpg'.format('all_sera', sec_id, sec_dilutions)),
+    plt.savefig(os.path.join(fig_path, '{}_{}_{}_fit.jpg'.format('THREE_sera', sec_id, sec_dilutions)),
                              dpi=300, bbox_inches='tight')
 #%% functions to compute ROC curves and AUC
 from sklearn.metrics import roc_curve, roc_auc_score
@@ -766,7 +770,7 @@ def get_roc_df(df):
     # roc_df = roc_df.reset_index()
     roc_df = roc_df.apply(pd.Series.explode).astype(float).reset_index()
     return roc_df
-roc_df = get_roc_df(python_df)
+roc_df = get_roc_df(stitchedpython_df)
 #%% Plot ROC curves
 # hue = 'secondary dilution'
 hue = "serum dilution"
