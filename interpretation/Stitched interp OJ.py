@@ -63,7 +63,7 @@ bg_path1 = os.path.join(data_folder1, 'median_backgrounds.xlsx')
 #scienion1_path = os.path.join(data_folder1, '2020-06-04-16-08-27-COVID_June4_JBassay_analysis.xlsx')
 
 # %% Second path
-data_folder2 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-40-02-COVID_June5_OJassay_plate7_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200609_1651'
+data_folder2 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-40-02-COVID_June5_OJassay_plate7_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200613_1341'
 metadata_path2 = os.path.join(data_folder2, 'pysero_output_data_metadata.xlsx')
 OD_path2 = os.path.join(data_folder2, 'median_ODs.xlsx')
 int_path2 = os.path.join(data_folder2, 'median_intensities.xlsx')
@@ -354,9 +354,13 @@ python_df2['pipeline'] = 'python'
 python_df2.replace([np.inf, -np.inf], np.nan, inplace=True)
 python_df2.dropna(subset=['OD'], inplace=True)
 
-# #%% Remove failed wells
-# wells2keep = ['B6', 'B8', 'B10', 'B12']
-# python_df22 = python_df2[(python_df2['well_id'].isin(wells2keep))]
+# %% Remove failed wells
+
+failed_wells = ['F2']
+for failed_well in failed_wells:
+    python_df2 = python_df2[python_df2.well_id != failed_well]
+#wells2keep = ['B6', 'B8', 'B10', 'B12']
+#python_df22 = python_df2[(python_df2['well_id'].isin(wells2keep))]
 # %% Do the same for third path
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -691,39 +695,35 @@ stitchedpython_df = pd.concat(frames)
 #%% plot the ODs and fits
 fig_path = os.path.join(data_folder1, 'pysero_plots')
 os.makedirs(fig_path, exist_ok=True)
-# serum_type = 'Control'
-pipeline = 'python'
-sera_list = natsorted(stitchedpython_df['serum ID'].unique())
+# # serum_type = 'Control'
+# pipeline = 'python'
+# sera_list = natsorted(stitchedpython_df['serum ID'].unique())
 
 
 #sera_list= ['Neg pool', 'Neg pool 1/200 + CR3022', 'Pos Pool']
 
-sera_fit_list = [' '.join([x, 'fit']) for x in sera_list]
+#sera_fit_list = [' '.join([x, 'fit']) for x in sera_list]
 # sera_list = ['pos 1', 'pos 2', 'pos 3', 'pos 4', 'neg 1', 'neg 2', 'neg 3', 'neg 4']
 # sera_list = ['CR3022']
 # sera_list = ['Neg 1']
 # sera_list = ['neg ' + str(i) for i in range(11, 16)]
 # sera_list = ['positive ' + str(i) for i in range(1, 6)] + ['negative ' + str(i) for i in range(1, 7)]
 # markers = ['o'] * 5 + ['x'] * 6
-markers = 'o'
-# hue = 'secondary dilution'
-hue = 'serum ID'
-sec_dilutions = [2e-4]
-# sec_dilutions = [5e-5]
-# sec_dilutions = stitchedpython_df['secondary dilution'].unique()
-# style = 'secondary ID'
-style = 'serum type'
-antigens = natsorted(stitchedpython_df['antigen'].unique())
-serum_df = stitchedpython_df[(stitchedpython_df['pipeline']==pipeline) & stitchedpython_df['serum ID'].isin(sera_list)
-                     & stitchedpython_df['secondary dilution'].isin(sec_dilutions)]
-assert not serum_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
-for sec_id in serum_df['secondary ID'].unique():
-    sub_df = serum_df[(serum_df['secondary ID'] == sec_id)]
-    palette = sns.color_palette(n_colors=len(sub_df[hue].unique()))
-    print('plotting...')
-    g = sns.lmplot(x="serum dilution", y="OD", col_order=antigens,
-                    hue=hue, hue_order=sera_list, col="antigen", ci='sd', palette=palette, markers=markers,
-                     data=sub_df, col_wrap=5, fit_reg=False, x_estimator=np.mean)
+# markers = 'o'
+# hue = 'serum ID'
+# sec_dilutions = [2e-4]
+# style = 'serum type'
+# antigens = natsorted(stitchedpython_df['antigen'].unique())
+# serum_df = stitchedpython_df[(stitchedpython_df['pipeline']==pipeline) & stitchedpython_df['serum ID'].isin(sera_list)
+#                      & stitchedpython_df['secondary dilution'].isin(sec_dilutions)]
+# assert not serum_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
+# for sec_id in serum_df['secondary ID'].unique():
+#     sub_df = serum_df[(serum_df['secondary ID'] == sec_id)]
+#     palette = sns.color_palette(n_colors=len(sub_df[hue].unique()))
+#     print('plotting...')
+#     g = sns.lmplot(x="serum dilution", y="OD", col_order=antigens,
+#                     hue=hue, hue_order=sera_list, col="antigen", ci='sd', palette=palette, markers=markers,
+#                      data=sub_df, col_wrap=5, fit_reg=False, x_estimator=np.mean)
     #%% JRB Commenting out fits for now
     # sub_python_df_fit=python_df_fit[(python_df_fit['pipeline']==pipeline) &
     #                                python_df_fit['serum ID'].isin(sera_fit_list) &
@@ -739,8 +739,7 @@ for sec_id in serum_df['secondary ID'].unique():
     #     ax.set(xscale="log")
     #     # ax.set(ylim=[-0.05, 1.5])
     # %% JRB Commenting out fits for now
-    plt.savefig(os.path.join(fig_path, '{}_{}_{}_fit.jpg'.format('all_sera test', sec_id, sec_dilutions)),
-                             dpi=300, bbox_inches='tight')
+#plt.savefig(os.path.join(fig_path, '{}_{}_{}_fit.jpg'.format('all_sera test', sec_id, sec_dilutions)),dpi=300, bbox_inches='tight')
 #%% functions to compute ROC curves and AUC
 # from sklearn.metrics import roc_curve, roc_auc_score
 #
@@ -776,14 +775,14 @@ for sec_id in serum_df['secondary ID'].unique():
 # roc_df = get_roc_df(stitchedpython_df)
 
 #%% Plot categorical scatter plot for episurvey
+pipeline = 'python'
 sera_list = natsorted(stitchedpython_df['serum ID'].unique())
 antigens = natsorted(stitchedpython_df['antigen'].unique())
-serum_df = stitchedpython_df[(stitchedpython_df['pipeline']==pipeline) & stitchedpython_df['serum ID'].isin(sera_list)
-                     & stitchedpython_df['secondary dilution'].isin(sec_dilutions)]
+serum_df = stitchedpython_df[(stitchedpython_df['pipeline']==pipeline) & stitchedpython_df['serum ID'].isin(sera_list)]
 assert not serum_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
 
 # Draw a categorical scatterplot to show each observation
-sns.swarmplot(x="serum type", y="OD", hue="serum cat", col_order=antigens, col="antigen",palette=["r","c","y"],data=stitchedpython_df, col_wrap = 5)
+sns.catplot(x="serum type", y="OD", hue="serum cat", col_order=antigens, col="antigen",kind="swarm", palette=["r","c","y"],data=stitchedpython_df, col_wrap = 5)
 plt.savefig(os.path.join(fig_path, 'scatter_{}_{}.jpg'.format('positive', 'negative')),
                               dpi=300, bbox_inches='tight')
 # #%% Plot ROC curves
