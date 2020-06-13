@@ -98,7 +98,7 @@ with pd.ExcelFile(metadata_path1) as metadata_xlsx:
     # get sheet names that are available in metadata
     sheet_names = list(set(metadata_xlsx.sheet_names).intersection(sheet_names))
     for sheet_name in sheet_names:
-        sheet_df = pd.read_excel(metadata_path1, sheet_name=sheet_name, index_col=0)
+        sheet_df = pd.read_excel(metadata_xlsx, sheet_name=sheet_name, index_col=0)
         sheet_df = sheet_df.unstack().reset_index(name=sheet_name)  # unpivot (linearize) the table
         sheet_df.rename(columns={'level_1': 'row_id', 'level_0': 'col_id'}, inplace=True)
         if plate_info_df.empty:
@@ -107,6 +107,7 @@ with pd.ExcelFile(metadata_path1) as metadata_xlsx:
             plate_info_df = pd.merge(plate_info_df,
                                      sheet_df,
                                      how='left', on=['row_id', 'col_id'])
+    antigen_df = antigen2D_to_df1D(xlsx_path=metadata_xlsx, sheet='antigen_array', data_col='antigen')
 plate_info_df['well_id'] = plate_info_df.row_id + plate_info_df.col_id.map(str)
 sheet_names.append('well_id')
 # convert to number and non-numeric to NaN
@@ -119,8 +120,7 @@ if np.all(plate_info_df['serum dilution'] >= 1):
     plate_info_df['serum dilution'] = 1 / plate_info_df['serum dilution']
 plate_info_df.drop(['row_id', 'col_id'], axis=1, inplace=True)
 
-# %% Read antigen information.
-antigen_df = antigen2D_to_df1D(xlsx_path=metadata_path1, sheet='antigen_array', data_col='antigen')
+
 
 # %% Read analysis output from Scienion
 # Read all wells into dictionary.
@@ -233,7 +233,7 @@ with pd.ExcelFile(metadata_path2) as metadata_xlsx:
     # get sheet names that are available in metadata
     sheet_names = list(set(metadata_xlsx.sheet_names).intersection(sheet_names))
     for sheet_name in sheet_names:
-        sheet_df = pd.read_excel(metadata_path2, sheet_name=sheet_name, index_col=0)
+        sheet_df = pd.read_excel(metadata_xlsx, sheet_name=sheet_name, index_col=0)
         sheet_df = sheet_df.unstack().reset_index(name=sheet_name)  # unpivot (linearize) the table
         sheet_df.rename(columns={'level_1': 'row_id', 'level_0': 'col_id'}, inplace=True)
         if plate_info_df2.empty:
@@ -242,6 +242,7 @@ with pd.ExcelFile(metadata_path2) as metadata_xlsx:
             plate_info_df2 = pd.merge(plate_info_df2,
                                       sheet_df,
                                       how='left', on=['row_id', 'col_id'])
+    antigen_df2 = antigen2D_to_df1D(xlsx_path=metadata_xlsx, sheet='antigen_array', data_col='antigen')
 plate_info_df2['well_id'] = plate_info_df2.row_id + plate_info_df2.col_id.map(str)
 sheet_names.append('well_id')
 # convert to number and non-numeric to NaN
@@ -255,7 +256,7 @@ if np.all(plate_info_df2['serum dilution'] >= 1):
 plate_info_df2.drop(['row_id', 'col_id'], axis=1, inplace=True)
 
 # %% Read antigen information.
-antigen_df2 = antigen2D_to_df1D(xlsx_path=metadata_path2, sheet='antigen_array', data_col='antigen')
+
 
 # %% Read analysis output from Scienion
 # Read all wells into dictionary.
@@ -369,7 +370,7 @@ with pd.ExcelFile(metadata_path3) as metadata_xlsx:
     # get sheet names that are available in metadata
     sheet_names = list(set(metadata_xlsx.sheet_names).intersection(sheet_names))
     for sheet_name in sheet_names:
-        sheet_df = pd.read_excel(metadata_path3, sheet_name=sheet_name, index_col=0)
+        sheet_df = pd.read_excel(metadata_xlsx, sheet_name=sheet_name, index_col=0)
         sheet_df = sheet_df.unstack().reset_index(name=sheet_name)  # unpivot (linearize) the table
         sheet_df.rename(columns={'level_1': 'row_id', 'level_0': 'col_id'}, inplace=True)
         if plate_info_df3.empty:
@@ -378,6 +379,7 @@ with pd.ExcelFile(metadata_path3) as metadata_xlsx:
             plate_info_df3 = pd.merge(plate_info_df3,
                                       sheet_df,
                                       how='left', on=['row_id', 'col_id'])
+    antigen_df3 = antigen2D_to_df1D(xlsx_path=metadata_xlsx, sheet='antigen_array', data_col='antigen')
 plate_info_df3['well_id'] = plate_info_df3.row_id + plate_info_df3.col_id.map(str)
 sheet_names.append('well_id')
 # convert to number and non-numeric to NaN
@@ -391,7 +393,7 @@ if np.all(plate_info_df3['serum dilution'] >= 1):
 plate_info_df3.drop(['row_id', 'col_id'], axis=1, inplace=True)
 
 # %% Read antigen information.
-antigen_df3 = antigen2D_to_df1D(xlsx_path=metadata_path3, sheet='antigen_array', data_col='antigen')
+
 
 # %% Read analysis output from Scienion
 # Read all wells into dictionary.
@@ -509,7 +511,7 @@ with pd.ExcelFile(metadata_path4) as metadata_xlsx:
     # get sheet names that are available in metadata
     sheet_names = list(set(metadata_xlsx.sheet_names).intersection(sheet_names))
     for sheet_name in sheet_names:
-        sheet_df = pd.read_excel(metadata_path4, sheet_name=sheet_name, index_col=0)
+        sheet_df = pd.read_excel(metadata_xlsx, sheet_name=sheet_name, index_col=0)
         sheet_df = sheet_df.unstack().reset_index(name=sheet_name)  # unpivot (linearize) the table
         sheet_df.rename(columns={'level_1': 'row_id', 'level_0': 'col_id'}, inplace=True)
         if plate_info_df4.empty:
@@ -518,6 +520,7 @@ with pd.ExcelFile(metadata_path4) as metadata_xlsx:
             plate_info_df4 = pd.merge(plate_info_df4,
                                       sheet_df,
                                       how='left', on=['row_id', 'col_id'])
+    antigen_df4 = antigen2D_to_df1D(xlsx_path=metadata_xlsx, sheet='antigen_array', data_col='antigen')
 plate_info_df4['well_id'] = plate_info_df4.row_id + plate_info_df4.col_id.map(str)
 sheet_names.append('well_id')
 # convert to number and non-numeric to NaN
@@ -531,7 +534,7 @@ if np.all(plate_info_df4['serum dilution'] >= 1):
 plate_info_df4.drop(['row_id', 'col_id'], axis=1, inplace=True)
 
 # %% Read antigen information.
-antigen_df4 = antigen2D_to_df1D(xlsx_path=metadata_path4, sheet='antigen_array', data_col='antigen')
+
 
 # %% Read analysis output from Scienion
 # Read all wells into dictionary.
@@ -770,6 +773,11 @@ def get_roc_df(df):
     # roc_df = roc_df.reset_index()
     roc_df = roc_df.apply(pd.Series.explode).astype(float).reset_index()
     return roc_df
+#%%
+serum_df = stitchedpython_df[~stitchedpython_df['serum ID'].str.contains('CR3022|Blank', regex=True)]
+print(serum_df['serum dilution'].unique())
+test_df = serum_df[(serum_df['serum dilution']==4.8828125e-06) & (serum_df['antigen']=='GFP foldon')]
+#%%
 roc_df = get_roc_df(stitchedpython_df)
 #%% Plot ROC curves
 # hue = 'secondary dilution'
