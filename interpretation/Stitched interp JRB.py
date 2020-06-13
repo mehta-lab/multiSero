@@ -779,6 +779,16 @@ print(serum_df['serum dilution'].unique())
 test_df = serum_df[(serum_df['serum dilution']==4.8828125e-06) & (serum_df['antigen']=='GFP foldon')]
 #%%
 roc_df = get_roc_df(stitchedpython_df)
+
+#%% Plot categorical scatter plot for episurvey
+antigens = natsorted(stitchedpython_df['antigen'].unique())
+serum_df = stitchedpython_df[(stitchedpython_df['pipeline']==pipeline) & stitchedpython_df['serum ID'].isin(sera_list)
+                     & stitchedpython_df['secondary dilution'].isin(sec_dilutions)]
+assert not serum_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
+
+# Draw a categorical scatterplot to show each observation
+sns.swarmplot(x="serum type", y="OD", hue="serum cat", col_order=antigens, col="antigen",palette=["r","c","y"],data=stitchedpython_df, col_wrap = 5)
+
 #%% Plot ROC curves
 # hue = 'secondary dilution'
 hue = "serum dilution"
