@@ -771,6 +771,16 @@ def get_roc_df(df):
     roc_df = roc_df.apply(pd.Series.explode).astype(float).reset_index()
     return roc_df
 roc_df = get_roc_df(stitchedpython_df)
+
+#%% Plot categorical scatter plot for episurvey
+antigens = natsorted(stitchedpython_df['antigen'].unique())
+serum_df = stitchedpython_df[(stitchedpython_df['pipeline']==pipeline) & stitchedpython_df['serum ID'].isin(sera_list)
+                     & stitchedpython_df['secondary dilution'].isin(sec_dilutions)]
+assert not serum_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
+
+# Draw a categorical scatterplot to show each observation
+sns.swarmplot(x="serum type", y="OD", hue="serum cat", col_order=antigens, col="antigen",palette=["r","c","y"],data=stitchedpython_df, col_wrap = 5)
+
 #%% Plot ROC curves
 # hue = 'secondary dilution'
 hue = "serum dilution"
