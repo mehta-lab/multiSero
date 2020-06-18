@@ -1,0 +1,268 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# %% Setup
+
+
+from pprint import pprint
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+import matplotlib
+import skimage.io as io
+from natsort import natsorted
+import seaborn as sns;
+
+sns.set_context("talk")
+font = {'size': 10, 'weight': 'normal', 'family': 'arial'}
+matplotlib.rc('font', **font)
+
+
+def antigen2D_to_df1D(xlsx_path, sheet, data_col):
+    """
+    Convert old 2D output format (per antigen) to 1D dataframe
+    :param xlsx_path:
+    :param sheet:
+    :param data_col:
+    :return:
+    """
+    df = pd.read_excel(xlsx_path, sheet_name=sheet, index_col=0)
+    df = df.unstack().reset_index(name=data_col)  # unpivot (linearize) the table
+    df.rename(columns={'level_1': 'antigen_row', 'level_0': 'antigen_col'}, inplace=True)
+    df[['antigen_row', 'antigen_col']] = df[['antigen_row', 'antigen_col']].applymap(int)
+    df = df[['antigen_row', 'antigen_col', data_col]]
+    df.dropna(inplace=True)
+    return df
+
+
+def well2D_to_df1D(xlsx_path, sheet, data_col):
+    """
+    Convert new 2D output format (per well) to 1D dataframe
+    :param xlsx_path:
+    :param sheet:
+    :param data_col:
+    :return:
+    """
+    df = pd.read_excel(xlsx_path, sheet_name=sheet, index_col=0)
+    df = df.unstack().reset_index(name=data_col)  # unpivot (linearize) the table
+    df.rename(columns={'level_1': 'row_id', 'level_0': 'col_id'}, inplace=True)
+    df['well_id'] = df.row_id + df.col_id.map(str)
+    df = df[['well_id', data_col]]
+    return df
+
+
+# %% Set paths
+
+# %% First path
+data_folder1 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-40-02-COVID_June5_OJassay_plate7_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200611_1257'
+metadata_path1 = os.path.join(data_folder1, 'pysero_output_data_metadata.xlsx')
+OD_path1 = os.path.join(data_folder1, 'median_ODs.xlsx')
+int_path1 = os.path.join(data_folder1, 'median_intensities.xlsx')
+bg_path1 = os.path.join(data_folder1, 'median_backgrounds.xlsx')
+#scienion1_path = os.path.join(data_folder1, '2020-06-04-16-08-27-COVID_June4_JBassay_analysis.xlsx')
+
+# %% Second path
+data_folder2 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-44-32-COVID_June5_OJassay_plate8_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200613_2017'
+metadata_path2 = os.path.join(data_folder2, 'pysero_output_data_metadata.xlsx')
+OD_path2 = os.path.join(data_folder2, 'median_ODs.xlsx')
+int_path2 = os.path.join(data_folder2, 'median_intensities.xlsx')
+bg_path2 = os.path.join(data_folder2, 'median_backgrounds.xlsx')
+# scienion_path=os.path.join(data_folder, '2020-05-18-17-59-01-COVID_May18_JVassay_analysis.xlsx')
+
+# %% Read antigen and plate info
+sheet_names = ['serum ID',
+               'serum dilution',
+               'serum cat',
+               'serum type',
+               'secondary ID',
+               'secondary dilution']
+plate_info_df = pd.DataFrame()
+with pd.ExcelFile(metadata_path1) as metadata_xlsx:
+    # get sheet names that are available in metadata
+    sheet_names = list(set(metadata_xlsx.sheet_names).intersection(sheet_names))
+    for sheet_name in sheet_names:
+        sheet_df = pd.read_excel(metadata_xlsx, sheet_name=sheet_name, index_col=0)
+        sheet_df = sheet_df.unstack().reset_index(name=sheet_name)  # unpivot (linearize) the table
+        sheet_df.rename(columns={'level_1': 'row_id', 'level_0': 'col_id'}, inplace=True)
+        if plate_info_df.empty:
+            plate_info_df = sheet_df
+        else:
+            plate_info_df = pd.merge(plate_info_df,
+                                     sheet_df,
+                                     how='left', on=['row_id', 'col_id'])
+    antigen_df = antigen2D_to_df1D(xlsx_path=metadata_xlsx, sheet='antigen_array', data_col='antigen')
+plate_info_df['well_id'] = plate_info_df.row_id + plate_info_df.col_id.map(str)
+sheet_names.append('well_id')
+# convert to number and non-numeric to NaN
+plate_info_df['serum dilution'] = \
+    plate_info_df['serum dilution'].apply(pd.to_numeric, errors='coerce')
+plate_info_df.dropna(inplace=True)
+# %%
+if np.all(plate_info_df['serum dilution'] >= 1):
+    # convert dilution to concentration
+    plate_info_df['serum dilution'] = 1 / plate_info_df['serum dilution']
+plate_info_df.drop(['row_id', 'col_id'], axis=1, inplace=True)
+
+# %% Read optical density from pysero
+OD_df = pd.DataFrame()
+int_df = pd.DataFrame()
+bg_df = pd.DataFrame()
+with pd.ExcelFile(OD_path1) as OD_xlsx:
+    for _, row in antigen_df.iterrows():
+        sheet_name = 'od_{}_{}_{}'.format(row['antigen_row'], row['antigen_col'], row['antigen'])
+        OD_1_antiten_df = well2D_to_df1D(xlsx_path=OD_xlsx, sheet=sheet_name, data_col='OD')
+        OD_1_antiten_df['antigen_row'] = row['antigen_row']
+        OD_1_antiten_df['antigen_col'] = row['antigen_col']
+        OD_1_antiten_df['antigen'] = row['antigen']
+        OD_df = OD_df.append(OD_1_antiten_df, ignore_index=True)
+
+with pd.ExcelFile(int_path1) as int_xlsx:
+    for _, row in antigen_df.iterrows():
+        sheet_name = 'int_{}_{}_{}'.format(row['antigen_row'], row['antigen_col'], row['antigen'])
+        int_1_antiten_df = well2D_to_df1D(xlsx_path=int_xlsx, sheet=sheet_name, data_col='intensity')
+        int_1_antiten_df['antigen_row'] = row['antigen_row']
+        int_1_antiten_df['antigen_col'] = row['antigen_col']
+        int_df = int_df.append(int_1_antiten_df, ignore_index=True)
+
+with pd.ExcelFile(bg_path1) as bg_xlsx:
+    for _, row in antigen_df.iterrows():
+        sheet_name = 'bg_{}_{}_{}'.format(row['antigen_row'], row['antigen_col'], row['antigen'])
+        bg_1_antiten_df = well2D_to_df1D(xlsx_path=bg_xlsx, sheet=sheet_name, data_col='background')
+        bg_1_antiten_df['antigen_row'] = row['antigen_row']
+        bg_1_antiten_df['antigen_col'] = row['antigen_col']
+        bg_df = bg_df.append(bg_1_antiten_df, ignore_index=True)
+
+# %% merge OD with antigen and plate info.
+
+
+# Use of filter avoids merge of duplicate columns when the cell is run multiple times.
+OD_df = OD_df.filter(items=['antigen_row', 'antigen_col', 'OD', 'well_id'], axis=1)
+OD_df = pd.merge(OD_df,
+                 antigen_df,
+                 how='left', on=['antigen_row', 'antigen_col'])
+OD_df = pd.merge(OD_df,
+                 plate_info_df,
+                 how='right', on=['well_id'])
+python_df = pd.merge(OD_df,
+                     int_df,
+                     how='left', on=['antigen_row', 'antigen_col', 'well_id'])
+python_df = pd.merge(python_df,
+                     bg_df,
+                     how='left', on=['antigen_row', 'antigen_col', 'well_id'])
+
+python_df['pipeline'] = 'python'
+#python_df['plate'] = 'OJ7'
+
+# #%% Remove failed wells
+# failed_wells = ['B6', 'B8', 'B10', 'B12','F4','H2','H4', 'H6', 'H9', 'H12']
+# for failed_well in failed_wells:
+#     python_df = python_df[python_df.well_id != failed_well]
+
+# %% Read antigen and plate info
+sheet_names = ['serum ID',
+               'serum dilution',
+               'serum cat',
+               'serum type',
+               'secondary ID',
+               'secondary dilution']
+plate_info_df2 = pd.DataFrame()
+with pd.ExcelFile(metadata_path2) as metadata_xlsx:
+    # get sheet names that are available in metadata
+    sheet_names = list(set(metadata_xlsx.sheet_names).intersection(sheet_names))
+    for sheet_name in sheet_names:
+        sheet_df = pd.read_excel(metadata_xlsx, sheet_name=sheet_name, index_col=0)
+        sheet_df = sheet_df.unstack().reset_index(name=sheet_name)  # unpivot (linearize) the table
+        sheet_df.rename(columns={'level_1': 'row_id', 'level_0': 'col_id'}, inplace=True)
+        if plate_info_df2.empty:
+            plate_info_df2 = sheet_df
+        else:
+            plate_info_df2 = pd.merge(plate_info_df2,
+                                      sheet_df,
+                                      how='left', on=['row_id', 'col_id'])
+    antigen_df2 = antigen2D_to_df1D(xlsx_path=metadata_xlsx, sheet='antigen_array', data_col='antigen')
+plate_info_df2['well_id'] = plate_info_df2.row_id + plate_info_df2.col_id.map(str)
+sheet_names.append('well_id')
+# convert to number and non-numeric to NaN
+plate_info_df2['serum dilution'] = \
+    plate_info_df2['serum dilution'].apply(pd.to_numeric, errors='coerce')
+plate_info_df2.dropna(inplace=True)
+# %%
+if np.all(plate_info_df2['serum dilution'] >= 1):
+    # convert dilution to concentration
+    plate_info_df2['serum dilution'] = 1 / plate_info_df2['serum dilution']
+plate_info_df2.drop(['row_id', 'col_id'], axis=1, inplace=True)
+# %% Read optical density from pysero
+OD_df2 = pd.DataFrame()
+int_df2 = pd.DataFrame()
+bg_df2 = pd.DataFrame()
+with pd.ExcelFile(OD_path2) as OD_xlsx:
+    for _, row in antigen_df2.iterrows():
+        sheet_name = 'od_{}_{}_{}'.format(row['antigen_row'], row['antigen_col'], row['antigen'])
+        OD_1_antiten_df = well2D_to_df1D(xlsx_path=OD_xlsx, sheet=sheet_name, data_col='OD')
+        OD_1_antiten_df['antigen_row'] = row['antigen_row']
+        OD_1_antiten_df['antigen_col'] = row['antigen_col']
+        OD_1_antiten_df['antigen'] = row['antigen']
+        OD_df2 = OD_df2.append(OD_1_antiten_df, ignore_index=True)
+
+with pd.ExcelFile(int_path2) as int_xlsx:
+    for _, row in antigen_df2.iterrows():
+        sheet_name = 'int_{}_{}_{}'.format(row['antigen_row'], row['antigen_col'], row['antigen'])
+        int_1_antiten_df = well2D_to_df1D(xlsx_path=int_xlsx, sheet=sheet_name, data_col='intensity')
+        int_1_antiten_df['antigen_row'] = row['antigen_row']
+        int_1_antiten_df['antigen_col'] = row['antigen_col']
+        int_df2 = int_df2.append(int_1_antiten_df, ignore_index=True)
+
+with pd.ExcelFile(bg_path2) as bg_xlsx:
+    for _, row in antigen_df2.iterrows():
+        sheet_name = 'bg_{}_{}_{}'.format(row['antigen_row'], row['antigen_col'], row['antigen'])
+        bg_1_antiten_df = well2D_to_df1D(xlsx_path=bg_xlsx, sheet=sheet_name, data_col='background')
+        bg_1_antiten_df['antigen_row'] = row['antigen_row']
+        bg_1_antiten_df['antigen_col'] = row['antigen_col']
+        bg_df2 = bg_df2.append(bg_1_antiten_df, ignore_index=True)
+
+# %% merge OD with antigen and plate info.
+
+
+# Use of filter avoids merge of duplicate columns when the cell is run multiple times.
+OD_df2 = OD_df2.filter(items=['antigen_row', 'antigen_col', 'OD', 'well_id'], axis=1)
+OD_df2 = pd.merge(OD_df2,
+                  antigen_df2,
+                  how='left', on=['antigen_row', 'antigen_col'])
+OD_df2 = pd.merge(OD_df2,
+                  plate_info_df2,
+                  how='right', on=['well_id'])
+python_df2 = pd.merge(OD_df2,
+                      int_df2,
+                      how='left', on=['antigen_row', 'antigen_col', 'well_id'])
+python_df2 = pd.merge(python_df2,
+                      bg_df2,
+                      how='left', on=['antigen_row', 'antigen_col', 'well_id'])
+
+python_df2['pipeline'] = 'python'
+#python_df2['plate'] = 'OJ8'
+
+# #%% Remove failed wells
+# wells2keep = ['B6', 'B8', 'B10', 'B12']
+# python_df22 = python_df2[(python_df2['well_id'].isin(wells2keep))]
+
+#%% Merge dataframes
+python_df2 = python_df2.filter(items=['antigen_row', 'antigen_col', 'OD', 'well_id'], axis=1)
+stitchedpython_df2 = pd.merge(python_df,python_df2, how='right', on=['antigen_row', 'antigen_col', 'well_id'])
+#%% Concatenate dataframes
+#frames = [python_df, python_df2]
+#stitchedpython_df = pd.concat(frames)
+
+#%% Make a scatter plot with 3 datasets: xkappa biotin, IgG, and GFP foldon per well
+palette=sns.color_palette()
+pipeline = 'python'
+antigen_list = ['xkappa-biotin', 'xIgG Fc', 'GFP foldon']
+fig_path = os.path.join(data_folder1, 'correlation plots')
+
+sub_df1 = stitchedpython_df2[stitchedpython_df2['antigen'].isin(antigen_list)]
+antigens = natsorted(sub_df1['antigen'].unique())
+os.makedirs(fig_path, exist_ok=True)
+
+g=sns.lmplot(x="OD_x", y="OD_y", hue="antigen", col_order=antigens, col="antigen", palette=palette,data=sub_df1)
+plt.savefig(os.path.join(fig_path, '{}_{}_{}.jpg'.format('correlation','OJ7', 'OJ8')),
+                               dpi=300, bbox_inches='tight')
