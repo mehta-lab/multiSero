@@ -55,7 +55,7 @@ def well2D_to_df1D(xlsx_path, sheet, data_col):
 # %% Set paths
 
 # %% First path
-data_folder1 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-40-02-COVID_June5_OJassay_plate7_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200611_1257'
+data_folder1 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-44-32-COVID_June5_OJassay_plate8_images/igg_fiducial/pysero_igg_fiducial_20200613_2051'
 metadata_path1 = os.path.join(data_folder1, 'pysero_output_data_metadata.xlsx')
 OD_path1 = os.path.join(data_folder1, 'median_ODs.xlsx')
 int_path1 = os.path.join(data_folder1, 'median_intensities.xlsx')
@@ -63,21 +63,21 @@ bg_path1 = os.path.join(data_folder1, 'median_backgrounds.xlsx')
 #scienion1_path = os.path.join(data_folder1, '2020-06-04-16-08-27-COVID_June4_JBassay_analysis.xlsx')
 
 # %% Second path
-data_folder2 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-40-02-COVID_June5_OJassay_plate7_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200613_1341'
+data_folder2 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-44-32-COVID_June5_OJassay_plate8_images/igg_fiducial/pysero_igg_fiducial_20200618_1449'
 metadata_path2 = os.path.join(data_folder2, 'pysero_output_data_metadata.xlsx')
 OD_path2 = os.path.join(data_folder2, 'median_ODs.xlsx')
 int_path2 = os.path.join(data_folder2, 'median_intensities.xlsx')
 bg_path2 = os.path.join(data_folder2, 'median_backgrounds.xlsx')
 # scienion_path=os.path.join(data_folder, '2020-05-18-17-59-01-COVID_May18_JVassay_analysis.xlsx')
 
-# # %% Third path
-# data_folder3 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-04-16-04-32-COVID_June4_JBassay_images/Stitched data from multiple pysero outputs/Biotin2132'
-# metadata_path3 = os.path.join(data_folder3, 'pysero_output_data_metadata.xlsx')
-# OD_path3 = os.path.join(data_folder3, 'median_ODs.xlsx')
-# int_path3 = os.path.join(data_folder3, 'median_intensities.xlsx')
-# bg_path3 = os.path.join(data_folder3, 'median_backgrounds.xlsx')
-# # scienion_path=os.path.join(data_folder, '2020-05-18-17-59-01-COVID_May18_JVassay_analysis.xlsx')
-#
+# %% Third path
+data_folder3 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-44-32-COVID_June5_OJassay_plate8_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200613_2017'
+metadata_path3 = os.path.join(data_folder3, 'pysero_output_data_metadata.xlsx')
+OD_path3 = os.path.join(data_folder3, 'median_ODs.xlsx')
+int_path3 = os.path.join(data_folder3, 'median_intensities.xlsx')
+bg_path3 = os.path.join(data_folder3, 'median_backgrounds.xlsx')
+# scienion_path=os.path.join(data_folder, '2020-05-18-17-59-01-COVID_May18_JVassay_analysis.xlsx')
+
 # # %% Fourth path
 # data_folder4 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-04-16-04-32-COVID_June4_JBassay_images/Stitched data from multiple pysero outputs/Biotin2205'
 # metadata_path4 = os.path.join(data_folder4, 'pysero_output_data_metadata.xlsx')
