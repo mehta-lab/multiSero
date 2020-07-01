@@ -115,6 +115,9 @@ def create_good_xlsx(tmp_path_factory):
                 }
     antigens_df = pd.DataFrame(antigens).T
 
+    # Add names of wells to rerun
+    rerun_df = pd.DataFrame(data={'well_name': ['A3', 'B7']})
+
     # writing a two-worksheet excel file
     writer = pd.ExcelWriter(os.path.join(str(input_dir), 'pysero_output_data_metadata.xlsx'),
                             index=False,
@@ -122,6 +125,7 @@ def create_good_xlsx(tmp_path_factory):
     params_df.to_excel(writer, sheet_name='imaging_and_array_parameters')
     fiducials_df.to_excel(writer, sheet_name='antigen_type')
     antigens_df.to_excel(writer, sheet_name='antigen_array')
+    rerun_df.to_excel(writer, sheet_name='rerun_wells')
     writer.save()
     writer.close()
 

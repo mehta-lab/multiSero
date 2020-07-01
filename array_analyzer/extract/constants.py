@@ -9,7 +9,7 @@ ANALYZE_OD = None
 INPUT_FOLDER = None
 OUTPUT_FOLDER = None
 WORKFLOW = None
-METADATA_EXTENSION = None
+METADATA_FILE = None
 DEBUG = None
 
 # === constants parsed from metadata ===
@@ -32,6 +32,8 @@ params = {
 
 # a map between Image Name : well (row, col)
 IMAGE_TO_WELL = dict()
+# If there's a sheet in xlsx call 'rerun_wells', only those well names will be run
+RERUN_WELLS = []
 
 # === array-constants ===
 #   the constants below are all np.ndarrays whose elements are "U100" strings

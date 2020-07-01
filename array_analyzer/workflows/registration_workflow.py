@@ -56,9 +56,15 @@ def point_registration(input_dir, output_dir):
     # loop over well images
     # ================
     well_images = io_utils.get_image_paths(input_dir)
+    well_names = list(well_images)
+    if len(constants.RERUN_WELLS) > 0:
+        assert set(constants.RERUN_WELLS).issubset(well_names),\
+            "All rerun wells can't be found in input directory"
+        well_names = constants.RERUN_WELLS
 
-    for well_name, im_path in well_images.items():
+    for well_name in well_names:
         start_time = time.time()
+        im_path = well_images[well_name]
         image = io_utils.read_gray_im(im_path)
         # Get max intensity
         max_intensity = np.iinfo(image.dtype).max

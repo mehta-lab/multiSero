@@ -2,7 +2,6 @@ import pytest
 
 from array_analyzer.extract.metadata import MetaData
 import array_analyzer.extract.constants as constants
-import os
 
 """
 Tests to add:
@@ -39,32 +38,35 @@ bad operation:
 
 
 def test_one_xml(create_good_xml):
-    constants.METADATA_EXTENSION = 'xml'
-
+    constants.METADATA_FILE = 'temp.xml'
     output_dir = create_good_xml
     MetaData(output_dir, output_dir)
 
 
 def test_two_xml(create_good_xml):
-    constants.METADATA_EXTENSION = 'xml'
+    constants.METADATA_FILE = 'second_xml.xml'
     output_dir = create_good_xml
-
-    with open(os.path.join(output_dir, 'second_xml.xml'), 'w') as fp:
-        pass
     with pytest.raises(IOError):
         MetaData(output_dir, output_dir)
 
 
 def test_xlsx(create_good_xlsx):
-    constants.METADATA_EXTENSION = 'xlsx'
+    constants.METADATA_FILE = 'pysero_output_data_metadata.xlsx'
     output_dir = create_good_xlsx
     MetaData(output_dir, output_dir)
 
 
 def test_nonetype_well_array(create_good_xlsx):
-    constants.METADATA_EXTENSION = 'xlsx'
+    constants.METADATA_FILE = 'pysero_output_data_metadata.xlsx'
     output_dir = create_good_xlsx
     MetaData(output_dir, output_dir)
     assert constants.WELL_BG_ARRAY[0][0] is None
     assert constants.WELL_INT_ARRAY[0][0] is None
     assert constants.WELL_OD_ARRAY[0][0] is None
+    assert constants.RERUN_WELLS == ['A3', 'B7']
+    assert constants.params['rows'] == 6
+    assert constants.params['columns'] == 6
+    assert constants.params['v_pitch'] == 0.4
+    assert constants.params['h_pitch'] == 0.45
+    assert constants.params['spot_width'] == 0.2
+    assert constants.params['pixel_size'] == 0.0049

@@ -58,11 +58,10 @@ def parse_args():
     parser.add_argument(
         '-m', '--metadata',
         type=str,
-        choices=['xml', 'xlsx', 'well'],
-        help="specify the file extension for the experiment metadata"
+        default='pysero_output_data_metadata.xlsx',
+        help="specify the file name for the experiment metadata."
+             "Assumed to be in the same directory as images."
     )
-    parser.set_defaults(metadata='xlsx')
-
     return parser.parse_args()
 
 
@@ -112,7 +111,7 @@ def extract_od(input_dir, output_dir, workflow):
 if __name__ == '__main__':
     args = parse_args()
 
-    constants.METADATA_EXTENSION = args.metadata
+    constants.METADATA_FILE = args.metadata
     constants.DEBUG = args.debug
 
     if args.extract_od:
