@@ -1,6 +1,5 @@
 import os
 import numpy as np
-from datetime import datetime
 import pandas as pd
 import shutil
 
@@ -18,7 +17,6 @@ class MetaData:
         :param input_folder_: str full path to metadata spreadsheet
         :param output_folder_: str full path to output folder for reports and diagnostics
         """
-
         self.fiduc = None
         self.spots = None
         self.repl = None
@@ -40,7 +38,6 @@ class MetaData:
             self.fiduc, self.spots, self.repl, self.params = txt_parser.create_xml_dict(self.xml_path)
 
         elif constants.METADATA_EXTENSION == 'well':
-            self._set_run_path(output_folder_)
             return
 
         elif constants.METADATA_EXTENSION == 'csv':
@@ -102,7 +99,6 @@ class MetaData:
         self._calculate_fiduc_coords()
         self._calculate_fiduc_idx()
         self._calc_spot_dist()
-        self._set_run_path(output_folder_)
         self._copy_metadata_to_output()
 
         # setting 96-well constants
@@ -246,29 +242,6 @@ class MetaData:
 
         # convert the SPOT_DIST to microns, 0 - 255
         constants.SPOT_DIST_UM = np.mean([v_pitch_mm * 1000, h_pitch_mm * 1000]).astype('uint8')
-
-    # set filesaving run_path
-    def _set_run_path(self, output_folder):
-        """
-        Create the output folder for this analysis run
-        folder is unique to the second, and can contain both reports and diagnostics
-        :param output_folder: str path to output folder specified at CLI
-        :return:
-        """
-        constants.RUN_PATH = os.path.join(
-            output_folder,
-            ''.join(['pysero_',
-                     os.path.basename(os.path.normpath(constants.INPUT_FOLDER)),
-                     '_',
-                     f"{datetime.now().year:04d}",
-                     f"{datetime.now().month:02d}",
-                     f"{datetime.now().day:02d}",
-                     '_',
-                     f"{datetime.now().hour:02d}",
-                     f"{datetime.now().minute:02d}"]
-                    )
-        )
-        os.makedirs(constants.RUN_PATH, exist_ok=True)
 
     def _copy_metadata_to_output(self):
         if constants.METADATA_EXTENSION == 'xlsx':

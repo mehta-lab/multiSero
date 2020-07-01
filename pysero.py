@@ -1,10 +1,12 @@
 import argparse
+import logging
 import os
 
+import array_analyzer.extract.constants as constants
+import array_analyzer.utils.io_utils as io_utils
 import array_analyzer.workflows.registration_workflow as registration_wf
 import array_analyzer.workflows.interpolation_wf as interpolation_wf
 import array_analyzer.workflows.well_wf as well_wf
-import array_analyzer.extract.constants as constants
 
 
 def parse_args():
@@ -21,11 +23,13 @@ def parse_args():
         '-e', '--extract_od',
         action= 'store_const',
         const=True,
+        help="Segment spots and compute ODs",
     )
     stage.add_argument(
         '-a', '--analyze_od',
         action='store_const',
         const=True,
+        help="Interpretation, not yet implemented",
     )
     parser.add_argument(
         '-i', '--input',
@@ -43,7 +47,7 @@ def parse_args():
         '-wf', '--workflow',
         type=str,
         choices=['well_segmentation', 'well_crop', 'array_interp', 'array_fit'],
-        default='array_interp',
+        default='array_fit',
         help="Workflow to automatically identify and extract intensities from experiment.  "
              "'Well' experiments are for standard ELISA.  "
              "'Array' experiments are for ELISA assays using antigen arrays printed with Scienion Array Printer ",
@@ -68,8 +72,8 @@ def parse_args():
 
 def extract_od(input_dir, output_dir, workflow):
     """
-    For each image in input directory, run either interpolation (default)
-    or registration of fiducials workflow.
+    For each image in input directory, run either interpolation
+    or registration of fiducials (default) workflow.
     An xlsx file (and potentially debug plots) will be written to output directory.
 
     :param str input_dir: Input directory path
@@ -79,11 +83,6 @@ def extract_od(input_dir, output_dir, workflow):
             <plate> describes the printing style of the antigen (array or ELISA)
             <method> describes the spot segmentation and extraction approach
     """
-
-    if not os.path.isdir(input_dir):
-        raise ValueError("input directory is not a directory or doesn't exist")
-
-    os.makedirs(output_dir, exist_ok=True)
 
     if workflow == 'array_interp':
         interpolation_wf.interp(
@@ -109,20 +108,54 @@ def extract_od(input_dir, output_dir, workflow):
         )
 
 
-if __name__ == '__main__':
-    args = parse_args()
+def run_pysero(args):
+    """
+    Main function, handling logic for all subroutines
+
+    :param args: Argparse arguments
+    """
+    input_dir = args.input
+    output_dir = args.output
+
+    if not os.path.isdir(input_dir):
+        raise ValueError("input directory is not a directory or doesn't exist")
+
+    os.makedirs(output_dir, exist_ok=True)
 
     constants.METADATA_EXTENSION = args.metadata
     constants.DEBUG = args.debug
+    constants.RUN_PATH = io_utils.make_run_dir(
+        input_dir=input_dir,
+        output_dir=output_dir,
+    )
+    # Default log level is info, otherwise debug
+    log_level = 20
+    if constants.DEBUG:
+        log_level = 10
+    logger = io_utils.make_logger(
+        log_dir=constants.RUN_PATH,
+        logger_name=constants.LOG_NAME,
+        log_level=log_level,
+    )
+    logger.info("input dir: {}".format(input_dir))
+    logger.info("output dir: {}".format(output_dir))
+    logger.info("run dir: {}".format(constants.RUN_PATH))
 
     if args.extract_od:
+        logging.info("Extract OD workflow: {}".format(args.workflow))
         extract_od(
-            input_dir=args.input,
-            output_dir=args.output,
+            input_dir=input_dir,
+            output_dir=output_dir,
             workflow=args.workflow,
         )
     elif args.analyze_od:
+        logging.error("Analyze OD not implemented")
         raise NotImplementedError(
             'Automated interpretation is coming. '
             'See the interpretation folder for examples of interpretation scripts.',
         )
+
+
+if __name__ == '__main__':
+    args = parse_args()
+    run_pysero(args)

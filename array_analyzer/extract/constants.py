@@ -69,6 +69,9 @@ SPOT_MIN_PERCENT_AREA = .1
 # constants for saving
 RUN_PATH = ''
 
+# Logger
+LOG_NAME = 'pysero.log'
+
 # template for writing OD, INT, BG worksheets
 WELL_OUTPUT_TEMPLATE = {'A': {1: None, 2: None, 3: None, 4: None, 5: None, 6: None,
                               7: None, 8: None, 9: None, 10: None, 11: None, 12: None},

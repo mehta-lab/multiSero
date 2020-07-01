@@ -1,9 +1,9 @@
 import cv2 as cv
+import logging
 import numpy as np
 import os
 import pandas as pd
 import time
-import warnings
 
 import array_analyzer.extract.background_estimator as background_estimator
 import array_analyzer.extract.image_parser as image_parser
@@ -26,6 +26,7 @@ def point_registration(input_dir, output_dir):
         with parameters
     :param str output_dir: Directory where output is written to
     """
+    logger = logging.getLogger(constants.LOG_NAME)
 
     metadata.MetaData(input_dir, output_dir)
     nbr_outliers = constants.params['nbr_outliers']
@@ -60,8 +61,10 @@ def point_registration(input_dir, output_dir):
     for well_name, im_path in well_images.items():
         start_time = time.time()
         image = io_utils.read_gray_im(im_path)
+        logger.info("Extracting well: {}".format(well_name))
         # Get max intensity
         max_intensity = np.iinfo(image.dtype).max
+        logger.debug("Image max intensity: {}".format(max_intensity))
         # Crop image to well only
         try:
             well_center, well_radi, well_mask = image_parser.find_well_border(
@@ -76,7 +79,7 @@ def point_registration(input_dir, output_dir):
                 width=2 * well_radi,
             )
         except IndexError:
-            warnings.warn("Couldn't find well in {}".format(well_name))
+            logging.warning("Couldn't find well in {}".format(well_name))
             im_well = image
 
         # Find spot center coordinates
@@ -85,8 +88,8 @@ def point_registration(input_dir, output_dir):
             max_intensity=max_intensity,
         )
         if spot_coords.shape[0] < constants.MIN_NBR_SPOTS:
-            warnings.warn("Not enough spots detected in {},"
-                          "continuing.".format(well_name))
+            logging.warning("Not enough spots detected in {},"
+                            "continuing.".format(well_name))
             continue
 
         # Initial estimate of spot center
@@ -110,21 +113,25 @@ def point_registration(input_dir, output_dir):
             spot_coords=spot_coords,
             particles=particles,
             stds=np.array(constants.STDS),
-            debug=constants.DEBUG,
+            logger=logger,
         )
-        if min_dist / nbr_fiducials > constants.REG_DIST_THRESH:
-            warnings.warn("Registration failed, repeat with outlier removal")
+        reg_dist = min_dist / nbr_fiducials
+        if reg_dist > constants.REG_DIST_THRESH:
+            logger.warning("Registration failed for {}, "
+                           "repeat with outlier removal".format(well_name))
             t_matrix, min_dist = registration.particle_filter(
                 fiducial_coords=fiducial_coords,
                 spot_coords=spot_coords,
                 particles=particles,
                 stds=np.array(constants.STDS),
+                logger=logger,
                 nbr_outliers=nbr_outliers,
-                debug=constants.DEBUG,
             )
             # Warn if fit is still bad
-            if min_dist / (nbr_fiducials - nbr_outliers) > constants.REG_DIST_THRESH:
+            reg_dist = min_dist / (nbr_fiducials - nbr_outliers)
+            if reg_dist > constants.REG_DIST_THRESH:
                 reg_ok = False
+        logger.info("Particle filter min dist: {}".format(reg_dist))
 
         # Transform grid coordinates
         reg_coords = np.squeeze(cv.transform(np.array([grid_coords]), t_matrix))
@@ -135,8 +142,8 @@ def point_registration(input_dir, output_dir):
             reg_ok=reg_ok,
         )
         if not reg_ok:
-            warnings.warn("Final registration failed,"
-                          "will not write OD for {}".format(well_name))
+            logger.warning("Final registration failed,"
+                           "will not write OD for {}".format(well_name))
             if constants.DEBUG:
                 debug_plots.plot_registration(
                     im_well,
@@ -176,10 +183,12 @@ def point_registration(input_dir, output_dir):
         pd_od = pd.DataFrame(od_well)
         pd_od.to_excel(xlwriter_od_well, sheet_name=well_name)
 
-        print("Time to register grid to {}: {:.3f} s".format(
+        time_msg = "Time to extract OD in {}: {:.3f} s".format(
             well_name,
-            time.time() - start_time),
+            time.time() - start_time,
         )
+        print(time_msg)
+        logger.info(time_msg)
 
         # ==================================
         # SAVE FOR DEBUGGING
@@ -212,7 +221,7 @@ def point_registration(input_dir, output_dir):
                 output_name,
                 max_intensity=max_intensity,
             )
-            print("Time to save debug images: {:.3f} s".format(
+            logger.debug("Time to save debug images: {:.3f} s".format(
                 time.time() - start_time),
             )
 
@@ -226,9 +235,24 @@ def point_registration(input_dir, output_dir):
         os.path.join(constants.RUN_PATH, 'median_backgrounds.xlsx'),
     )
 
-    report.write_antigen_report(xlwriter_od, constants.WELL_OD_ARRAY, 'od')
-    report.write_antigen_report(xlwriter_int, constants.WELL_INT_ARRAY, 'int')
-    report.write_antigen_report(xlwriter_bg, constants.WELL_BG_ARRAY, 'bg')
+    report.write_antigen_report(
+        xlwriter_od,
+        constants.WELL_OD_ARRAY,
+        array_type='od',
+        logger=logger,
+    )
+    report.write_antigen_report(
+        xlwriter_int,
+        constants.WELL_INT_ARRAY,
+        array_type='int',
+        logger=logger,
+    )
+    report.write_antigen_report(
+        xlwriter_bg,
+        constants.WELL_BG_ARRAY,
+        array_type='bg',
+        logger=logger,
+    )
 
     xlwriter_od.close()
     xlwriter_int.close()
