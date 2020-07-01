@@ -117,7 +117,8 @@ def point_registration(input_dir, output_dir):
         )
         reg_dist = min_dist / nbr_fiducials
         if reg_dist > constants.REG_DIST_THRESH:
-            logger.warning("Registration failed, repeat with outlier removal")
+            logger.warning("Registration failed for {}, "
+                           "repeat with outlier removal".format(well_name))
             t_matrix, min_dist = registration.particle_filter(
                 fiducial_coords=fiducial_coords,
                 spot_coords=spot_coords,
