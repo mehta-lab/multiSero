@@ -75,6 +75,14 @@ OD_path3 = os.path.join(data_folder3, 'median_ODs.xlsx')
 int_path3 = os.path.join(data_folder3, 'median_intensities.xlsx')
 bg_path3 = os.path.join(data_folder3, 'median_backgrounds.xlsx')
 
+# %% Fourth path
+data_folder4 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-44-32-COVID_June5_OJassay_plate8_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200613_2051'
+metadata_path4 = os.path.join(data_folder3, 'pysero_output_data_metadata.xlsx')
+OD_path4 = os.path.join(data_folder3, 'median_ODs.xlsx')
+int_path4 = os.path.join(data_folder3, 'median_intensities.xlsx')
+bg_path4 = os.path.join(data_folder3, 'median_backgrounds.xlsx')
+
+
 # %% Read antigen and plate info
 sheet_names = ['serum ID',
                'serum cat',
@@ -354,25 +362,128 @@ python_df3['pipeline'] = 'python'
 python_df3.replace([np.inf, -np.inf], np.nan, inplace=True)
 python_df3.dropna(subset=['OD'], inplace=True)
 
+# %% Do the same for fourth path
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+# %% Read antigen and plate info
+sheet_names = ['serum ID',
+               'serum cat',
+               'serum dilution',
+               'serum type',
+               'secondary ID',
+               'secondary dilution']
+plate_info_df4 = pd.DataFrame()
+with pd.ExcelFile(metadata_path4) as metadata_xlsx:
+    # get sheet names that are available in metadata
+    sheet_names = list(set(metadata_xlsx.sheet_names).intersection(sheet_names))
+    for sheet_name in sheet_names:
+        sheet_df = pd.read_excel(metadata_path4, sheet_name=sheet_name, index_col=0)
+        sheet_df = sheet_df.unstack().reset_index(name=sheet_name)  # unpivot (linearize) the table
+        sheet_df.rename(columns={'level_1': 'row_id', 'level_0': 'col_id'}, inplace=True)
+        if plate_info_df4.empty:
+            plate_info_df4 = sheet_df
+        else:
+            plate_info_df4 = pd.merge(plate_info_df4,
+                                      sheet_df,
+                                      how='left', on=['row_id', 'col_id'])
+plate_info_df4['well_id'] = plate_info_df4.row_id + plate_info_df4.col_id.map(str)
+sheet_names.append('well_id')
+# convert to number and non-numeric to NaN
+plate_info_df4['serum dilution'] = \
+    plate_info_df4['serum dilution'].apply(pd.to_numeric, errors='coerce')
+plate_info_df4.dropna(inplace=True)
+# %%
+if np.all(plate_info_df4['serum dilution'] >= 1):
+    # convert dilution to concentration
+    plate_info_df4['serum dilution'] = 1 / plate_info_df4['serum dilution']
+plate_info_df4.drop(['row_id', 'col_id'], axis=1, inplace=True)
+
+# %% Read antigen information.
+antigen_df4 = antigen2D_to_df1D(xlsx_path=metadata_path4, sheet='antigen_array', data_col='antigen')
+
+# %% Read optical density from pysero
+OD_df4 = pd.DataFrame()
+int_df4 = pd.DataFrame()
+bg_df4 = pd.DataFrame()
+with pd.ExcelFile(OD_path4) as OD_xlsx:
+    for _, row in antigen_df4.iterrows():
+        sheet_name = 'od_{}_{}_{}'.format(row['antigen_row'], row['antigen_col'], row['antigen'])
+        OD_1_antiten_df = well2D_to_df1D(xlsx_path=OD_xlsx, sheet=sheet_name, data_col='OD')
+        OD_1_antiten_df['antigen_row'] = row['antigen_row']
+        OD_1_antiten_df['antigen_col'] = row['antigen_col']
+        OD_1_antiten_df['antigen'] = row['antigen']
+        OD_df4 = OD_df4.append(OD_1_antiten_df, ignore_index=True)
+
+with pd.ExcelFile(int_path4) as int_xlsx:
+    for _, row in antigen_df4.iterrows():
+        sheet_name = 'int_{}_{}_{}'.format(row['antigen_row'], row['antigen_col'], row['antigen'])
+        int_1_antiten_df = well2D_to_df1D(xlsx_path=int_xlsx, sheet=sheet_name, data_col='intensity')
+        int_1_antiten_df['antigen_row'] = row['antigen_row']
+        int_1_antiten_df['antigen_col'] = row['antigen_col']
+        int_df4 = int_df4.append(int_1_antiten_df, ignore_index=True)
+
+with pd.ExcelFile(bg_path4) as bg_xlsx:
+    for _, row in antigen_df4.iterrows():
+        sheet_name = 'bg_{}_{}_{}'.format(row['antigen_row'], row['antigen_col'], row['antigen'])
+        bg_1_antiten_df = well2D_to_df1D(xlsx_path=bg_xlsx, sheet=sheet_name, data_col='background')
+        bg_1_antiten_df['antigen_row'] = row['antigen_row']
+        bg_1_antiten_df['antigen_col'] = row['antigen_col']
+        bg_df4 = bg_df4.append(bg_1_antiten_df, ignore_index=True)
+
+# %% merge OD with antigen and plate info.
+
+
+# Use of filter avoids merge of duplicate columns when the cell is run multiple times.
+OD_df4 = OD_df4.filter(items=['antigen_row', 'antigen_col', 'OD', 'well_id'], axis=1)
+OD_df4 = pd.merge(OD_df4,
+                  antigen_df4,
+                  how='left', on=['antigen_row', 'antigen_col'])
+OD_df4 = pd.merge(OD_df4,
+                  plate_info_df4,
+                  how='right', on=['well_id'])
+python_df4 = pd.merge(OD_df4,
+                      int_df4,
+                      how='left', on=['antigen_row', 'antigen_col', 'well_id'])
+python_df4 = pd.merge(python_df4,
+                      bg_df4,
+                      how='left', on=['antigen_row', 'antigen_col', 'well_id'])
+
+python_df4['pipeline'] = 'python'
+# python_df4.dropna(inplace=True)
+# Also update sera type to reflect their identity.
+# posseralist=python_df4_fix['Sera ID'].isin(['pos 1','pos 2','pos 3','pos 4'])
+# python_df4.loc[posseralist,'type'] = 'Diagnostic'
+
+
+# In[171]:
+# python_df4 = python_df4.append(df_scn)
+python_df4.replace([np.inf, -np.inf], np.nan, inplace=True)
+python_df4.dropna(subset=['OD'], inplace=True)
+
 #%% Remove failed wells for n dataframes
 
-# failed_wells = ['B6', 'B8', 'B10', 'B12','F4','H2','H4', 'H6', 'H9', 'H12']
-# for failed_well in failed_wells:
-#     python_df = python_df[python_df.well_id != failed_well]
-
-# failed_wells2 = ['F2']
-wells2keep = ['B12','D4','D6', 'F5', 'H11']
+wells2keep = ['E3','E4']
 for failed_well in wells2keep:
     # python_df2 = python_df2[python_df2.well_id != failed_well]
-    python_df2 = python_df2[(python_df2['well_id'].isin(wells2keep))]
+    python_df = python_df[(python_df['well_id'].isin(wells2keep))]
 
-failed_wells3 = ['B12','D4','D6', 'F5', 'H11']
-for failedwell in failed_wells3:
-    python_df3 = python_df3[python_df3.well_id != failedwell]
+failed_wells2 = ['E3','E4']
+for failed_well in failed_wells2:
+    python_df2 = python_df2[python_df2.well_id != failed_well]
+
+wells2keep3 = ['F2']
+for failed_well in wells2keep3:
+    # python_df2 = python_df2[python_df2.well_id != failed_well]
+    python_df3 = python_df3[(python_df3['well_id'].isin(wells2keep3))]
+
+failed_wells4 = ['F2']
+for failedwell in failed_wells4:
+    python_df4 = python_df4[python_df4.well_id != failedwell]
     # python_df3 = python_df3[python_df3.well_id == failedwell]
 
+
 #%% Concatenate dataframes
-frames = [python_df, python_df2, python_df3]
+frames = [python_df, python_df2, python_df3,python_df4]
 stitchedpython_df = pd.concat(frames)
 # ## Fit curves to above plots
 
