@@ -63,7 +63,7 @@ def point_registration(input_dir, output_dir):
         image = io_utils.read_gray_im(im_path)
         logger.info("Extracting well: {}".format(well_name))
         # Get max intensity
-        max_intensity = np.iinfo(image.dtype).max
+        max_intensity = io_utils.get_max_intensity(image)
         logger.debug("Image max intensity: {}".format(max_intensity))
         # Crop image to well only
         try:

@@ -4,7 +4,7 @@ import numpy as np
 from skimage.measure import label
 from skimage import util as u
 from skimage.morphology import disk, ball, binary_opening, binary_erosion
-from skimage.filters import threshold_otsu, threshold_multiotsu, threshold_minimum
+from skimage.filters import threshold_otsu, threshold_minimum
 from scipy.ndimage import binary_fill_holes
 from skimage.segmentation import clear_border
 
@@ -91,31 +91,6 @@ def create_otsu_mask(input_image, scale=1):
     else:
         thr = threshold_otsu(input_image, nbins=512)
     return input_image > (scale * thr)
-
-
-def create_multiotsu_mask(input_image, n_class, fg_class, str_elem_size=3):
-    """Create a binary mask using morphological operations
-
-    Opening removes small objects in the foreground.
-
-    :param np.array input_image: generate masks from this image
-    :param int str_elem_size: size of the structuring element. typically 3, 5
-    :return: mask of input_image, np.array
-    """
-    if np.min(input_image) == np.max(input_image):
-        return np.ones(input_image.shape)
-    else:
-        thr = threshold_multiotsu(input_image, classes=n_class, nbins=512)
-        im_label = np.digitize(input_image, bins=thr)
-        mask = im_label == fg_class
-
-    if len(input_image.shape) == 2:
-        str_elem = disk(str_elem_size)
-    else:
-        str_elem = ball(str_elem_size)
-    # remove small objects in mask
-    mask = binary_opening(mask, str_elem)
-    return mask
 
 
 def crop_image_from_coords(im, grid_coords, margin=200):

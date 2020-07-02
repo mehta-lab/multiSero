@@ -1,3 +1,4 @@
+import numpy as np
 import os
 import pytest
 import array_analyzer.utils.io_utils as io_utils
@@ -13,6 +14,32 @@ def test_read_gray_im(image_dir):
 def test_no_im(image_dir):
     with pytest.raises(IOError):
         io_utils.read_gray_im(os.path.join(image_dir, 'no_im.png'))
+
+
+def test_get_max_intensity_uint8():
+    im = np.zeros((2, 3), dtype=np.uint8)
+    max_intensity = io_utils.get_max_intensity(im)
+    assert max_intensity == 255
+
+
+def test_get_max_intensity_uint12():
+    im = np.zeros((2, 3), dtype=np.uint16)
+    im[0, 1] = 4000
+    max_intensity = io_utils.get_max_intensity(im)
+    assert max_intensity == 4095
+
+
+def test_get_max_intensity_uint16():
+    im = np.zeros((2, 3), dtype=np.uint16)
+    im[1, 0] = 50000
+    max_intensity = io_utils.get_max_intensity(im)
+    assert max_intensity == 65535
+
+
+def test_get_max_intensity_float():
+    im = np.zeros((2, 3), dtype=np.float32)
+    with pytest.raises(AssertionError):
+        io_utils.get_max_intensity(im)
 
 
 def test_get_image_paths(image_dir):
