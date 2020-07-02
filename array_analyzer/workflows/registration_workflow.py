@@ -108,18 +108,17 @@ def point_registration(input_dir, output_dir):
             stds=np.array(constants.STDS),
             nbr_particles=constants.NBR_PARTICLES,
         )
-        t_matrix, min_dist = registration.particle_filter(
+        t_matrix, reg_dist = registration.particle_filter(
             fiducial_coords=fiducial_coords,
             spot_coords=spot_coords,
             particles=particles,
             stds=np.array(constants.STDS),
             logger=logger,
         )
-        reg_dist = min_dist / nbr_fiducials
         if reg_dist > constants.REG_DIST_THRESH:
             logger.warning("Registration failed for {}, "
                            "repeat with outlier removal".format(well_name))
-            t_matrix, min_dist = registration.particle_filter(
+            t_matrix, reg_dist = registration.particle_filter(
                 fiducial_coords=fiducial_coords,
                 spot_coords=spot_coords,
                 particles=particles,
@@ -128,7 +127,6 @@ def point_registration(input_dir, output_dir):
                 nbr_outliers=nbr_outliers,
             )
             # Warn if fit is still bad
-            reg_dist = min_dist / (nbr_fiducials - nbr_outliers)
             if reg_dist > constants.REG_DIST_THRESH:
                 reg_ok = False
         logger.info("Particle filter min dist: {}".format(reg_dist))

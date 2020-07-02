@@ -88,6 +88,8 @@ def get_spot_intensity(coords, im, background, params, search_range=2):
     # make spot size always odd
     spot_size = 2 * int(0.3 * spot_width / pix_size) + 1
     bbox_width = bbox_height = spot_size
+    # Strel disk size for spot segmentation
+    disk_size = int(np.rint(spot_size / 2.5))
 
     row_min = np.min(coords[:, 0])
     row_max = np.max(coords[:, 0])
@@ -126,6 +128,7 @@ def get_spot_intensity(coords, im, background, params, search_range=2):
         mask_spot = img_processing.thresh_and_binarize(
             image=im_spot_lg,
             method='bright_spots',
+            disk_size=disk_size,
             thr_percent=75,
             get_lcc=True,
         )

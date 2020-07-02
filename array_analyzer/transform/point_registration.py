@@ -246,4 +246,5 @@ def particle_filter(fiducial_coords,
 
     # Generate transformation matrix
     t_matrix = get_translation_matrix(particle)
-    return t_matrix, min_dist
+    reg_dist = min_dist / (fiducial_coords.shape[0] - nbr_outliers)
+    return t_matrix, reg_dist
