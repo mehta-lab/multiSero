@@ -31,9 +31,12 @@ def point_registration(input_dir, output_dir):
     metadata.MetaData(input_dir, output_dir)
     nbr_outliers = constants.params['nbr_outliers']
 
-    xlwriter_od_well = pd.ExcelWriter(
-        os.path.join(constants.RUN_PATH, 'median_ODs_per_well.xlsx'),
+    od_xl_name = os.path.join(
+        constants.RUN_PATH,
+        'median_ODs_per_well.xlsx',
     )
+    xlwriter_od_well = pd.ExcelWriter(od_xl_name)
+
     pdantigen = pd.DataFrame(constants.ANTIGEN_ARRAY)
     pdantigen.to_excel(xlwriter_od_well, sheet_name='antigens')
 
@@ -58,9 +61,14 @@ def point_registration(input_dir, output_dir):
     # ================
     well_images = io_utils.get_image_paths(input_dir)
     well_names = list(well_images)
+    # If rerunning only a subset of wells
     if len(constants.RERUN_WELLS) > 0:
         assert set(constants.RERUN_WELLS).issubset(well_names),\
             "All rerun wells can't be found in input directory"
+
+        pd_od = pd.read_excel(od_xl_name, sheet_name=None)
+        pd_od.to_excel(xlwriter_od_well)
+
         well_names = constants.RERUN_WELLS
 
     for well_name in well_names:
