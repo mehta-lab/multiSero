@@ -666,8 +666,6 @@ def compute_od(props_array, bgprops_array):
     for r in np.arange(n_rows):
         for c in np.arange(n_cols):
             if props_array[r,c] is not None:
-                # i_spot[r,c]=props_array[r,c].mean_intensity
-                # i_bg[r,c]=bgprops_array[r,c].mean_intensity
                 i_spot[r, c] = props_array[r, c].median_intensity
                 i_bg[r, c] = bgprops_array[r, c].median_intensity
     od_norm = np.log10(i_bg / i_spot)

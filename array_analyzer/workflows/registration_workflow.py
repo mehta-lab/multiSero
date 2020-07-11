@@ -1,5 +1,6 @@
 import cv2 as cv
 import logging
+import natsort
 import numpy as np
 import os
 import pandas as pd
@@ -9,6 +10,7 @@ import array_analyzer.extract.background_estimator as background_estimator
 import array_analyzer.extract.image_parser as image_parser
 import array_analyzer.extract.img_processing as img_processing
 import array_analyzer.extract.metadata as metadata
+import array_analyzer.extract.txt_parser as txt_parser
 import array_analyzer.extract.constants as constants
 import array_analyzer.load.debug_plots as debug_plots
 import array_analyzer.transform.point_registration as registration
@@ -31,14 +33,18 @@ def point_registration(input_dir, output_dir):
     metadata.MetaData(input_dir, output_dir)
     nbr_outliers = constants.params['nbr_outliers']
 
-    od_xl_name = os.path.join(
-        constants.RUN_PATH,
-        'median_ODs_per_well.xlsx',
-    )
-    xlwriter_od_well = pd.ExcelWriter(od_xl_name)
+    # Create reports instance for whole plate
+    reporter = report.ReportWriter()
 
-    pdantigen = pd.DataFrame(constants.ANTIGEN_ARRAY)
-    pdantigen.to_excel(xlwriter_od_well, sheet_name='antigens')
+    well_xlsx_path = os.path.join(
+        constants.RUN_PATH,
+        'stats_per_well.xlsx',
+    )
+    xlwriter_well = pd.ExcelWriter(well_xlsx_path)
+
+    antigen_df = reporter.get_antigen_df()
+    with xlwriter_well as writer:
+        antigen_df.to_excel(writer, sheet_name='antigens')
 
     # Initialize background estimator
     bg_estimator = background_estimator.BackgroundEstimator2D(
@@ -56,21 +62,22 @@ def point_registration(input_dir, output_dir):
     spot_detector = img_processing.SpotDetector(
         imaging_params=constants.params,
     )
-    # ================
-    # loop over well images
-    # ================
+
     well_images = io_utils.get_image_paths(input_dir)
     well_names = list(well_images)
     # If rerunning only a subset of wells
     if len(constants.RERUN_WELLS) > 0:
-        assert set(constants.RERUN_WELLS).issubset(well_names),\
-            "All rerun wells can't be found in input directory"
-
-        pd_od = pd.read_excel(od_xl_name, sheet_name=None)
-        pd_od.to_excel(xlwriter_od_well)
-
+        txt_parser.rerun_xl_od(
+            well_names=well_names,
+            od_xl_name=od_xl_name,
+            rerun_names=constants.RERUN_WELLS,
+            xlwriter_od_well=xlwriter_well,
+        )
         well_names = constants.RERUN_WELLS
 
+    # ================
+    # loop over well images
+    # ================
     for well_name in well_names:
         start_time = time.time()
         im_path = well_images[well_name]
@@ -178,24 +185,17 @@ def point_registration(input_dir, output_dir):
         # Estimate background
         background = bg_estimator.get_background(im_crop)
         # Find spots near grid locations and compute properties
-        spot_props, bg_props = array_gen.get_spot_intensity(
+        spots_df, spot_props = array_gen.get_spot_intensity(
             coords=crop_coords,
             im=im_crop,
             background=background,
             params=constants.params,
         )
-        od_well, int_well, bg_well = image_parser.compute_od(
-            spot_props,
-            bg_props,
-        )
-        # populate 96-well plate constants with OD, INT, BG arrays
-        report.write_od_to_plate(od_well, well_name, constants.WELL_OD_ARRAY)
-        report.write_od_to_plate(int_well, well_name, constants.WELL_INT_ARRAY)
-        report.write_od_to_plate(bg_well, well_name, constants.WELL_BG_ARRAY)
-
-        # Write ODs per well
-        pd_od = pd.DataFrame(od_well)
-        pd_od.to_excel(xlwriter_od_well, sheet_name=well_name)
+        # Write metrics for each spot in grid in current well
+        with xlwriter_well as writer:
+            spots_df.to_excel(writer, sheet_name=well_name)
+        # Assign well stats to plate
+        reporter.assign_well_to_plate(well_name, spots_df)
 
         time_msg = "Time to extract OD in {}: {:.3f} s".format(
             well_name,
@@ -211,10 +211,8 @@ def point_registration(input_dir, output_dir):
             # Save spot and background intensities
             output_name = os.path.join(constants.RUN_PATH, well_name)
             # Save OD plots, composite spots and registration
-            debug_plots.plot_od(
-                od_well,
-                int_well,
-                bg_well,
+            debug_plots.plot_od_from_df(
+                spots_df,
                 output_name,
             )
             debug_plots.save_composite_spots(
@@ -238,37 +236,6 @@ def point_registration(input_dir, output_dir):
             logger.debug("Time to save debug images: {:.3f} s".format(
                 time.time() - start_time),
             )
-
-    xlwriter_od = pd.ExcelWriter(
-        os.path.join(constants.RUN_PATH, 'median_ODs.xlsx'),
-    )
-    xlwriter_int = pd.ExcelWriter(
-        os.path.join(constants.RUN_PATH, 'median_intensities.xlsx'),
-    )
-    xlwriter_bg = pd.ExcelWriter(
-        os.path.join(constants.RUN_PATH, 'median_backgrounds.xlsx'),
-    )
-
-    report.write_antigen_report(
-        xlwriter_od,
-        constants.WELL_OD_ARRAY,
-        array_type='od',
-        logger=logger,
-    )
-    report.write_antigen_report(
-        xlwriter_int,
-        constants.WELL_INT_ARRAY,
-        array_type='int',
-        logger=logger,
-    )
-    report.write_antigen_report(
-        xlwriter_bg,
-        constants.WELL_BG_ARRAY,
-        array_type='bg',
-        logger=logger,
-    )
-
-    xlwriter_od.close()
-    xlwriter_int.close()
-    xlwriter_bg.close()
-    xlwriter_od_well.close()
+    # After running all wells, write plate reports
+    reporter.write_reports()
+    xlwriter_well.close()

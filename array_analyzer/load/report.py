@@ -1,7 +1,10 @@
-import array_analyzer.extract.constants as constants
+import collections
 from copy import deepcopy
 import numpy as np
+import os
 import pandas as pd
+
+import array_analyzer.extract.constants as constants
 
 
 def write_od_to_plate(data, well_name, well_array):
@@ -66,3 +69,111 @@ def write_antigen_report(writer, well_array, array_type, logger):
 
         sheet_df.to_excel(writer, sheet_name=sheet_name)
 
+
+class ReportWriter:
+
+    def __init__(self):
+        cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+        rows = list(range(1, 13))
+        antigen_df = pd.DataFrame(None, index=rows, columns=cols)
+        report_dict = collections.OrderedDict()
+        self.antigen_df = pd.DataFrame(columns=['antigen', 'well_row', 'well_col'])
+
+        for antigen_position, antigen in np.ndenumerate(constants.ANTIGEN_ARRAY):
+            if antigen == '' or antigen is None:
+                continue
+
+            sheet_name = f'{antigen}_{antigen_position[0]}_{antigen_position[1]}'
+            if len(sheet_name) >= 31:
+                # logger.warning("antigen sheet name is too long, truncating")
+                sheet_name = sheet_name[:31]
+
+            report_dict[sheet_name] = antigen_df.copy()
+
+            idx_row = {'antigen': sheet_name,
+                       'well_row': antigen_position[0],
+                       'well_col': antigen_position[1]}
+            self.antigen_df.append(idx_row, ignore_index=True)
+
+        self.report_int = report_dict.copy()
+        self.report_bg = report_dict.copy()
+        self.report_od = report_dict.copy()
+        # Report paths
+        self.od_path = os.path.join(constants.RUN_PATH, 'median_ODs.xlsx')
+        self.int_path = os.path.join(constants.RUN_PATH, 'median_intensities.xlsx')
+        self.bg_path = os.path.join(constants.RUN_PATH, 'median_backgrounds.xlsx')
+
+    def get_antigen_df(self):
+        """
+        Returns dataframe with antigen names and their locations on the grid.
+
+        :return pd.DataFrame antigen_df: Antigen names and grid rows, cols
+        """
+        return self.antigen_df
+
+    def load_existing_reports(self):
+        """
+        If doing a rerun, load existing reports and make sure the sheet names
+        (keys) match the ones from the current run.
+        Rerun wells will be added to existing reports and rewritten.
+        """
+        assert os.path.isfile(self.od_path), \
+            "OD report doesn't exist: {}".format(self.od_path)
+        assert os.path.isfile(self.int_path), \
+            "Intensity report doesn't exist: {}".format(self.int_path)
+        assert os.path.isfile(self.bg_path), \
+            "Background report doesn't exist: {}".format(self.bg_path)
+        # Read reports and make sure they have the right keys
+        ordered_dict = pd.read_excel(self.od_path, sheet_name=None)
+        assert ordered_dict.keys() == self.antigen_df.keys(), \
+            "Existing report keys don't match current keys"
+        self.report_od = ordered_dict
+        ordered_dict = pd.read_excel(self.int_path, sheet_name=None)
+        assert ordered_dict.keys() == self.antigen_df.keys(), \
+            "Existing report keys don't match current keys"
+        self.report_int = ordered_dict
+        ordered_dict = pd.read_excel(self.bg_path, sheet_name=None)
+        assert ordered_dict.keys() == self.antigen_df.keys(), \
+            "Existing report keys don't match current keys"
+        self.report_bg = ordered_dict
+
+    def assign_well_to_plate(self, well_name, spots_df):
+        """
+        Takes intensity, background and OD values for a well and
+        reassigns them by antigens for the plate.
+
+        :param str well_name: Well name (e.g. 'B12')
+        :param pd.DataFrame spots_df: Metrics for all spots in a well
+        """
+        plate_col = well_name[0]
+        plate_row = int(well_name[1:])
+        for antigen, row, col in self.report_idx_df.iterrows():
+            spots_row = spots_df[(spots_df['grid_row'] == row) & \
+                                 (spots_df[spots_df['grid_col'] == col])]
+            self.report_int[antigen].at[plate_row, plate_col] = \
+                spots_row['intensity_median']
+            self.report_bg[antigen].at[plate_row, plate_col] = \
+                spots_row['bg_median']
+            self.report_od[antigen].at[plate_row, plate_col] = \
+                spots_row['od_norm']
+
+    def write_reports(self):
+        """
+        After all wells are run, write plate based reports for OD,
+        intensity, and background.
+        """
+        # Write OD report
+        with pd.ExcelWriter(self.od_path) as writer:
+            for antigen_name in self.antigen_df.keys():
+                sheet_df = self.report_od[antigen_name]
+                sheet_df.to_excel(writer, sheet_name=antigen_name)
+        # Write intensity report
+        with pd.ExcelWriter(self.int_path) as writer:
+            for antigen_name in self.antigen_df.keys():
+                sheet_df = self.report_int[antigen_name]
+                sheet_df.to_excel(writer, sheet_name=antigen_name)
+        # Write background report
+        with pd.ExcelWriter(self.bg_path) as writer:
+            for antigen_name in self.antigen_df.keys():
+                sheet_df = self.report_bg[antigen_name]
+                sheet_df.to_excel(writer, sheet_name=antigen_name)

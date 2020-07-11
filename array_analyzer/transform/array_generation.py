@@ -1,6 +1,6 @@
-# bchhun, {2020-04-06}
-
 import numpy as np
+import pandas as pd
+
 import array_analyzer.extract.constants as constants
 import array_analyzer.extract.img_processing as img_processing
 import array_analyzer.extract.txt_parser as txt_parser
@@ -89,22 +89,15 @@ def get_spot_intensity(coords, im, background, params, search_range=2):
     spot_size = 2 * int(0.3 * spot_width / pix_size) + 1
     bbox_width = bbox_height = spot_size
 
+    # Array of SpotRegionprop objects to hold ROIs
+    spot_props = txt_parser.create_array(n_rows, n_cols, dtype=object)
+    # Dataframe to hold spot metrics for the well
+    spots_df = pd.DataFrame(columns=constants.SPOT_DF_COLS)
+
     row_min = np.min(coords[:, 0])
     row_max = np.max(coords[:, 0])
     col_min = np.min(coords[:, 1])
     col_max = np.max(coords[:, 1])
-
-    spot_props = txt_parser.create_array(
-        constants.params['rows'],
-        constants.params['columns'],
-        dtype=object,
-    )
-    bg_props = txt_parser.create_array(
-        constants.params['rows'],
-        constants.params['columns'],
-        dtype=object,
-    )
-
     # scaled max-col, max-row
     row_range = row_max - row_min
     col_range = col_max - col_min
@@ -112,7 +105,7 @@ def get_spot_intensity(coords, im, background, params, search_range=2):
         # convert the centroid position to an integer that maps to array indices
         grid_row_idx = int(round((n_rows - 1) * ((coord[0] - row_min) / row_range)))
         grid_col_idx = int(round((n_cols - 1) * ((coord[1] - col_min) / col_range)))
-        grid_id = (grid_row_idx, grid_col_idx)
+
         # make bounding boxes larger to account for interpolation errors
         spot_height = int(np.round(search_range * bbox_height))
         spot_width = int(np.round(search_range * bbox_width))
@@ -131,11 +124,12 @@ def get_spot_intensity(coords, im, background, params, search_range=2):
         )
         # Create spot and background instance
         spot_prop = regionprop.SpotRegionprop(
+            df_cols=constants.SPOT_DF_COLS,
+            row_idx=grid_row_idx,
+            col_idx=grid_col_idx,
             label=count,
         )
-        bg_prop = regionprop.SpotRegionprop(
-            label=count,
-        )
+
         # Mask spot should cover a certain percentage of ROI
         if np.mean(mask_spot) > constants.SPOT_MIN_PERCENT_AREA:
             # Mask detected
@@ -147,11 +141,7 @@ def get_spot_intensity(coords, im, background, params, search_range=2):
             )
             spot_prop.generate_props_from_mask(
                 image=im_spot_lg,
-                mask=mask_spot,
-                bbox=bbox_lg,
-            )
-            bg_prop.generate_props_from_mask(
-                image=bg_spot_lg,
+                background=bg_spot_lg,
                 mask=mask_spot,
                 bbox=bbox_lg,
             )
@@ -169,22 +159,13 @@ def get_spot_intensity(coords, im, background, params, search_range=2):
                 bbox_height,
                 bbox_width,
             )
-            # Create disk mask
-            mask_spot = spot_prop.make_mask(im_spot.shape[0])
             spot_prop.generate_props_from_disk(
                 image=im_spot,
-                mask=mask_spot,
+                background=bg_spot,
                 bbox=bbox,
                 centroid=coord,
             )
-            bg_prop.generate_props_from_disk(
-                image=bg_spot,
-                mask=mask_spot,
-                bbox=bbox,
-                centroid=coord,
-            )
+        spots_df.append(spot_prop.spot_dict, ignore_index=True)
+        spot_props[grid_row_idx, grid_col_idx] = spot_prop
 
-        spot_props[grid_id] = spot_prop
-        bg_props[grid_id] = bg_prop
-
-    return spot_props, bg_props
+    return spots_df, spot_props
