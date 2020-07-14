@@ -30,7 +30,6 @@ class MetaData:
             "Metadata file must be of type file_name.extension," \
             "not {}".format(constants.METADATA_FILE)
         self.metadata_extension = metadata_split[-1]
-        rerun_dir = None
 
         # parse fiducials, spot types, antigens, and hardware parameters from metadata
         if self.metadata_extension == 'xml':
@@ -56,6 +55,8 @@ class MetaData:
             self.fiduc, _, self.repl, self.params = txt_parser.create_csv_dict(csv_paths)
 
         elif self.metadata_extension == 'xlsx':
+            print(input_folder_)
+            print(constants.METADATA_FILE)
             self.xlsx_path = os.path.join(input_folder_, constants.METADATA_FILE)
 
             if constants.METADATA_FILE not in os.listdir(input_folder_):
@@ -70,7 +71,6 @@ class MetaData:
             # Collect well names for rerun, if sheet exists
             if 'rerun_wells' in sheets.keys():
                 constants.RERUN_WELLS = list(sheets['rerun_wells']['well_name'])
-                rerun_dir = sheets['rerun_wells']['run_dir'][0]
             # parsing .xlsx
             self.fiduc, self.repl, self.params = txt_parser.create_xlsx_dict(sheets)
 
@@ -98,14 +98,9 @@ class MetaData:
         self._calculate_fiduc_coords()
         self._calculate_fiduc_idx()
         self._calc_spot_dist()
-        if rerun_dir is None:
-            self._set_run_path(output_folder_)
-        else:
+        if len(constants.RERUN_WELLS) > 0:
             # Rerun certain wells in existing run path
-            constants.RUN_PATH = os.path.join(
-                output_folder_,
-                rerun_dir,
-            )
+            constants.RUN_PATH = output_folder_
             assert os.path.isdir(constants.RUN_PATH),\
                 "Can't find re-run dir {}".format(constants.RUN_PATH)
 
@@ -254,6 +249,8 @@ class MetaData:
         constants.SPOT_DIST_UM = np.mean([v_pitch_mm * 1000, h_pitch_mm * 1000]).astype('uint8')
 
     def _copy_metadata_to_output(self):
+        print(self.xml_path)
+        print(constants.RUN_PATH)
         if self.metadata_extension == 'xlsx':
             shutil.copy2(self.xlsx_path, constants.RUN_PATH)
         elif self.metadata_extension == 'xml':

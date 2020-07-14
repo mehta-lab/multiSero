@@ -38,28 +38,32 @@ bad operation:
 
 
 def test_one_xml(create_good_xml):
+    input_dir, output_dir = create_good_xml
     constants.METADATA_FILE = 'temp.xml'
-    output_dir = create_good_xml
-    MetaData(output_dir, output_dir)
+    constants.RUN_PATH = output_dir
+    MetaData(input_dir, output_dir)
 
 
-def test_two_xml(create_good_xml):
-    constants.METADATA_FILE = 'second_xml.xml'
-    output_dir = create_good_xml
+def test_wrong_xml_name(create_good_xml):
+    input_dir, output_dir = create_good_xml
+    constants.METADATA_FILE = 'no_xml.xml'
+    constants.RUN_PATH = output_dir
     with pytest.raises(IOError):
-        MetaData(output_dir, output_dir)
+        MetaData(input_dir, output_dir)
 
 
 def test_xlsx(create_good_xlsx):
+    input_dir, output_dir = create_good_xlsx
     constants.METADATA_FILE = 'pysero_output_data_metadata.xlsx'
-    output_dir = create_good_xlsx
-    MetaData(output_dir, output_dir)
+    constants.RUN_PATH = output_dir
+    MetaData(input_dir, output_dir)
 
 
 def test_nonetype_well_array(create_good_xlsx):
+    input_dir, output_dir = create_good_xlsx
     constants.METADATA_FILE = 'pysero_output_data_metadata.xlsx'
-    output_dir = create_good_xlsx
-    MetaData(output_dir, output_dir)
+    constants.RUN_PATH = output_dir
+    MetaData(input_dir, output_dir)
     assert constants.WELL_BG_ARRAY[0][0] is None
     assert constants.WELL_INT_ARRAY[0][0] is None
     assert constants.WELL_OD_ARRAY[0][0] is None
