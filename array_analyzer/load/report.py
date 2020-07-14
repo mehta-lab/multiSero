@@ -77,23 +77,22 @@ class ReportWriter:
         rows = list(range(1, 13))
         antigen_df = pd.DataFrame(None, index=rows, columns=cols)
         report_dict = collections.OrderedDict()
-        self.antigen_df = pd.DataFrame(columns=['antigen', 'well_row', 'well_col'])
-
+        self.antigen_df = pd.DataFrame(columns=['antigen', 'grid_row', 'grid_col'])
         for antigen_position, antigen in np.ndenumerate(constants.ANTIGEN_ARRAY):
             if antigen == '' or antigen is None:
                 continue
 
-            sheet_name = f'{antigen}_{antigen_position[0]}_{antigen_position[1]}'
+            sheet_name = antigen
             if len(sheet_name) >= 31:
-                # logger.warning("antigen sheet name is too long, truncating")
+                # logger.warning("antigen name is too long for sheet, truncating")
                 sheet_name = sheet_name[:31]
 
             report_dict[sheet_name] = antigen_df.copy()
 
             idx_row = {'antigen': sheet_name,
-                       'well_row': antigen_position[0],
-                       'well_col': antigen_position[1]}
-            self.antigen_df.append(idx_row, ignore_index=True)
+                       'grid_row': antigen_position[0],
+                       'grid_col': antigen_position[1]}
+            self.antigen_df = self.antigen_df.append(idx_row, ignore_index=True)
 
         self.report_int = report_dict.copy()
         self.report_bg = report_dict.copy()
@@ -147,15 +146,15 @@ class ReportWriter:
         """
         plate_col = well_name[0]
         plate_row = int(well_name[1:])
-        for antigen, row, col in self.report_idx_df.iterrows():
-            spots_row = spots_df[(spots_df['grid_row'] == row) & \
-                                 (spots_df[spots_df['grid_col'] == col])]
+        for antigen, row, col in self.antigen_df.iterrows():
+            spots_row = spots_df[(spots_df['grid_row'] == row) &
+                                 (spots_df['grid_col'] == col)]
             self.report_int[antigen].at[plate_row, plate_col] = \
-                spots_row['intensity_median']
+                spots_row['intensity_median'][0]
             self.report_bg[antigen].at[plate_row, plate_col] = \
-                spots_row['bg_median']
+                spots_row['bg_median'][0]
             self.report_od[antigen].at[plate_row, plate_col] = \
-                spots_row['od_norm']
+                spots_row['od_norm'][0]
 
     def write_reports(self):
         """

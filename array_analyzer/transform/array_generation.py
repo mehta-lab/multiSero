@@ -166,7 +166,7 @@ def get_spot_intensity(coords, im, background, params, search_range=2):
                 bbox=bbox,
                 centroid=coord,
             )
-        spots_df.append(spot_prop.spot_dict, ignore_index=True)
+        spots_df = spots_df.append(spot_prop.spot_dict, ignore_index=True)
         spot_props[grid_row_idx, grid_col_idx] = spot_prop
 
     return spots_df, spot_props
