@@ -63,7 +63,7 @@ bg_path1 = os.path.join(data_folder1, 'median_backgrounds.xlsx')
 #scienion1_path = os.path.join(data_folder1, '2020-06-04-16-08-27-COVID_June4_JBassay_analysis.xlsx')
 
 # %% Second path
-data_folder2 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-29-42-COVID_June24_OJassay_plate10_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200701_1141'
+data_folder2 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-29-42-COVID_June24_OJassay_plate10_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200701_1110'
 metadata_path2 = os.path.join(data_folder2, 'pysero_output_data_metadata.xlsx')
 OD_path2 = os.path.join(data_folder2, 'median_ODs.xlsx')
 int_path2 = os.path.join(data_folder2, 'median_intensities.xlsx')
@@ -71,7 +71,7 @@ bg_path2 = os.path.join(data_folder2, 'median_backgrounds.xlsx')
 # scienion_path=os.path.join(data_folder, '2020-05-18-17-59-01-COVID_May18_JVassay_analysis.xlsx')
 
 # %% Third path
-data_folder3 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-25-28-COVID_June24_OJassay_plate9_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200701_1028'
+data_folder3 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-29-42-COVID_June24_OJassay_plate10_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200701_1141'
 metadata_path3 = os.path.join(data_folder3, 'pysero_output_data_metadata.xlsx')
 OD_path3 = os.path.join(data_folder3, 'median_ODs.xlsx')
 int_path3 = os.path.join(data_folder3, 'median_intensities.xlsx')
@@ -646,6 +646,7 @@ for failed_well in wells2keep3:
 frames = [python_df, python_df2, python_df3]
 stitchedpython_df = pd.concat(frames)
 
+stitchedpython_df.to_excel(r'/Users/janie.byrum/Desktop/dataframes output/plate10.xlsx')
 
 # ## Fit curves to above plots
 

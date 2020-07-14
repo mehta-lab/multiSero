@@ -574,6 +574,36 @@ interp_df['value on curve'] =makereal
 interp_df.astype({'value on curve': 'float64'}).dtypes
 print(interp_df['value on curve'])
 
+interp_df.to_excel(r'/Users/janie.byrum/Desktop/dataframes output/CR3022 interp OJ plate 9 nautilus.xlsx')
+
+# %% Change values on curve to a placeholder value for ODs that are higher or lower than curve
+rangeforag_df = interp_df[(interp_df['serum ID'] == interp_df['sc'])]
+minmaxValue_df = pd.DataFrame()
+for antigen in rangeforag_df['antigen'].unique():
+    antigen_df = rangeforag_df[(rangeforag_df['antigen'] ==antigen)]
+    maxValue = antigen_df['OD'].max()
+    minValue = antigen_df['OD'].min()
+    print(maxValue)
+    temp_df = pd.DataFrame()
+    temp_df['maxValue'] = [maxValue]
+    temp_df['minValue'] = [minValue]
+    temp_df['antigen'] = [antigen]
+
+    minmaxValue_df = minmaxValue_df.append(temp_df)
+print(minmaxValue_df)
+interp_df = interp_df.merge(minmaxValue_df, left_on='antigen', right_on='antigen', how='outer')
+
+
+#if OD is greater than max value, change value on curve to 1
+# Do the converse for min value, change to 0.00015
+import random
+for idx, row in interp_df.iterrows():
+    if row['OD'] > row['maxValue']:
+        # first_df.loc((row['value on curve']),1)
+        interp_df.loc[idx,'value on curve'] = random.uniform(0.001,0.0015)
+    elif row['OD'] < row['minValue']:
+
+        interp_df.loc[idx, 'value on curve'] = random.uniform(0.00010,0.00017)
 # %% Multiply ODs by dilution factor
 # interp_df.loc[interp_df['serum ID'] != 'CR3022', 'value on curve'] = interp_df.loc[interp_df['serum ID'] != 'CR3022', 'value on curve'] * 200
 # interp_df
@@ -600,21 +630,21 @@ print(interp_df['value on curve'])
 # plt.savefig(os.path.join(fig_path, 'interp_{}_{}_{}.jpg'.format('positive', 'negative','02')), dpi=300, bbox_inches='tight')
 
 # %% Print the max value of the negative samples
-antigens = natsorted(interp_df['antigen'].unique())
-maxvalue_df=pd.DataFrame()
-for antigen in antigens:
-    df_temp=pd.DataFrame()
-    negativesera_df = interp_df[(interp_df['serum cat']=='Negative') & (interp_df['antigen']==antigen)]
-    negserainterp_df = negativesera_df["value on curve"] & negativesera_df['OD']
-    max_value = negserainterp_df["value on curve"].max()
-    max_OD = negserainterp_df["value on curve"].max()
-    df_temp['antigen'] = [antigen]
-
-    df_temp['max c']=[max_value]
-    df_temp['max OD']
-    maxvalue_df = maxvalue_df.append(df_temp)
-
-print(maxvalue_df)
+# antigens = natsorted(interp_df['antigen'].unique())
+# maxvalue_df=pd.DataFrame()
+# for antigen in antigens:
+#     df_temp=pd.DataFrame()
+#     negativesera_df = interp_df[(interp_df['serum cat']=='Negative') & (interp_df['antigen']==antigen)]
+#     negserainterp_df = negativesera_df["value on curve"] & negativesera_df['OD']
+#     max_value = negserainterp_df["value on curve"].max()
+#     max_OD = negserainterp_df["value on curve"].max()
+#     df_temp['antigen'] = [antigen]
+#
+#     df_temp['max c']=[max_value]
+#     df_temp['max OD']
+#     maxvalue_df = maxvalue_df.append(df_temp)
+#
+# print(maxvalue_df)
 
 #%% plot the ODs and fit of standard curve
 
@@ -625,6 +655,7 @@ os.makedirs(fig_path, exist_ok=True)
 
 pipeline = ['python']
 sera_list = ['Positive','Negative']
+sera_list2 = ['mab']
 sera_fit_list = ['mab fit']
 markers = 'o'
 sec_dilutions = [1e-4]
@@ -633,36 +664,45 @@ style = 'serum cat'
 antigens = natsorted(stitchedpython_df['antigen'].unique())
 
 serum_df = interp_df[(interp_df['serum cat'].isin(sera_list))]
+serum_df2 = interp_df[(interp_df['serum ID'].isin(sera_list2))]
 serum2_df = serum_df.rename(columns={'serum dilution':'serum dilution_1','value on curve':'serum dilution'})
+serum3_df = serum_df2.rename(columns={'serum dilution':'serum dilution_1','value on curve':'serum dilution'})
 #assert not serum2_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
 
 for sec_id in serum2_df['secondary ID'].unique():
     sub_df = serum2_df[(serum2_df['secondary ID'] == sec_id)]
+    sub_df2 = serum3_df[(serum3_df['secondary ID'] == sec_id)]
     #palette = sns.color_palette(n_colors=len(sub_df[hue].unique()))
     palette2 = sns.color_palette("Greys")
     palette = sns.color_palette()
     print('plotting...')
     g = sns.lmplot(x="serum dilution", y="OD", col_order=antigens, hue=hue, hue_order=sera_list, col="antigen", ci='sd', palette=palette, markers=markers, data=sub_df, col_wrap=5, fit_reg=False, x_estimator=np.mean, legend=False)
+    g.set(ylim=(-0.05, 1.8),xlim=(10e-9, 10e-2))
     sub_python_df_fit = python_df_fit[(python_df_fit['serum ID'].isin(sera_fit_list)) & (python_df_fit['secondary ID'] == sec_id)]
     palette2 = sns.color_palette("Greys",n_colors=len(sub_python_df_fit[hue].unique()))
 
     for antigen, ax in zip(antigens, g.axes.flat):
         df_fit = sub_python_df_fit[(sub_python_df_fit['antigen'] == antigen)]
         sub_serum_df = sub_df[(sub_df['antigen'] == antigen)]
+        sub_serum2_df = sub_df2[(sub_df2['antigen'] == antigen)]
         palette = sns.color_palette(n_colors=len(sub_serum_df[hue].unique()))
-
+        palette3 = sns.color_palette("Greys",n_colors=len(sub_serum2_df[hue].unique()))
+        sns.scatterplot(x="serum dilution", y="OD", hue=hue, hue_order=sera_list2, estimator='mean',
+                        data=sub_serum2_df, palette=palette3, markers=markers, ax=ax, legend=False)
         sns.lineplot(x="serum dilution", y="OD", hue=hue, hue_order=sera_fit_list, data=df_fit, legend=False,
                      style=style, palette=palette2,
                      ax=ax)
 
         sns.scatterplot(x="serum dilution", y="OD", hue=hue,hue_order=sera_list, estimator='mean', data=sub_serum_df, palette=palette, markers=markers, ax=ax, legend=False)
+        ax.set(xlim=[10e-9, 10e-2])
         ax.set(xscale="log")
+        ax.set(ylim=[-0.05, 1.8])
         # ax.set(xlim=[10e-5,10e0])
 
 
 
         # ax.set(ylim=[-0.05, 1.5])
-plt.savefig(os.path.join(fig_path, '{}_{}_{}_fit.jpg'.format('combined interp', sec_id, sec_dilutions)),dpi=300, bbox_inches='tight')
+plt.savefig(os.path.join(fig_path, '{}_{}_{}_fit.jpg'.format('combined interp with points off curve', sec_id, sec_dilutions)),dpi=300, bbox_inches='tight')
 
 # %% Make plot with CR3022 fit, pos and neg pool points, zoomed in to lower OD range
 #

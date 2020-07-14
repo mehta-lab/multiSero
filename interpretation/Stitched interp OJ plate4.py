@@ -646,7 +646,7 @@ for failed_well in wells2keep3:
 frames = [python_df, python_df2, python_df3]
 stitchedpython_df = pd.concat(frames)
 
-
+stitchedpython_df.to_excel(r'/Users/janie.byrum/Desktop/dataframes output/plate4.xlsx')
 # ## Fit curves to above plots
 
 #%%

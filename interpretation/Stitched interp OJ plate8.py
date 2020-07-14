@@ -55,7 +55,7 @@ def well2D_to_df1D(xlsx_path, sheet, data_col):
 # %% Set paths
 
 # %% First path
-data_folder1 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200630_1647'
+data_folder1 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-44-32-COVID_June5_OJassay_plate8_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200613_2017'
 metadata_path1 = os.path.join(data_folder1, 'pysero_output_data_metadata.xlsx')
 OD_path1 = os.path.join(data_folder1, 'median_ODs.xlsx')
 int_path1 = os.path.join(data_folder1, 'median_intensities.xlsx')
@@ -63,7 +63,7 @@ bg_path1 = os.path.join(data_folder1, 'median_backgrounds.xlsx')
 #scienion1_path = os.path.join(data_folder1, '2020-06-04-16-08-27-COVID_June4_JBassay_analysis.xlsx')
 
 # %% Second path
-data_folder2 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200630_1657'
+data_folder2 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-44-32-COVID_June5_OJassay_plate8_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200613_2042'
 metadata_path2 = os.path.join(data_folder2, 'pysero_output_data_metadata.xlsx')
 OD_path2 = os.path.join(data_folder2, 'median_ODs.xlsx')
 int_path2 = os.path.join(data_folder2, 'median_intensities.xlsx')
@@ -71,7 +71,7 @@ bg_path2 = os.path.join(data_folder2, 'median_backgrounds.xlsx')
 # scienion_path=os.path.join(data_folder, '2020-05-18-17-59-01-COVID_May18_JVassay_analysis.xlsx')
 
 # %% Third path
-data_folder3 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200630_1708'
+data_folder3 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-44-32-COVID_June5_OJassay_plate8_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200613_2051'
 metadata_path3 = os.path.join(data_folder3, 'pysero_output_data_metadata.xlsx')
 OD_path3 = os.path.join(data_folder3, 'median_ODs.xlsx')
 int_path3 = os.path.join(data_folder3, 'median_intensities.xlsx')
@@ -79,13 +79,13 @@ bg_path3 = os.path.join(data_folder3, 'median_backgrounds.xlsx')
 # scienion_path=os.path.join(data_folder, '2020-05-18-17-59-01-COVID_May18_JVassay_analysis.xlsx')
 
 # %% Fourth path
-data_folder4 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200630_1739'
+data_folder4 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-44-32-COVID_June5_OJassay_plate8_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200618_1449'
 metadata_path4 = os.path.join(data_folder4, 'pysero_output_data_metadata.xlsx')
 OD_path4 = os.path.join(data_folder4, 'median_ODs.xlsx')
 int_path4 = os.path.join(data_folder4, 'median_intensities.xlsx')
 bg_path4 = os.path.join(data_folder4, 'median_backgrounds.xlsx')
-# # scienion_path=os.path.join(data_folder, '2020-05-18-17-59-01-COVID_May18_JVassay_analysis.xlsx')
-#
+# # # scienion_path=os.path.join(data_folder, '2020-05-18-17-59-01-COVID_May18_JVassay_analysis.xlsx')
+# #
 
 # %% Read antigen and plate info
 sheet_names = ['serum ID',
@@ -623,31 +623,31 @@ python_df4.dropna(subset=['OD'], inplace=True)
 
 
 #%% Remove failed wells for n dataframes
-wells2keep = ['E3','E4']
-for failed_well in wells2keep:
+# wells2keep = ['E3','E4']
+# for failed_well in wells2keep:
+#     # python_df2 = python_df2[python_df2.well_id != failed_well]
+#     python_df = python_df[(python_df['well_id'].isin(wells2keep))]
+
+# failed_wells2 = ['B4','F2]
+wells2keep2 = ['D4','D6','F5']
+for failed_well in wells2keep2:
+    python_df2 = python_df2[python_df2['well_id'].isin(wells2keep2)]
+
+failed_wells3 = ['B12','D4','D6','F5','H11']
+for failed_well in failed_wells3:
     # python_df2 = python_df2[python_df2.well_id != failed_well]
-    python_df = python_df[(python_df['well_id'].isin(wells2keep))]
+    python_df3 = python_df3[python_df3.well_id != failed_well]
 
-failed_wells2 = ['E3','E4']
-for failed_well in failed_wells2:
-    python_df2 = python_df2[python_df2.well_id != failed_well]
-
-wells2keep3 = ['F2']
-for failed_well in wells2keep3:
-    # python_df2 = python_df2[python_df2.well_id != failed_well]
-    python_df3 = python_df3[(python_df3['well_id'].isin(wells2keep3))]
-
-failed_wells4 = ['F2']
-for failedwell in failed_wells4:
-    python_df4 = python_df4[python_df4.well_id != failedwell]
+wells2keep4 = ['B12','D6','F5','H11']
+for failedwell in wells2keep4:
+    python_df4 = python_df4[python_df4['well_id'].isin(wells2keep4)]
     # python_df3 = python_df3[python_df3.well_id == failedwell]
 
 #%% Concatenate dataframes
-frames = [python_df, python_df2, python_df3,python_df4]
+frames = [python_df, python_df2, python_df3]
 stitchedpython_df = pd.concat(frames)
 
-
-stitchedpython_df.to_excel(r'/Users/janie.byrum/Desktop/dataframes output/plate3.xlsx')
+stitchedpython_df.to_excel(r'/Users/janie.byrum/Desktop/dataframes output/plate8.xlsx')
 # ## Fit curves to above plots
 
 #%%
