@@ -73,30 +73,34 @@ def write_antigen_report(writer, well_array, array_type, logger):
 class ReportWriter:
 
     def __init__(self):
+        # Dataframe for a whole plate
         cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
         rows = list(range(1, 13))
-        antigen_df = pd.DataFrame(None, index=rows, columns=cols)
+        plate_df = pd.DataFrame(None, index=rows, columns=cols)
+
         report_dict = collections.OrderedDict()
+        # Dataframe for antigen positions on grid
         self.antigen_df = pd.DataFrame(columns=['antigen', 'grid_row', 'grid_col'])
         for antigen_position, antigen in np.ndenumerate(constants.ANTIGEN_ARRAY):
             if antigen == '' or antigen is None:
                 continue
-
+            # Abbreviate antigen name if too long
             sheet_name = antigen
             if len(sheet_name) >= 31:
                 # logger.warning("antigen name is too long for sheet, truncating")
                 sheet_name = sheet_name[:31]
-
-            report_dict[sheet_name] = antigen_df.copy()
-
+            # Add empty plate dataframe to antigen
+            report_dict[sheet_name] = plate_df.copy()
+            # Add grid row and column for antigen
             idx_row = {'antigen': sheet_name,
                        'grid_row': antigen_position[0],
                        'grid_col': antigen_position[1]}
             self.antigen_df = self.antigen_df.append(idx_row, ignore_index=True)
 
-        self.report_int = report_dict.copy()
-        self.report_bg = report_dict.copy()
-        self.report_od = report_dict.copy()
+        self.antigen_names = list(self.antigen_df['antigen'].values)
+        self.report_int = deepcopy(report_dict)
+        self.report_bg = deepcopy(report_dict)
+        self.report_od = deepcopy(report_dict)
         # Report paths
         self.od_path = os.path.join(constants.RUN_PATH, 'median_ODs.xlsx')
         self.int_path = os.path.join(constants.RUN_PATH, 'median_intensities.xlsx')
@@ -123,16 +127,16 @@ class ReportWriter:
         assert os.path.isfile(self.bg_path), \
             "Background report doesn't exist: {}".format(self.bg_path)
         # Read reports and make sure they have the right keys
-        ordered_dict = pd.read_excel(self.od_path, sheet_name=None)
-        assert ordered_dict.keys() == self.antigen_df.keys(), \
+        ordered_dict = pd.read_excel(self.od_path, sheet_name=None, index_col=0)
+        assert list(ordered_dict) == self.antigen_names, \
             "Existing report keys don't match current keys"
         self.report_od = ordered_dict
-        ordered_dict = pd.read_excel(self.int_path, sheet_name=None)
-        assert ordered_dict.keys() == self.antigen_df.keys(), \
+        ordered_dict = pd.read_excel(self.int_path, sheet_name=None, index_col=0)
+        assert list(ordered_dict) == self.antigen_names, \
             "Existing report keys don't match current keys"
         self.report_int = ordered_dict
-        ordered_dict = pd.read_excel(self.bg_path, sheet_name=None)
-        assert ordered_dict.keys() == self.antigen_df.keys(), \
+        ordered_dict = pd.read_excel(self.bg_path, sheet_name=None, index_col=0)
+        assert list(ordered_dict) == self.antigen_names, \
             "Existing report keys don't match current keys"
         self.report_bg = ordered_dict
 
@@ -146,15 +150,17 @@ class ReportWriter:
         """
         plate_col = well_name[0]
         plate_row = int(well_name[1:])
-        for antigen, row, col in self.antigen_df.iterrows():
-            spots_row = spots_df[(spots_df['grid_row'] == row) &
-                                 (spots_df['grid_col'] == col)]
-            self.report_int[antigen].at[plate_row, plate_col] = \
-                spots_row['intensity_median'][0]
-            self.report_bg[antigen].at[plate_row, plate_col] = \
-                spots_row['bg_median'][0]
-            self.report_od[antigen].at[plate_row, plate_col] = \
-                spots_row['od_norm'][0]
+        for idx, antigen_row in self.antigen_df.iterrows():
+            spots_row = spots_df.loc[
+                (spots_df['grid_row'] == antigen_row['grid_row']) &
+                (spots_df['grid_col'] == antigen_row['grid_col']),
+            ]
+            self.report_int[antigen_row['antigen']].at[plate_row, plate_col] = \
+                spots_row['intensity_median'].values[0]
+            self.report_bg[antigen_row['antigen']].at[plate_row, plate_col] = \
+                spots_row['bg_median'].values[0]
+            self.report_od[antigen_row['antigen']].at[plate_row, plate_col] = \
+                spots_row['od_norm'].values[0]
 
     def write_reports(self):
         """
@@ -163,16 +169,16 @@ class ReportWriter:
         """
         # Write OD report
         with pd.ExcelWriter(self.od_path) as writer:
-            for antigen_name in self.antigen_df.keys():
+            for antigen_name in self.antigen_names:
                 sheet_df = self.report_od[antigen_name]
                 sheet_df.to_excel(writer, sheet_name=antigen_name)
         # Write intensity report
         with pd.ExcelWriter(self.int_path) as writer:
-            for antigen_name in self.antigen_df.keys():
+            for antigen_name in self.antigen_names:
                 sheet_df = self.report_int[antigen_name]
                 sheet_df.to_excel(writer, sheet_name=antigen_name)
         # Write background report
         with pd.ExcelWriter(self.bg_path) as writer:
-            for antigen_name in self.antigen_df.keys():
+            for antigen_name in self.antigen_names:
                 sheet_df = self.report_bg[antigen_name]
                 sheet_df.to_excel(writer, sheet_name=antigen_name)

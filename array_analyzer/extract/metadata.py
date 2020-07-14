@@ -219,8 +219,6 @@ class MetaData:
         """
         Calculate fiducial index like
             FIDUCIALS_IDX = [0, 5, 6, 30, 35]\
-
-
             FIDUCIALS_IDX = [0, 7, 8, 40, 47] for 8 columns
         :return:
         """
@@ -249,8 +247,6 @@ class MetaData:
         constants.SPOT_DIST_UM = np.mean([v_pitch_mm * 1000, h_pitch_mm * 1000]).astype('uint8')
 
     def _copy_metadata_to_output(self):
-        print(self.xml_path)
-        print(constants.RUN_PATH)
         if self.metadata_extension == 'xlsx':
             shutil.copy2(self.xlsx_path, constants.RUN_PATH)
         elif self.metadata_extension == 'xml':
