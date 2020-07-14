@@ -354,27 +354,26 @@ def populate_array_antigen(arr, csv_antigens_):
     return arr
 
 
-def rerun_xl_od(well_names, od_xl_name, rerun_names, xlwriter_od_well):
+def rerun_xl_od(well_names, well_xlsx_path, rerun_names):
     """
-    Copy over existing wells to excelwriter.
+    Copy over existing wells to excel sheets.
 
     :param well_names:
-    :param od_xl_name:
+    :param well_xlsx_path:
     :param rerun_names:
-    :param xlwriter_od_well:
     """
     rerun_set = set(rerun_names)
     assert rerun_set.issubset(well_names), \
         "All rerun wells can't be found in input directory"
 
-    ordered_dict = pd.read_excel(od_xl_name, sheet_name=None)
+    ordered_dict = pd.read_excel(well_xlsx_path, sheet_name=None)
     written_wells = list(ordered_dict.keys())
     written_wells.remove('antigens')
     # Find the difference between the sets
     existing_wells = natsort.natsorted(
         list(set(written_wells) - rerun_set),
     )
-    for well_name in existing_wells:
-        pd_od = pd.DataFrame(ordered_dict[well_name])
-        with xlwriter_od_well as writer:
+    with pd.ExcelWriter(well_xlsx_path) as writer:
+        for well_name in existing_wells:
+            pd_od = pd.DataFrame(ordered_dict[well_name])
             pd_od.to_excel(writer, sheet_name=well_name)

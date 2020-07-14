@@ -64,7 +64,7 @@ def get_spot_intensity(coords, im, background, params, search_range=2):
     with the following steps:
     1. crop image around each grid point
     2. Segment 1 single spot from each image
-    3. Get median intensity within the spot mask
+    3. Get median intensity, background and OD within the spot mask
     4. If segmentation in 2. returns no mask, use a circular mask with average spot size as the spot mask and do 3.
 
     :param coords: list or tuple
@@ -77,8 +77,10 @@ def get_spot_intensity(coords, im, background, params, search_range=2):
         parameters parsed from the metadata
     :param float search_range: Factor of bounding box size in which to search for
         spots. E.g. 2 searches 2 * 2 * bbox width * bbox height
-    :return: dict
-        dictionary with format (row index, column index): prop
+    :return pd.DataFrame spots_df: Dataframe containing metrics for
+        all spots in the grid
+    :return np.array spot_props: A SpotRegionprop object with ROIs for
+        each spot in the grid
     """
     # values in mm
     spot_width = params['spot_width']
@@ -124,7 +126,6 @@ def get_spot_intensity(coords, im, background, params, search_range=2):
         )
         # Create spot and background instance
         spot_prop = regionprop.SpotRegionprop(
-            df_cols=constants.SPOT_DF_COLS,
             row_idx=grid_row_idx,
             col_idx=grid_col_idx,
             label=count,

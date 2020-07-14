@@ -40,10 +40,8 @@ def point_registration(input_dir, output_dir):
         constants.RUN_PATH,
         'stats_per_well.xlsx',
     )
-    xlwriter_well = pd.ExcelWriter(well_xlsx_path)
-
     antigen_df = reporter.get_antigen_df()
-    with xlwriter_well as writer:
+    with pd.ExcelWriter(well_xlsx_path) as writer:
         antigen_df.to_excel(writer, sheet_name='antigens')
 
     # Initialize background estimator
@@ -69,9 +67,8 @@ def point_registration(input_dir, output_dir):
     if len(constants.RERUN_WELLS) > 0:
         txt_parser.rerun_xl_od(
             well_names=well_names,
-            od_xl_name=od_xl_name,
+            well_xlsx_path=well_xlsx_path,
             rerun_names=constants.RERUN_WELLS,
-            xlwriter_od_well=xlwriter_well,
         )
         well_names = constants.RERUN_WELLS
 
@@ -88,7 +85,7 @@ def point_registration(input_dir, output_dir):
         logger.debug("Image max intensity: {}".format(max_intensity))
         # Crop image to well only
         try:
-            well_center, well_radi, well_mask = image_parser.find_well_border(
+            well_center, well_radi, _ = image_parser.find_well_border(
                 image,
                 detmethod='region',
                 segmethod='otsu',
@@ -192,9 +189,9 @@ def point_registration(input_dir, output_dir):
             params=constants.params,
         )
         # Write metrics for each spot in grid in current well
-        with xlwriter_well as writer:
+        with pd.ExcelWriter(well_xlsx_path) as writer:
             spots_df.to_excel(writer, sheet_name=well_name)
-        # Assign well stats to plate
+        # Assign well OD, intensity, and background stats to plate
         reporter.assign_well_to_plate(well_name, spots_df)
 
         time_msg = "Time to extract OD in {}: {:.3f} s".format(
@@ -238,4 +235,3 @@ def point_registration(input_dir, output_dir):
             )
     # After running all wells, write plate reports
     reporter.write_reports()
-    xlwriter_well.close()

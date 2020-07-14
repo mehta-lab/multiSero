@@ -3,17 +3,19 @@ import pandas as pd
 from skimage import measure
 from skimage.morphology import disk
 
+import array_analyzer.extract.constants as constants
+
 
 class SpotRegionprop:
 
-    def __init__(self, df_cols, row_idx, col_idx, label=None):
+    def __init__(self, row_idx, col_idx, label=None):
         """
         Object holding spot images, masks, and their properties:
         centroid, bounding box, mean and median intensity.
 
         :param int label: Spot label
         """
-        self.df_cols = df_cols
+        self.df_cols = constants.SPOT_DF_COLS
         self.image = None
         self.background = None
         self.label = label
@@ -33,6 +35,23 @@ class SpotRegionprop:
         """
         mask = disk(int(im_size / 2), dtype=np.uint8)
         return mask
+
+    def compute_stats(self):
+        """
+        Compute mean, median and OD values for images and backgrounds.
+        Optical density is affected by Beer-Lambert law
+        i.e. I = I0*e^-{c*thickness). I0/I = e^{c*thickness).
+        """
+        intensity_vals = self.image[self.mask > 0]
+        self.spot_dict['intensity_mean'] = np.mean(intensity_vals)
+        self.spot_dict['intensity_median'] = np.median(intensity_vals)
+        bg_vals = self.background[self.mask > 0]
+        self.spot_dict['bg_mean'] = np.mean(bg_vals)
+        self.spot_dict['bg_median'] = np.median(bg_vals)
+
+        self.spot_dict['od_norm'] = np.log10(
+            self.spot_dict['bg_median'] / self.spot_dict['intensity_median'],
+        )
 
     def generate_props_from_disk(self, image, background, bbox, centroid):
         """
@@ -58,31 +77,6 @@ class SpotRegionprop:
 
         self.compute_stats()
 
-    def compute_stats(self):
-        """
-        Compute mean, median and OD values for images and backgrounds.
-        Optical density is affected by Beer-Lambert law
-        i.e. I = I0*e^-{c*thickness). I0/I = e^{c*thickness).
-        """
-        self.spot_dict['intensity_mean'] = np.mean(self.image[self.mask > 0])
-        self.spot_dict['intensity_median'] = np.median(self.image[self.mask > 0])
-        self.spot_dict['bg_mean'] = np.mean(self.background[self.mask > 0])
-        self.spot_dict['bg_median'] = np.median(self.background[self.mask > 0])
-
-        self.spot_dict['od_norm'] = np.log10(
-            self.spot_dict['bg_median'] / self.spot_dict['intensity_median'],
-        )
-
-    def get_skimage_props(self, image, mask):
-        properties = ('label', 'centroid', 'mean_intensity',
-                      'intensity_image', 'image', 'area', 'bbox')
-        skimage_props = measure.regionprops_table(
-            mask,
-            intensity_image=image,
-            properties=properties,
-        )
-        return pd.DataFrame(skimage_props)
-
     def generate_props_from_mask(self, image, background, mask, bbox):
         """
         converts binarized image into region-properties using
@@ -93,7 +87,14 @@ class SpotRegionprop:
         :param np.ndarray mask: Binary mask corresponding to image
         :param list bbox: Bounding box of single spot image
         """
-        skimage_props = self.get_skimage_props(image, mask)
+        properties = ('label', 'centroid', 'mean_intensity',
+                      'intensity_image', 'image', 'area', 'bbox')
+        skimage_props = measure.regionprops_table(
+            mask,
+            intensity_image=image,
+            properties=properties,
+        )
+        skimage_props = pd.DataFrame(skimage_props)
 
         self.spot_dict['centroid_row'] = bbox[0] + skimage_props.at[0, 'centroid-0']
         self.spot_dict['centroid_col'] = bbox[1] + skimage_props.at[0, 'centroid-1']
