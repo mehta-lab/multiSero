@@ -20,13 +20,13 @@ def report_test(tmpdir_factory):
     rows = list(range(1, 13))
     plate_df = pd.DataFrame(None, index=rows, columns=cols)
     report_test = collections.OrderedDict()
-    for antigen_name in ['antigen_0_0', 'antigen_1_2']:
+    for antigen_name in ['0_0_antigen_0_0', '1_2_antigen_1_2']:
         report_test[antigen_name] = plate_df.copy()
     # Assign some values to a report
-    report_test['antigen_0_0'].at[3, 'A'] = .75
-    report_test['antigen_0_0'].at[12, 'H'] = .5
-    report_test['antigen_1_2'].at[3, 'A'] = .1
-    report_test['antigen_1_2'].at[12, 'H'] = .2
+    report_test['0_0_antigen_0_0'].at[3, 'A'] = .75
+    report_test['0_0_antigen_0_0'].at[12, 'H'] = .5
+    report_test['1_2_antigen_1_2'].at[3, 'A'] = .1
+    report_test['1_2_antigen_1_2'].at[12, 'H'] = .2
     return report_test
 
 
@@ -48,23 +48,23 @@ def test_report_init():
     assert antigen_df.shape == (3, 3)
     antigen = antigen_df.loc[(antigen_df['grid_row'] == 0) &
                              (antigen_df['grid_col'] == 0), 'antigen'].values[0]
-    assert antigen == 'antigen_0_0'
+    assert antigen == '0_0_antigen_0_0'
 
     antigen = antigen_df.loc[(antigen_df['grid_row'] == 1) &
                              (antigen_df['grid_col'] == 2), 'antigen'].values[0]
-    assert antigen == 'antigen_1_2'
+    assert antigen == '1_2_antigen_1_2'
 
     antigen = antigen_df.loc[(antigen_df['grid_row'] == 0) &
                              (antigen_df['grid_col'] == 1), 'antigen'].values[0]
-    assert antigen == 'suuuuuuuuper_loooooooong_antige'
+    assert antigen == '0_1_suuuuuuuuper_loooooooong_an'
     # Check the dicts that will be reports
     assert list(reporter.report_int) == [
-        'antigen_0_0',
-        'suuuuuuuuper_loooooooong_antige',
-        'antigen_1_2',
+        '0_0_antigen_0_0',
+        '0_1_suuuuuuuuper_loooooooong_an',
+        '1_2_antigen_1_2',
     ]
     # Check first dataframe
-    plate_df = reporter.report_int['antigen_0_0']
+    plate_df = reporter.report_int['0_0_antigen_0_0']
     assert plate_df.shape == (12, 8)
     assert list(plate_df) == ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 
@@ -79,30 +79,32 @@ def test_antigen_df():
     antigen_df = reporter.get_antigen_df()
     assert antigen_df.shape == (2, 3)
     assert list(antigen_df) == ['antigen', 'grid_row', 'grid_col']
-    assert list(antigen_df['antigen'].values) == ['antigen_0_0', 'antigen_1_2']
+    assert list(antigen_df['antigen'].values) == \
+           ['0_0_antigen_0_0', '1_2_antigen_1_2']
 
 
 def test_load_existing_reports(report_test):
     # Write od, intensity and background reports
+    antigen_names = ['0_0_antigen_0_0', '1_2_antigen_1_2']
     xlsx_path = os.path.join(constants.RUN_PATH, 'median_intensities.xlsx')
     with pd.ExcelWriter(xlsx_path) as writer:
-        for antigen_name in ['antigen_0_0', 'antigen_1_2']:
+        for antigen_name in antigen_names:
             sheet_df = report_test[antigen_name]
             sheet_df.to_excel(writer, sheet_name=antigen_name)
     xlsx_path = os.path.join(constants.RUN_PATH, 'median_backgrounds.xlsx')
     with pd.ExcelWriter(xlsx_path) as writer:
-        for antigen_name in ['antigen_0_0', 'antigen_1_2']:
+        for antigen_name in antigen_names:
             sheet_df = report_test[antigen_name]
             sheet_df.to_excel(writer, sheet_name=antigen_name)
     xlsx_path = os.path.join(constants.RUN_PATH, 'median_ODs.xlsx')
     with pd.ExcelWriter(xlsx_path) as writer:
-        for antigen_name in ['antigen_0_0', 'antigen_1_2']:
+        for antigen_name in antigen_names:
             sheet_df = report_test[antigen_name]
             sheet_df.to_excel(writer, sheet_name=antigen_name)
     # Load existing reports and make sure they're the same
     reporter = report.ReportWriter()
     reporter.load_existing_reports()
-    for antigen_name in ['antigen_0_0', 'antigen_1_2']:
+    for antigen_name in antigen_names:
         int_df = reporter.report_int[antigen_name]
         int_df.equals(report_test[antigen_name])
         bg_df = reporter.report_bg[antigen_name]
@@ -121,7 +123,7 @@ def test_load_missing_reports(report_test):
 def test_load_missing_int_reports(report_test):
     xlsx_path = os.path.join(constants.RUN_PATH, 'median_ODs.xlsx')
     with pd.ExcelWriter(xlsx_path) as writer:
-        for antigen_name in ['antigen_0_0', 'antigen_1_2']:
+        for antigen_name in ['0_0_antigen_0_0', '1_2_antigen_1_2']:
             sheet_df = report_test[antigen_name]
             sheet_df.to_excel(writer, sheet_name=antigen_name)
     # Make sure we get an assertion error
@@ -133,12 +135,12 @@ def test_load_missing_int_reports(report_test):
 def test_load_missing_bg_reports(report_test):
     xlsx_path = os.path.join(constants.RUN_PATH, 'median_ODs.xlsx')
     with pd.ExcelWriter(xlsx_path) as writer:
-        for antigen_name in ['antigen_0_0', 'antigen_1_2']:
+        for antigen_name in ['0_0_antigen_0_0', '1_2_antigen_1_2']:
             sheet_df = report_test[antigen_name]
             sheet_df.to_excel(writer, sheet_name=antigen_name)
     xlsx_path = os.path.join(constants.RUN_PATH, 'median_intensities.xlsx')
     with pd.ExcelWriter(xlsx_path) as writer:
-        for antigen_name in ['antigen_0_0', 'antigen_1_2']:
+        for antigen_name in ['0_0_antigen_0_0', '1_2_antigen_1_2']:
             sheet_df = report_test[antigen_name]
             sheet_df.to_excel(writer, sheet_name=antigen_name)
     # Make sure we get an assertion error
@@ -149,19 +151,20 @@ def test_load_missing_bg_reports(report_test):
 
 def test_load_existing_reports_wrong_antigens_od(report_test):
     # Write od, intensity and background reports
+    antigen_names = ['0_0_antigen_0_0', '1_2_antigen_1_2']
     xlsx_path = os.path.join(constants.RUN_PATH, 'median_intensities.xlsx')
     with pd.ExcelWriter(xlsx_path) as writer:
-        for antigen_name in ['antigen_0_0', 'antigen_1_2']:
+        for antigen_name in antigen_names:
             sheet_df = report_test[antigen_name]
             sheet_df.to_excel(writer, sheet_name=antigen_name)
     xlsx_path = os.path.join(constants.RUN_PATH, 'median_backgrounds.xlsx')
     with pd.ExcelWriter(xlsx_path) as writer:
-        for antigen_name in ['antigen_0_0', 'antigen_1_2']:
+        for antigen_name in antigen_names:
             sheet_df = report_test[antigen_name]
             sheet_df.to_excel(writer, sheet_name=antigen_name)
     xlsx_path = os.path.join(constants.RUN_PATH, 'median_ODs.xlsx')
     with pd.ExcelWriter(xlsx_path) as writer:
-        for antigen_name in ['antigen_0_0', 'antigen_1_2']:
+        for antigen_name in antigen_names:
             sheet_df = report_test[antigen_name]
             sheet_df.to_excel(writer, sheet_name=antigen_name + 'wrong')
     # Make sure we get an assertion error
@@ -172,19 +175,20 @@ def test_load_existing_reports_wrong_antigens_od(report_test):
 
 def test_load_existing_reports_wrong_antigens_int(report_test):
     # Write od, intensity and background reports
+    antigen_names = ['0_0_antigen_0_0', '1_2_antigen_1_2']
     xlsx_path = os.path.join(constants.RUN_PATH, 'median_intensities.xlsx')
     with pd.ExcelWriter(xlsx_path) as writer:
-        for antigen_name in ['antigen_0_0', 'antigen_1_2']:
+        for antigen_name in antigen_names:
             sheet_df = report_test[antigen_name]
             sheet_df.to_excel(writer, sheet_name=antigen_name + 'wrong')
     xlsx_path = os.path.join(constants.RUN_PATH, 'median_backgrounds.xlsx')
     with pd.ExcelWriter(xlsx_path) as writer:
-        for antigen_name in ['antigen_0_0', 'antigen_1_2']:
+        for antigen_name in antigen_names:
             sheet_df = report_test[antigen_name]
             sheet_df.to_excel(writer, sheet_name=antigen_name)
     xlsx_path = os.path.join(constants.RUN_PATH, 'median_ODs.xlsx')
     with pd.ExcelWriter(xlsx_path) as writer:
-        for antigen_name in ['antigen_0_0', 'antigen_1_2']:
+        for antigen_name in antigen_names:
             sheet_df = report_test[antigen_name]
             sheet_df.to_excel(writer, sheet_name=antigen_name)
     # Make sure we get an assertion error
@@ -195,19 +199,20 @@ def test_load_existing_reports_wrong_antigens_int(report_test):
 
 def test_load_existing_reports_wrong_antigens_bg(report_test):
     # Write od, intensity and background reports
+    antigen_names = ['0_0_antigen_0_0', '1_2_antigen_1_2']
     xlsx_path = os.path.join(constants.RUN_PATH, 'median_intensities.xlsx')
     with pd.ExcelWriter(xlsx_path) as writer:
-        for antigen_name in ['antigen_0_0', 'antigen_1_2']:
+        for antigen_name in antigen_names:
             sheet_df = report_test[antigen_name]
             sheet_df.to_excel(writer, sheet_name=antigen_name + 'wrong')
     xlsx_path = os.path.join(constants.RUN_PATH, 'median_backgrounds.xlsx')
     with pd.ExcelWriter(xlsx_path) as writer:
-        for antigen_name in ['antigen_0_0', 'antigen_1_2']:
+        for antigen_name in antigen_names:
             sheet_df = report_test[antigen_name]
             sheet_df.to_excel(writer, sheet_name=antigen_name)
     xlsx_path = os.path.join(constants.RUN_PATH, 'median_ODs.xlsx')
     with pd.ExcelWriter(xlsx_path) as writer:
-        for antigen_name in ['antigen_0_0', 'antigen_1_2']:
+        for antigen_name in antigen_names:
             sheet_df = report_test[antigen_name]
             sheet_df.to_excel(writer, sheet_name=antigen_name)
     # Make sure we get an assertion error
@@ -247,15 +252,15 @@ def test_assign_well_to_plate():
     # Assign wells to plate and check values
     reporter = report.ReportWriter()
     reporter.assign_well_to_plate(well_name=well_name, spots_df=spots_df)
-    assert list(reporter.report_int['antigen_0_0']) ==\
+    assert list(reporter.report_int['0_0_antigen_0_0']) ==\
            ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 
-    assert reporter.report_int['antigen_0_0'].at[11, 'D'] == 1.
-    assert reporter.report_bg['antigen_0_0'].at[11, 'D'] == .5
-    assert reporter.report_od['antigen_0_0'].at[11, 'D'] == .75
-    assert reporter.report_int['antigen_1_2'].at[11, 'D'] == .1
-    assert reporter.report_bg['antigen_1_2'].at[11, 'D'] == .2
-    assert reporter.report_od['antigen_1_2'].at[11, 'D'] == .3
+    assert reporter.report_int['0_0_antigen_0_0'].at[11, 'D'] == 1.
+    assert reporter.report_bg['0_0_antigen_0_0'].at[11, 'D'] == .5
+    assert reporter.report_od['0_0_antigen_0_0'].at[11, 'D'] == .75
+    assert reporter.report_int['1_2_antigen_1_2'].at[11, 'D'] == .1
+    assert reporter.report_bg['1_2_antigen_1_2'].at[11, 'D'] == .2
+    assert reporter.report_od['1_2_antigen_1_2'].at[11, 'D'] == .3
 
 
 def test_write_reports(tmpdir_factory):
@@ -290,9 +295,9 @@ def test_write_reports(tmpdir_factory):
     # Load reports and check values
     od_path = os.path.join(output_dir, 'median_ODs.xlsx')
     report_od = pd.read_excel(od_path, sheet_name=None, index_col=0)
-    assert report_od['antigen_0_0'].at[11, 'C'] == .75
-    assert report_od['antigen_1_2'].at[11, 'C'] == .3
-    assert report_od['antigen_0_0'].at[4, 'D'] == .75
-    assert report_od['antigen_1_2'].at[4, 'D'] == .3
-    assert report_od['antigen_0_0'].at[7, 'A'] == .75
-    assert report_od['antigen_1_2'].at[7, 'A'] == 10.
+    assert report_od['0_0_antigen_0_0'].at[11, 'C'] == .75
+    assert report_od['1_2_antigen_1_2'].at[11, 'C'] == .3
+    assert report_od['0_0_antigen_0_0'].at[4, 'D'] == .75
+    assert report_od['1_2_antigen_1_2'].at[4, 'D'] == .3
+    assert report_od['0_0_antigen_0_0'].at[7, 'A'] == .75
+    assert report_od['1_2_antigen_1_2'].at[7, 'A'] == 10.

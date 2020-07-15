@@ -41,8 +41,7 @@ def point_registration(input_dir, output_dir):
     )
     well_xlsx_writer = pd.ExcelWriter(well_xlsx_path)
     antigen_df = reporter.get_antigen_df()
-    with well_xlsx_writer as writer:
-        antigen_df.to_excel(writer, sheet_name='antigens')
+    antigen_df.to_excel(well_xlsx_writer, sheet_name='antigens')
 
     # Initialize background estimator
     bg_estimator = background_estimator.BackgroundEstimator2D(
@@ -69,7 +68,9 @@ def point_registration(input_dir, output_dir):
             well_names=well_names,
             well_xlsx_path=well_xlsx_path,
             rerun_names=constants.RERUN_WELLS,
+            xlsx_writer=well_xlsx_writer,
         )
+        reporter.load_existing_reports()
         well_names = constants.RERUN_WELLS
 
     # ================
@@ -189,8 +190,7 @@ def point_registration(input_dir, output_dir):
             params=constants.params,
         )
         # Write metrics for each spot in grid in current well
-        with well_xlsx_writer as writer:
-            spots_df.to_excel(writer, sheet_name=well_name)
+        spots_df.to_excel(well_xlsx_writer, sheet_name=well_name)
         # Assign well OD, intensity, and background stats to plate
         reporter.assign_well_to_plate(well_name, spots_df)
 

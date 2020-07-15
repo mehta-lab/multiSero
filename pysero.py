@@ -61,6 +61,13 @@ def parse_args():
     )
     parser.set_defaults(debug=False)
     parser.add_argument(
+        '-r', '--rerun',
+        dest='rerun',
+        action='store_true',
+        help="Rerun wells listed in 'rerun_wells sheets of metadata file",
+    )
+    parser.set_defaults(rerun=False)
+    parser.add_argument(
         '-m', '--metadata',
         type=str,
         default='pysero_output_data_metadata.xlsx',
@@ -124,10 +131,13 @@ def run_pysero(args):
 
     constants.METADATA_FILE = args.metadata
     constants.DEBUG = args.debug
-    constants.RUN_PATH = io_utils.make_run_dir(
-        input_dir=input_dir,
-        output_dir=output_dir,
-    )
+    if args.rerun:
+        constants.RUN_PATH = output_dir
+    else:
+        constants.RUN_PATH = io_utils.make_run_dir(
+            input_dir=input_dir,
+            output_dir=output_dir,
+        )
     # Default log level is info, otherwise debug
     log_level = 20
     if constants.DEBUG:

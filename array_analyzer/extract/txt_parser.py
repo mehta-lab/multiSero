@@ -354,13 +354,14 @@ def populate_array_antigen(arr, csv_antigens_):
     return arr
 
 
-def rerun_xl_od(well_names, well_xlsx_path, rerun_names):
+def rerun_xl_od(well_names, well_xlsx_path, rerun_names, xlsx_writer):
     """
-    Copy over existing wells to excel sheets.
+    Load excel sheets and copy over existing wells before rerunning.
 
-    :param well_names:
-    :param well_xlsx_path:
-    :param rerun_names:
+    :param list well_names: Well names (e.g. ['B12', 'C2'])
+    :param str well_xlsx_path: Full path to well stats xlsx sheet
+    :param list rerun_names: Names of wells to be rerun
+    :param pd.ExcelWriter xlsx_writer: Pandas excel writer
     """
     rerun_set = set(rerun_names)
     assert rerun_set.issubset(well_names), \
@@ -373,7 +374,6 @@ def rerun_xl_od(well_names, well_xlsx_path, rerun_names):
     existing_wells = natsort.natsorted(
         list(set(written_wells) - rerun_set),
     )
-    with pd.ExcelWriter(well_xlsx_path) as writer:
-        for well_name in existing_wells:
-            pd_od = pd.DataFrame(ordered_dict[well_name])
-            pd_od.to_excel(writer, sheet_name=well_name)
+    for well_name in existing_wells:
+        pd_od = pd.DataFrame(ordered_dict[well_name])
+        pd_od.to_excel(xlsx_writer, sheet_name=well_name)
