@@ -1,6 +1,5 @@
 import cv2 as cv
 import logging
-import natsort
 import numpy as np
 import os
 import pandas as pd
@@ -40,8 +39,9 @@ def point_registration(input_dir, output_dir):
         constants.RUN_PATH,
         'stats_per_well.xlsx',
     )
+    well_xlsx_writer = pd.ExcelWriter(well_xlsx_path)
     antigen_df = reporter.get_antigen_df()
-    with pd.ExcelWriter(well_xlsx_path) as writer:
+    with well_xlsx_writer as writer:
         antigen_df.to_excel(writer, sheet_name='antigens')
 
     # Initialize background estimator
@@ -189,7 +189,7 @@ def point_registration(input_dir, output_dir):
             params=constants.params,
         )
         # Write metrics for each spot in grid in current well
-        with pd.ExcelWriter(well_xlsx_path) as writer:
+        with well_xlsx_writer as writer:
             spots_df.to_excel(writer, sheet_name=well_name)
         # Assign well OD, intensity, and background stats to plate
         reporter.assign_well_to_plate(well_name, spots_df)
@@ -208,9 +208,11 @@ def point_registration(input_dir, output_dir):
             # Save spot and background intensities
             output_name = os.path.join(constants.RUN_PATH, well_name)
             # Save OD plots, composite spots and registration
-            debug_plots.plot_od_from_df(
-                spots_df,
-                output_name,
+            debug_plots.plot_od(
+                spots_df=spots_df,
+                nbr_grid_rows=nbr_grid_rows,
+                nbr_grid_cols=nbr_grid_cols,
+                output_name=output_name,
             )
             debug_plots.save_composite_spots(
                 spot_props=spot_props,
@@ -234,4 +236,5 @@ def point_registration(input_dir, output_dir):
                 time.time() - start_time),
             )
     # After running all wells, write plate reports
+    well_xlsx_writer.close()
     reporter.write_reports()

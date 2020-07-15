@@ -103,44 +103,17 @@ def plot_centroid_overlay(im_crop,
     plt.close(figcentroid)
 
 
-def plot_od(od_well,
-            i_well,
-            bg_well,
+def plot_od(spots_df,
+            nbr_grid_rows,
+            nbr_grid_cols,
             output_name):
-
-    plt.figure(figsize=(6, 1.5))
-    plt.subplot(131)
-    plt.imshow(i_well, cmap='gray')
-    plt.colorbar()
-    plt.title('intensity')
-
-    plt.subplot(132)
-    plt.imshow(bg_well, cmap='gray')
-    plt.colorbar()
-    plt.title('background')
-
-    plt.subplot(133)
-    plt.imshow(od_well, cmap='gray')
-    plt.colorbar()
-    plt.title('OD')
-
-    figOD = plt.gcf()
-    od_debug = output_name + '_od.png'
-    figOD.savefig(od_debug)
-    plt.close(figOD)
-
-
-def plot_od_from_df(spots_df,
-                    nbr_grid_rows,
-                    nbr_grid_cols,
-                    output_name):
 
     intensity_well = np.empty((nbr_grid_rows, nbr_grid_cols))
     bg_well = intensity_well.copy()
     od_well = intensity_well.copy()
 
-    for r in nbr_grid_rows:
-        for c in nbr_grid_cols:
+    for r in np.arange(nbr_grid_rows):
+        for c in np.arange(nbr_grid_cols):
             df_row = spots_df[(spots_df['grid_row'] == r) & (spots_df['grid_col'] == c)]
             intensity_well[r, c] = df_row['intensity_median']
             bg_well[r, c] = df_row['bg_median']

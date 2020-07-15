@@ -55,8 +55,6 @@ class MetaData:
             self.fiduc, _, self.repl, self.params = txt_parser.create_csv_dict(csv_paths)
 
         elif self.metadata_extension == 'xlsx':
-            print(input_folder_)
-            print(constants.METADATA_FILE)
             self.xlsx_path = os.path.join(input_folder_, constants.METADATA_FILE)
 
             if constants.METADATA_FILE not in os.listdir(input_folder_):

@@ -41,7 +41,8 @@ def parse_args():
         '-o', '--output',
         type=str,
         required=True,
-        help="Output directory path",
+        help="Output directory path, where a timestamped subdir will be generated."
+             "In case of rerun, give path to timestamped run directory",
     )
     parser.add_argument(
         '-wf', '--workflow',
