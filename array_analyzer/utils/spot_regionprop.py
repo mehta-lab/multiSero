@@ -48,10 +48,13 @@ class SpotRegionprop:
         bg_vals = self.background[self.mask > 0]
         self.spot_dict['bg_mean'] = np.mean(bg_vals)
         self.spot_dict['bg_median'] = np.median(bg_vals)
-
-        self.spot_dict['od_norm'] = np.log10(
-            self.spot_dict['bg_median'] / self.spot_dict['intensity_median'],
-        )
+        with np.errstate(divide='ignore'):
+            self.spot_dict['od_norm'] = np.log10(
+                self.spot_dict['bg_median'] / self.spot_dict['intensity_median'],
+            )
+        if np.isinf(self.spot_dict['od_norm']):
+            # TODO: What should be the default when intensity is zero?
+            self.spot_dict['od_norm'] = 2.
 
     def generate_props_from_disk(self, image, background, bbox, centroid):
         """

@@ -12,10 +12,10 @@ import array_analyzer.extract.metadata as metadata
 import array_analyzer.extract.txt_parser as txt_parser
 import array_analyzer.extract.constants as constants
 import array_analyzer.load.debug_plots as debug_plots
+import array_analyzer.load.report as report
 import array_analyzer.transform.point_registration as registration
 import array_analyzer.transform.array_generation as array_gen
 import array_analyzer.utils.io_utils as io_utils
-import array_analyzer.load.report as report
 
 
 def point_registration(input_dir, output_dir):
@@ -34,7 +34,7 @@ def point_registration(input_dir, output_dir):
 
     # Create reports instance for whole plate
     reporter = report.ReportWriter()
-
+    # Create writer for stats per well
     well_xlsx_path = os.path.join(
         constants.RUN_PATH,
         'stats_per_well.xlsx',
@@ -235,6 +235,7 @@ def point_registration(input_dir, output_dir):
             logger.debug("Time to save debug images: {:.3f} s".format(
                 time.time() - start_time),
             )
+
     # After running all wells, write plate reports
     well_xlsx_writer.close()
     reporter.write_reports()
