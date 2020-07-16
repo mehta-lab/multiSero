@@ -39,6 +39,28 @@ def read_gray_im(im_path):
     return im
 
 
+def get_max_intensity(im):
+    """
+    Gets image max intensity, assuming image dtype is an 8 or 16 bit
+    unsigned integer. If image is 16 bit, check max intensity to see if a 12 bit
+    image using intensity max.
+    Note: For low contrast 16 bit images (max intensity < 2^12), this function
+    will assume the image is 12 bit.
+
+    :param np.array im: Unsigned integer image
+    :return int max_intensity: Max intensity of image (2^ 8, 12, or 16)
+    """
+    assert np.issubdtype(im.dtype, np.integer),\
+        "Must use integer images, not {}".format(im.dtype)
+    max_intensity = np.iinfo(im.dtype).max
+    # Check if a 16 bit image is actually 12 bit
+    if max_intensity == 65535 and im.max() < 4096:
+        max_intensity = 4095
+    assert max_intensity in {255, 4095, 65535}, \
+        "Image must be uint 8, 12, or 16, not have max {}".format(max_intensity)
+    return max_intensity
+
+
 def get_image_paths(input_dir):
     """
     Searches input directory and its subdirectory for all images

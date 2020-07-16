@@ -118,26 +118,26 @@ def create_multiotsu_mask(input_image, n_class, fg_class, str_elem_size=3):
     return mask
 
 
-def crop_image_from_coords(im, grid_coords, margin=200):
+def crop_image_from_coords(im, coords, margin=200):
     """
     Given image coordinates, crop image around them with a margin.
 
     :param np.array im: 2D image
-    :param np.array grid_coords: Fitted grid coordinates which should be contained
+    :param np.array coords: Grid coordinates which should be contained
         in the cropped image (nbr points x 2)
     :param int margin: How much margin around the coordinates
     :return np.array im_roi: Cropped image
-    :return np.array grid_coords: Grid coordinates with new origin (rows, cols)
+    :return np.array crop_coords: Grid coordinates with new origin (rows, cols)
     """
     im_shape = im.shape
-    row_min = int(max(0, np.min(grid_coords[:, 0]) - margin))
-    row_max = int(min(im_shape[0], np.max(grid_coords[:, 0]) + margin))
-    col_min = int(max(0, np.min(grid_coords[:, 1]) - margin))
-    col_max = int(min(im_shape[1], np.max(grid_coords[:, 1]) + margin))
+    row_min = int(max(0, np.min(coords[:, 0]) - margin))
+    row_max = int(min(im_shape[0], np.max(coords[:, 0]) + margin))
+    col_min = int(max(0, np.min(coords[:, 1]) - margin))
+    col_max = int(min(im_shape[1], np.max(coords[:, 1]) + margin))
     im_crop = im[row_min:row_max, col_min:col_max]
 
     # Update coordinates with new origin
-    crop_coords = grid_coords.copy()
+    crop_coords = coords.copy()
     crop_coords[:, 0] = crop_coords[:, 0] - row_min + 1
     crop_coords[:, 1] = crop_coords[:, 1] - col_min + 1
     return im_crop, crop_coords
