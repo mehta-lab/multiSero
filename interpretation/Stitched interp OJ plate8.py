@@ -629,7 +629,7 @@ python_df4.dropna(subset=['OD'], inplace=True)
 #     python_df = python_df[(python_df['well_id'].isin(wells2keep))]
 
 # failed_wells2 = ['B4','F2]
-wells2keep2 = ['D4','D6','F5']
+wells2keep2 = ['B1','D4','D6','F5']
 for failed_well in wells2keep2:
     python_df2 = python_df2[python_df2['well_id'].isin(wells2keep2)]
 

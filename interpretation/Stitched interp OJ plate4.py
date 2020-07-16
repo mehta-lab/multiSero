@@ -628,11 +628,11 @@ python_df3.dropna(subset=['OD'], inplace=True)
 #     # python_df2 = python_df2[python_df2.well_id != failed_well]
 #     python_df = python_df[(python_df['well_id'].isin(wells2keep))]
 
-failed_wells2 = ['B3','B5','D5','F5']
+failed_wells2 = ['B3','B5','D1','D2','D5','F5']
 for failed_well in failed_wells2:
     python_df2 = python_df2[python_df2.well_id != failed_well]
 
-wells2keep3 = ['B3','B5','D5','F5']
+wells2keep3 = ['B3','B5','D1','D2','D5','F5']
 for failed_well in wells2keep3:
     # python_df2 = python_df2[python_df2.well_id != failed_well]
     python_df3 = python_df3[(python_df3['well_id'].isin(wells2keep3))]
