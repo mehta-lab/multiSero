@@ -82,7 +82,7 @@ def point_registration(input_dir, output_dir):
         image = io_utils.read_gray_im(im_path)
         logger.info("Extracting well: {}".format(well_name))
         # Get max intensity
-        max_intensity = np.iinfo(image.dtype).max
+        max_intensity = io_utils.get_max_intensity(image)
         logger.debug("Image max intensity: {}".format(max_intensity))
         # Crop image to well only
         try:
@@ -122,23 +122,22 @@ def point_registration(input_dir, output_dir):
         fiducial_coords = grid_coords[fiducials_idx, :]
 
         # Use particle filter to register fiducials to detected spots
-        reg_ok = True
+        registration_ok = True
         particles = registration.create_gaussian_particles(
             stds=np.array(constants.STDS),
             nbr_particles=constants.NBR_PARTICLES,
         )
-        t_matrix, min_dist = registration.particle_filter(
+        t_matrix, registered_dist = registration.particle_filter(
             fiducial_coords=fiducial_coords,
             spot_coords=spot_coords,
             particles=particles,
             stds=np.array(constants.STDS),
             logger=logger,
         )
-        reg_dist = min_dist / nbr_fiducials
-        if reg_dist > constants.REG_DIST_THRESH:
+        if registered_dist > constants.REG_DIST_THRESH:
             logger.warning("Registration failed for {}, "
                            "repeat with outlier removal".format(well_name))
-            t_matrix, min_dist = registration.particle_filter(
+            t_matrix, registered_dist = registration.particle_filter(
                 fiducial_coords=fiducial_coords,
                 spot_coords=spot_coords,
                 particles=particles,
@@ -147,27 +146,26 @@ def point_registration(input_dir, output_dir):
                 nbr_outliers=nbr_outliers,
             )
             # Warn if fit is still bad
-            reg_dist = min_dist / (nbr_fiducials - nbr_outliers)
-            if reg_dist > constants.REG_DIST_THRESH:
-                reg_ok = False
-        logger.info("Particle filter min dist: {}".format(reg_dist))
+            if registered_dist > constants.REG_DIST_THRESH:
+                registration_ok = False
+        logger.info("Particle filter min dist: {}".format(registered_dist))
 
         # Transform grid coordinates
         reg_coords = np.squeeze(cv.transform(np.array([grid_coords]), t_matrix))
         # Check that registered coordinates are inside well
-        reg_ok = registration.check_reg_coords(
+        registration_ok = registration.check_reg_coords(
             reg_coords=reg_coords,
             im_shape=im_well.shape,
-            reg_ok=reg_ok,
+            registration_ok=registration_ok,
         )
-        if not reg_ok:
+        if not registration_ok:
             logger.warning("Final registration failed,"
                            "will not write OD for {}".format(well_name))
             if constants.DEBUG:
                 debug_plots.plot_registration(
                     im_well,
                     spot_coords,
-                    grid_coords[fiducials_idx, :],
+                    fiducial_coords,
                     reg_coords,
                     os.path.join(constants.RUN_PATH, well_name + '_failed'),
                     max_intensity=max_intensity,
@@ -177,7 +175,7 @@ def point_registration(input_dir, output_dir):
         # Crop image
         im_crop, crop_coords = img_processing.crop_image_from_coords(
             im=im_well,
-            grid_coords=reg_coords,
+            coords=reg_coords,
         )
         im_crop = im_crop / max_intensity
         # Estimate background
@@ -225,11 +223,11 @@ def point_registration(input_dir, output_dir):
                 output_name,
             )
             debug_plots.plot_registration(
-                im_well,
-                spot_coords,
-                grid_coords[fiducials_idx, :],
-                reg_coords,
-                output_name,
+                image=im_well,
+                spot_coords=spot_coords,
+                grid_coords=fiducial_coords,
+                reg_coords=reg_coords,
+                output_name=output_name,
                 max_intensity=max_intensity,
             )
             logger.debug("Time to save debug images: {:.3f} s".format(
