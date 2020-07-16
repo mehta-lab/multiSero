@@ -55,42 +55,41 @@ def well2D_to_df1D(xlsx_path, sheet, data_col):
 # %% Set paths
 
 # %% First path
-data_folder1 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200630_1647'
-metadata_path1 = os.path.join(data_folder1, 'pysero_output_data_metadata.xlsx')
+data_folder1 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-04-16-04-32-COVID_June4_JBassay_images/Stitched data from multiple pysero outputs CR3022 dilutions/IgG2216'
+metadata_path1 = os.path.join(data_folder1, 'pysero_output_data_metadata1.xlsx')
 OD_path1 = os.path.join(data_folder1, 'median_ODs.xlsx')
 int_path1 = os.path.join(data_folder1, 'median_intensities.xlsx')
 bg_path1 = os.path.join(data_folder1, 'median_backgrounds.xlsx')
-#scienion1_path = os.path.join(data_folder1, '2020-06-04-16-08-27-COVID_June4_JBassay_analysis.xlsx')
+scienion1_path = os.path.join(data_folder1, '2020-06-04-16-08-27-COVID_June4_JBassay_analysis.xlsx')
 
 # %% Second path
-data_folder2 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200630_1657'
-metadata_path2 = os.path.join(data_folder2, 'pysero_output_data_metadata.xlsx')
+data_folder2 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-04-16-04-32-COVID_June4_JBassay_images/Stitched data from multiple pysero outputs CR3022 dilutions/IgG2229'
+metadata_path2 = os.path.join(data_folder2, 'pysero_output_data_metadata1.xlsx')
 OD_path2 = os.path.join(data_folder2, 'median_ODs.xlsx')
 int_path2 = os.path.join(data_folder2, 'median_intensities.xlsx')
 bg_path2 = os.path.join(data_folder2, 'median_backgrounds.xlsx')
 # scienion_path=os.path.join(data_folder, '2020-05-18-17-59-01-COVID_May18_JVassay_analysis.xlsx')
 
 # %% Third path
-data_folder3 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200630_1708'
-metadata_path3 = os.path.join(data_folder3, 'pysero_output_data_metadata.xlsx')
+data_folder3 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-04-16-04-32-COVID_June4_JBassay_images/Stitched data from multiple pysero outputs CR3022 dilutions/Biotin2132'
+metadata_path3 = os.path.join(data_folder3, 'pysero_output_data_metadata1.xlsx')
 OD_path3 = os.path.join(data_folder3, 'median_ODs.xlsx')
 int_path3 = os.path.join(data_folder3, 'median_intensities.xlsx')
 bg_path3 = os.path.join(data_folder3, 'median_backgrounds.xlsx')
 # scienion_path=os.path.join(data_folder, '2020-05-18-17-59-01-COVID_May18_JVassay_analysis.xlsx')
 
 # %% Fourth path
-data_folder4 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200630_1739'
-metadata_path4 = os.path.join(data_folder4, 'pysero_output_data_metadata.xlsx')
+data_folder4 = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-04-16-04-32-COVID_June4_JBassay_images/Stitched data from multiple pysero outputs CR3022 dilutions/Biotin2205'
+metadata_path4 = os.path.join(data_folder4, 'pysero_output_data_metadata1.xlsx')
 OD_path4 = os.path.join(data_folder4, 'median_ODs.xlsx')
 int_path4 = os.path.join(data_folder4, 'median_intensities.xlsx')
 bg_path4 = os.path.join(data_folder4, 'median_backgrounds.xlsx')
-# # scienion_path=os.path.join(data_folder, '2020-05-18-17-59-01-COVID_May18_JVassay_analysis.xlsx')
-#
+# scienion_path=os.path.join(data_folder, '2020-05-18-17-59-01-COVID_May18_JVassay_analysis.xlsx')
 
 # %% Read antigen and plate info
-sheet_names = ['serum ID',
+sheet_names = ['serum ID','serum ID1',
                'serum cat',
-               'serum dilution',
+               'serum dilution','serum dilution2',
                'serum type',
                'secondary ID',
                'secondary dilution']
@@ -123,40 +122,6 @@ plate_info_df.drop(['row_id', 'col_id'], axis=1, inplace=True)
 # %% Read antigen information.
 antigen_df = antigen2D_to_df1D(xlsx_path=metadata_path1, sheet='antigen_array', data_col='antigen')
 
-# %% Read analysis output from Scienion
-# # Read all wells into dictionary.
-# scienion_df = pd.DataFrame()
-# with pd.ExcelFile(scienion1_path) as scienion_xlsx:
-#     for well_id in plate_info_df['well_id']:
-#         OD_1_antiten_df = pd.read_excel(scienion_xlsx, sheet_name=well_id)
-#         OD_1_antiten_df['well_id'] = well_id
-#         scienion_df = scienion_df.append(OD_1_antiten_df, ignore_index=True)
-# # %%   parse spot ids
-# spot_id_df = scienion_df['ID'].str.extract(r'spot-(\d)-(\d)')
-# spot_id_df = spot_id_df.astype(int) - 1  # index starting from 0
-# spot_id_df.rename(columns={0: 'antigen_row', 1: 'antigen_col'}, inplace=True)
-# scienion_df = pd.concat([spot_id_df, scienion_df], axis=1)
-# scienion_df.drop('ID', axis=1, inplace=True)
-#
-# # %% invert the intensity and compute ODs, check A2
-# df_scn = scienion_df.loc[:, ['antigen_row', 'antigen_col', 'well_id']]
-# df_scn['intensity'] = 1 - scienion_df['Median'] / 255
-# df_scn['background'] = 1 - scienion_df['Background Median'] / 255
-# df_scn['OD'] = np.log10(df_scn['background'] / df_scn['intensity'])
-# %% Join Scienion data with plateInfo
-#
-#
-# df_scn = pd.merge(df_scn,
-#                   antigen_df,
-#                   how='left', on=['antigen_row', 'antigen_col'])
-# df_scn = pd.merge(df_scn,
-#                   plate_info_df,
-#                   how='right', on=['well_id'])
-
-# # %% Add a name of the pipeline to the dataframe.
-#
-# df_scn['pipeline'] = 'scienion'
-
 # %% Read optical density from pysero
 OD_df = pd.DataFrame()
 int_df = pd.DataFrame()
@@ -188,7 +153,6 @@ with pd.ExcelFile(bg_path1) as bg_xlsx:
 
 # %% merge OD with antigen and plate info.
 
-
 # Use of filter avoids merge of duplicate columns when the cell is run multiple times.
 OD_df = OD_df.filter(items=['antigen_row', 'antigen_col', 'OD', 'well_id'], axis=1)
 OD_df = pd.merge(OD_df,
@@ -205,11 +169,6 @@ python_df = pd.merge(python_df,
                      how='left', on=['antigen_row', 'antigen_col', 'well_id'])
 
 python_df['pipeline'] = 'python'
-# python_df.dropna(inplace=True)
-# Also update sera type to reflect their identity.
-# posseralist=python_df_fix['Sera ID'].isin(['pos 1','pos 2','pos 3','pos 4'])
-# python_df.loc[posseralist,'type'] = 'Diagnostic'
-
 
 # In[171]:
 # python_df = python_df.append(df_scn)
@@ -220,9 +179,9 @@ python_df.dropna(subset=['OD'], inplace=True)
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 # %% Read antigen and plate info
-sheet_names = ['serum ID',
+sheet_names = ['serum ID','serum ID1',
                'serum cat',
-               'serum dilution',
+               'serum dilution','serum dilution2',
                'serum type',
                'secondary ID',
                'secondary dilution']
@@ -254,42 +213,6 @@ plate_info_df2.drop(['row_id', 'col_id'], axis=1, inplace=True)
 
 # %% Read antigen information.
 antigen_df2 = antigen2D_to_df1D(xlsx_path=metadata_path2, sheet='antigen_array', data_col='antigen')
-
-# %% Read analysis output from Scienion
-# Read all wells into dictionary.
-# scienion_df = pd.DataFrame()
-# with pd.ExcelFile(scienion1_path) as scienion_xlsx:
-#     for well_id in plate_info_df2['well_id']:
-#         OD_1_antiten_df = pd.read_excel(scienion_xlsx, sheet_name=well_id)
-#         OD_1_antiten_df['well_id'] = well_id
-#         scienion_df = scienion_df.append(OD_1_antiten_df, ignore_index=True)
-# %%   parse spot ids
-# spot_id_df=scienion_df['ID'].str.extract(r'spot-(\d)-(\d)')
-# spot_id_df = spot_id_df.astype(int) - 1 # index starting from 0
-# spot_id_df.rename(columns={0: 'antigen_row', 1: 'antigen_col'}, inplace=True)
-# scienion_df = pd.concat([spot_id_df, scienion_df], axis=1)
-# scienion_df.drop('ID', axis=1, inplace=True)
-#
-# %% invert the intensity and compute ODs, check A2
-# df_scn = scienion_df.loc[:, ['antigen_row', 'antigen_col', 'well_id']]
-# df_scn['intensity'] = 1 - scienion_df['Median'] / 255
-# df_scn['background'] = 1 - scienion_df['Background Median'] / 255
-# df_scn['OD'] = np.log10(df_scn['background'] / df_scn['intensity'])
-# %% Join Scienion data with plateInfo
-#
-#
-# df_scn = pd.merge(df_scn,
-#                  antigen_df2,
-#                  how='left', on=['antigen_row', 'antigen_col'])
-# df_scn = pd.merge(df_scn,
-#                  plate_info_df2,
-#                  how='right', on=['well_id'])
-
-
-# %% Add a name of the pipeline to the dataframe.
-
-# df_scn['pipeline'] = 'scienion'
-
 
 # %% Read optical density from pysero
 OD_df2 = pd.DataFrame()
@@ -350,13 +273,13 @@ python_df2['pipeline'] = 'python'
 python_df2.replace([np.inf, -np.inf], np.nan, inplace=True)
 python_df2.dropna(subset=['OD'], inplace=True)
 
-# %% Do the same for third path
-# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#%% Do the same for third path
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-# %% Read antigen and plate info
-sheet_names = ['serum ID',
-               'serum dilution',
+#%% Read antigen and plate info
+sheet_names = ['serum ID','serum ID1',
                'serum cat',
+               'serum dilution','serum dilution2',
                'serum type',
                'secondary ID',
                'secondary dilution']
@@ -389,42 +312,6 @@ plate_info_df3.drop(['row_id', 'col_id'], axis=1, inplace=True)
 # %% Read antigen information.
 antigen_df3 = antigen2D_to_df1D(xlsx_path=metadata_path3, sheet='antigen_array', data_col='antigen')
 
-# %% Read analysis output from Scienion
-# Read all wells into dictionary.
-# scienion_df = pd.DataFrame()
-# with pd.ExcelFile(scienion1_path) as scienion_xlsx:
-#     for well_id in plate_info_df3['well_id']:
-#         OD_1_antiten_df = pd.read_excel(scienion_xlsx, sheet_name=well_id)
-#         OD_1_antiten_df['well_id'] = well_id
-#         scienion_df = scienion_df.append(OD_1_antiten_df, ignore_index=True)
-# %%   parse spot ids
-# spot_id_df=scienion_df['ID'].str.extract(r'spot-(\d)-(\d)')
-# spot_id_df = spot_id_df.astype(int) - 1 # index starting from 0
-# spot_id_df.rename(columns={0: 'antigen_row', 1: 'antigen_col'}, inplace=True)
-# scienion_df = pd.concat([spot_id_df, scienion_df], axis=1)
-# scienion_df.drop('ID', axis=1, inplace=True)
-#
-# %% invert the intensity and compute ODs, check A2
-# df_scn = scienion_df.loc[:, ['antigen_row', 'antigen_col', 'well_id']]
-# df_scn['intensity'] = 1 - scienion_df['Median'] / 255
-# df_scn['background'] = 1 - scienion_df['Background Median'] / 255
-# df_scn['OD'] = np.log10(df_scn['background'] / df_scn['intensity'])
-# %% Join Scienion data with plateInfo
-#
-#
-# df_scn = pd.merge(df_scn,
-#                  antigen_df3,
-#                  how='left', on=['antigen_row', 'antigen_col'])
-# df_scn = pd.merge(df_scn,
-#                  plate_info_df3,
-#                  how='right', on=['well_id'])
-
-
-# %% Add a name of the pipeline to the dataframe.
-
-# df_scn['pipeline'] = 'scienion'
-
-
 # %% Read optical density from pysero
 OD_df3 = pd.DataFrame()
 int_df3 = pd.DataFrame()
@@ -456,7 +343,6 @@ with pd.ExcelFile(bg_path3) as bg_xlsx:
 
 # %% merge OD with antigen and plate info.
 
-
 # Use of filter avoids merge of duplicate columns when the cell is run multiple times.
 OD_df3 = OD_df3.filter(items=['antigen_row', 'antigen_col', 'OD', 'well_id'], axis=1)
 OD_df3 = pd.merge(OD_df3,
@@ -473,27 +359,20 @@ python_df3 = pd.merge(python_df3,
                       how='left', on=['antigen_row', 'antigen_col', 'well_id'])
 
 python_df3['pipeline'] = 'python'
-# python_df3.dropna(inplace=True)
-# Also update sera type to reflect their identity.
-# posseralist=python_df3_fix['Sera ID'].isin(['pos 1','pos 2','pos 3','pos 4'])
-# python_df3.loc[posseralist,'type'] = 'Diagnostic'
-
+# python_df3.dropna(inplace=True)\
 
 # In[171]:
-
+#python_df3 = python_df3.append(df_scn)
 python_df3.replace([np.inf, -np.inf], np.nan, inplace=True)
 python_df3.dropna(subset=['OD'], inplace=True)
-
-
-
 
 # %% Do the same for fourth path
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 # %% Read antigen and plate info
-sheet_names = ['serum ID',
-               'serum dilution',
+sheet_names = ['serum ID','serum ID1',
                'serum cat',
+               'serum dilution','serum dilution2',
                'serum type',
                'secondary ID',
                'secondary dilution']
@@ -525,42 +404,6 @@ plate_info_df4.drop(['row_id', 'col_id'], axis=1, inplace=True)
 
 # %% Read antigen information.
 antigen_df4 = antigen2D_to_df1D(xlsx_path=metadata_path4, sheet='antigen_array', data_col='antigen')
-
-# %% Read analysis output from Scienion
-# Read all wells into dictionary.
-# scienion_df = pd.DataFrame()
-# with pd.ExcelFile(scienion1_path) as scienion_xlsx:
-#     for well_id in plate_info_df4['well_id']:
-#         OD_1_antiten_df = pd.read_excel(scienion_xlsx, sheet_name=well_id)
-#         OD_1_antiten_df['well_id'] = well_id
-#         scienion_df = scienion_df.append(OD_1_antiten_df, ignore_index=True)
-# %%   parse spot ids
-# spot_id_df=scienion_df['ID'].str.extract(r'spot-(\d)-(\d)')
-# spot_id_df = spot_id_df.astype(int) - 1 # index starting from 0
-# spot_id_df.rename(columns={0: 'antigen_row', 1: 'antigen_col'}, inplace=True)
-# scienion_df = pd.concat([spot_id_df, scienion_df], axis=1)
-# scienion_df.drop('ID', axis=1, inplace=True)
-#
-# %% invert the intensity and compute ODs, check A2
-# df_scn = scienion_df.loc[:, ['antigen_row', 'antigen_col', 'well_id']]
-# df_scn['intensity'] = 1 - scienion_df['Median'] / 255
-# df_scn['background'] = 1 - scienion_df['Background Median'] / 255
-# df_scn['OD'] = np.log10(df_scn['background'] / df_scn['intensity'])
-# %% Join Scienion data with plateInfo
-#
-#
-# df_scn = pd.merge(df_scn,
-#                  antigen_df4,
-#                  how='left', on=['antigen_row', 'antigen_col'])
-# df_scn = pd.merge(df_scn,
-#                  plate_info_df4,
-#                  how='right', on=['well_id'])
-
-
-# %% Add a name of the pipeline to the dataframe.
-
-# df_scn['pipeline'] = 'scienion'
-
 
 # %% Read optical density from pysero
 OD_df4 = pd.DataFrame()
@@ -617,40 +460,34 @@ python_df4['pipeline'] = 'python'
 
 
 # In[171]:
+# python_df4 = python_df4.append(df_scn)
 python_df4.replace([np.inf, -np.inf], np.nan, inplace=True)
 python_df4.dropna(subset=['OD'], inplace=True)
 
-
-
 #%% Remove failed wells for n dataframes
-wells2keep = ['E3','E4']
-for failed_well in wells2keep:
-    # python_df2 = python_df2[python_df2.well_id != failed_well]
-    python_df = python_df[(python_df['well_id'].isin(wells2keep))]
 
-failed_wells2 = ['E3','E4']
-for failed_well in failed_wells2:
-    python_df2 = python_df2[python_df2.well_id != failed_well]
+#%% Remove failed wells for all dataframes
+failed_wells = ['B6', 'B8', 'B10', 'B12','F4','H2','H4', 'H6', 'H9', 'H12']
+for failed_well in failed_wells:
+    python_df = python_df[python_df.well_id != failed_well]
 
-wells2keep3 = ['F2']
-for failed_well in wells2keep3:
-    # python_df2 = python_df2[python_df2.well_id != failed_well]
-    python_df3 = python_df3[(python_df3['well_id'].isin(wells2keep3))]
+wells2keep = ['B6', 'B8', 'B10', 'B12']
+python_df2 = python_df2[(python_df2['well_id'].isin(wells2keep))]
 
-failed_wells4 = ['F2']
+failed_wells3 = ['A6']
+for failedwell in failed_wells3:
+    python_df3 = python_df3[python_df3.well_id == failedwell]
+
+failed_wells4 = ['A6']
 for failedwell in failed_wells4:
     python_df4 = python_df4[python_df4.well_id != failedwell]
-    # python_df3 = python_df3[python_df3.well_id == failedwell]
 
 #%% Concatenate dataframes
 frames = [python_df, python_df2, python_df3,python_df4]
 stitchedpython_df = pd.concat(frames)
-
-
-stitchedpython_df.to_excel(r'/Users/janie.byrum/Desktop/dataframes output/plate3.xlsx')
 # ## Fit curves to above plots
 
-#%%
+
 import scipy.optimize as optimization
 import itertools
 
@@ -661,15 +498,17 @@ def fit2df(df, model, pipeline):
     """fit model to x, y data in dataframe.
     Return a dataframe with fit x, y for plotting
     """
-    sera = df['serum ID'].unique()
+
+    sera = df['serum ID1'].unique()
     antigens = df['antigen'].unique()
     secondaries = df['secondary ID'].unique()
 
     keys = itertools.product(sera, antigens, secondaries)
     df_fit = pd.DataFrame(columns=df.columns)
+    df_params = pd.DataFrame()
     for serum, antigen, secondary in keys:
         print(serum, antigen)
-        sec_dilu_df = df[(df['serum ID']==serum) &
+        sec_dilu_df = df[(df['serum ID1']==serum) &
                     (df['antigen']==antigen) &
                     (df['secondary ID'] == secondary) &
                     (df['pipeline']==pipeline)]
@@ -678,251 +517,339 @@ def fit2df(df, model, pipeline):
             sub_df = sec_dilu_df[(sec_dilu_df['secondary dilution'] == sec_dilution)].reset_index(drop=True)
             df_fit_temp = pd.DataFrame()
             guess = [0, 1, 5e-4, 1]
-            xdata = sub_df['serum dilution'].to_numpy()
+            xdata = sub_df['serum dilution2'].to_numpy()
+            xdata = xdata.astype('float64')
             ydata = sub_df['OD'].to_numpy()
             params, params_covariance = optimization.curve_fit(model, xdata, ydata, guess, bounds=(0, np.inf), maxfev=1e5)
-            x_input = np.logspace(np.log10(np.min(xdata)), np.log10(np.max(xdata)), 50)
+
+            x_input = np.logspace(np.log10(np.min(xdata)+0.000000000001),np.log10(np.max(xdata)), 50)
             y_fit = fourPL(x_input, *params)
 
-            df_fit_temp['serum dilution'] = x_input
+            df_params_temp = pd.DataFrame()
+            df_params_temp['sc'] = [serum] #for standard curve
+            df_params_temp['antigen'] = [antigen]
+            df_params_temp['A'] = params[0]
+            df_params_temp['B'] = params[1]
+            df_params_temp['C'] = params[2]
+            df_params_temp['D'] = params[3]
+
+            df_fit_temp['serum dilution2'] = x_input
             df_fit_temp['OD'] = y_fit
-            df_fit_temp['serum ID'] = ' '.join([serum, 'fit'])
+            df_fit_temp['serum ID1'] = ' '.join([serum, 'fit'])
+
             sub_df_expand = pd.concat(
-                [sub_df.loc[[0], ['antigen',
-                             'serum type',
+                [sub_df.loc[[0], ['antigen', 'serum ID',
+                             'serum type', 'serum cat', 'well_id',
                              'secondary ID',
                              'secondary dilution',
                              'pipeline']]] * len(df_fit_temp.index), axis=0).reset_index(drop=True)
             df_fit_temp = pd.concat([df_fit_temp, sub_df_expand], axis=1)
+
             df_fit = df_fit.append(df_fit_temp)
+            df_params = df_params.append(df_params_temp)
     print('4PL fitting finished')
-    return df_fit
-python_df_fit = fit2df(stitchedpython_df, fourPL, 'python')
-#%% plot the ODs and fits
-fig_path = os.path.join(data_folder1, 'pysero_plots')
+    return df_fit, df_params
+
+python_df_fit, python_df_params= fit2df(stitchedpython_df, fourPL, 'python')
+cr3022=['CR3022']
+CR3022_df_fit = python_df_fit[(python_df_fit['serum ID1'] == 'Neg pool 1/200 + CR3022 fit')]
+CR3022_df_params = python_df_params[(python_df_params['sc'] =='Neg pool 1/200 + CR3022')]
+
+#%% Append dataframe of CR3022 fit params to OD df
+interp_df = stitchedpython_df.merge(CR3022_df_params, left_on='antigen', right_on='antigen', how='outer')
+print(interp_df.dtypes)
+#%% define a function to truncate numbers to prevent overflow
+import math
+def truncate(number, digits) -> float:
+    stepper = 10.0 ** digits
+    return math.trunc(stepper * number) / stepper
+#%% interpolate into curve and add a new column to dataframe
+# def fourPLinterp(y, A, B, C, D):
+# 	return C*(((y-A)/(D-y))**(1/B))
+print(interp_df)
+def fourPLinterp(row):
+    return ((row['C'])*(np.real_if_close(((row['OD'])-(row['A']))/((row['D'])-(row['OD'])))**(np.real_if_close((1/(row['B'])),8))))
+interp_df['value on curve'] = interp_df.apply(fourPLinterp,axis=1)
+print(interp_df.dtypes)
+makereal = np.real(interp_df['value on curve'])
+makereal = pd.DataFrame(data=makereal, dtype=np.float64)
+makereal.columns = ['value on curve']
+print(makereal)
+interp_df['value on curve'] =makereal
+interp_df.astype({'value on curve': 'float64'}).dtypes
+print(interp_df['value on curve'])
+
+
+interp_df.to_excel(r'/Users/janie.byrum/Desktop/dataframes output/CR3022 interp JB.xlsx')
+
+# %% Change values on curve to a placeholder value for ODs that are higher or lower than curve
+rangeforag_df = interp_df[(interp_df['serum ID1'] == interp_df['sc'])]
+minmaxValue_df = pd.DataFrame()
+for antigen in rangeforag_df['antigen'].unique():
+    antigen_df = rangeforag_df[(rangeforag_df['antigen'] ==antigen)]
+    maxValue = antigen_df['OD'].max()
+    minValue = antigen_df['OD'].min()
+    print(maxValue)
+    temp_df = pd.DataFrame()
+    temp_df['maxValue'] = [maxValue]
+    temp_df['minValue'] = [minValue]
+    temp_df['antigen'] = [antigen]
+
+    minmaxValue_df = minmaxValue_df.append(temp_df)
+print(minmaxValue_df)
+interp_df = interp_df.merge(minmaxValue_df, left_on='antigen', right_on='antigen', how='outer')
+
+
+#if OD is greater than max value, change value on curve to 1
+# Do the converse for min value, change to 0.00015
+import random
+for idx, row in interp_df.iterrows():
+    if row['OD'] > row['maxValue']:
+        # first_df.loc((row['value on curve']),1)
+        interp_df.loc[idx,'value on curve'] = random.uniform(0.98,1)
+    elif row['OD'] < row['minValue']:
+
+        interp_df.loc[idx, 'value on curve'] = random.uniform(0.00010,0.00017)
+# %% Multiply ODs by dilution factor
+# interp_df.loc[interp_df['serum ID'] != 'CR3022', 'value on curve'] = interp_df.loc[interp_df['serum ID'] != 'CR3022', 'value on curve'] * 200
+# interp_df
+
+# %% Plot the interpolated values
+
+# fig_path = os.path.join(data_folder1, 'pysero_plots TEST')
+# os.makedirs(fig_path, exist_ok=True)
+#
+# #sera_list = natsorted(interp_df['serum ID1'].unique())
+# sera_list = ['Neg pool','Pos Pool','Neg pool 1/200 + CR3022']
+dilutionforplot = ['0.005']
+# markers = 'o'
+# sec_dilutions = [2e-4]
+# hue = 'serum cat'
+# style = 'serum type'
+# antigens = natsorted(interp_df['antigen'].unique())
+# serum_df = interp_df[(interp_df['serum ID1'].isin(sera_list)) & (interp_df['serum dilution'].isin(dilutionforplot))]
+#
+# assert not serum_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
+#
+# g=sns.relplot(x="value on curve", y="OD", hue="serum cat", col_order=antigens, col="antigen", kind="scatter", data=serum_df, col_wrap=5)
+# g = (g.set_axis_labels("concentration","OD").set(xscale="log"))
+# plt.savefig(os.path.join(fig_path, 'interp_{}_{}_{}.jpg'.format('positive', 'negative','02')), dpi=300, bbox_inches='tight')
+
+#%% plot the ODs and fit of standard curve
+
+# Make combined plot
+#
+fig_path = os.path.join(data_folder1, 'pysero_plots TEST')
 os.makedirs(fig_path, exist_ok=True)
-# # serum_type = 'Control'
-pipeline = 'python'
-# sera_list = natsorted(stitchedpython_df['serum ID'].unique())
 
-
-sera_list= ['Pool']
-
-sera_fit_list = [' '.join([x, 'fit']) for x in sera_list]
-# sera_list = ['pos 1', 'pos 2', 'pos 3', 'pos 4', 'neg 1', 'neg 2', 'neg 3', 'neg 4']
-# sera_list = ['CR3022']
-# sera_list = ['Neg 1']
-# sera_list = ['neg ' + str(i) for i in range(11, 16)]
-# sera_list = ['positive ' + str(i) for i in range(1, 6)] + ['negative ' + str(i) for i in range(1, 7)]
-# markers = ['o'] * 5 + ['x'] * 6
+pipeline = ['python']
+sera_list = ['Neg pool','Pos Pool']
+sera_list2 = ['Neg pool 1/200 + CR3022']
+sera_fit_list = ['Neg pool 1/200 + CR3022 fit']
 markers = 'o'
-hue = 'serum ID'
-sec_dilutions = [1e-4]
-style = 'serum type'
+sec_dilutions = [2e-4]
+hue = 'serum ID1'
+style = 'serum cat'
 antigens = natsorted(stitchedpython_df['antigen'].unique())
-serum_df = stitchedpython_df[(stitchedpython_df['pipeline']==pipeline) & stitchedpython_df['serum ID'].isin(sera_list)
-                     & stitchedpython_df['secondary dilution'].isin(sec_dilutions)]
-assert not serum_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
-for sec_id in serum_df['secondary ID'].unique():
-    sub_df = serum_df[(serum_df['secondary ID'] == sec_id)]
-    palette = sns.color_palette(n_colors=len(sub_df[hue].unique()))
+
+serum_df = interp_df[(interp_df['serum ID1'].isin(sera_list)) & (interp_df['serum dilution'].isin(dilutionforplot))]
+serum_df2 = interp_df[(interp_df['serum ID1'].isin(sera_list2)) & (interp_df['serum dilution'].isin(dilutionforplot))]
+serum2_df = serum_df.rename(columns={'serum dilution2':'serum dilution2_1','value on curve':'serum dilution2'})
+serum3_df = serum_df2.rename(columns={'serum dilution2':'serum dilution2_1','value on curve':'serum dilution2'})
+#assert not serum2_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
+
+for sec_id in serum2_df['secondary ID'].unique():
+    sub_df = serum2_df[(serum2_df['secondary ID'] == sec_id)]
+    sub_df2 = serum3_df[(serum3_df['secondary ID'] == sec_id)]
+    #palette = sns.color_palette(n_colors=len(sub_df[hue].unique()))
+    palette2 = sns.color_palette("Greys")
+    palette = sns.color_palette()
     print('plotting...')
-    g = sns.lmplot(x="serum dilution", y="OD", col_order=antigens,
-                    hue=hue, hue_order=sera_list, col="antigen", ci='sd', palette=palette, markers=markers,
-                     data=sub_df, col_wrap=5, fit_reg=False, x_estimator=np.mean)
-    sub_python_df_fit=python_df_fit[(python_df_fit['pipeline']==pipeline) &
-                                   python_df_fit['serum ID'].isin(sera_fit_list) &
-                                    (python_df_fit['secondary ID'] == sec_id) &
-                                    python_df_fit['secondary dilution'].isin(sec_dilutions)
-                                    ]
-    palette = sns.color_palette(n_colors=len(sub_python_df_fit[hue].unique()))
+    g = sns.lmplot(x="serum dilution2", y="OD", col_order=antigens, hue=hue, hue_order=sera_list, col="antigen", ci='sd', palette=palette, markers=markers, data=sub_df, col_wrap=5, fit_reg=False, x_estimator=np.mean, legend=False)
+    g.set(ylim=(-0.05, 1.8),xlim=(10e-5, 10e0))
+    sub_python_df_fit = python_df_fit[(python_df_fit['serum ID1'].isin(sera_fit_list)) & (python_df_fit['secondary ID'] == sec_id)]
+    palette2 = sns.color_palette("Greys",n_colors=len(sub_python_df_fit[hue].unique()))
+
     for antigen, ax in zip(antigens, g.axes.flat):
         df_fit = sub_python_df_fit[(sub_python_df_fit['antigen'] == antigen)]
-        sns.lineplot(x="serum dilution", y="OD", hue=hue, hue_order=sera_fit_list, data=df_fit,
-                     style=style, palette=palette,
+        sub_serum_df = sub_df[(sub_df['antigen'] == antigen)]
+        sub_serum2_df = sub_df2[(sub_df2['antigen'] == antigen)]
+        palette = sns.color_palette(n_colors=len(sub_serum_df[hue].unique()))
+
+        palette3 = sns.color_palette("Greys",n_colors=len(sub_serum2_df[hue].unique()))
+        sns.scatterplot(x="serum dilution2", y="OD", hue=hue, hue_order=sera_list2, estimator='mean',
+                        data=sub_serum2_df, palette=palette3, markers=markers, ax=ax, legend=False)
+
+        sns.lineplot(x="serum dilution2", y="OD", hue=hue, hue_order=sera_fit_list, data=df_fit,
+                     style=style, palette=palette2,
                      ax=ax, legend=False)
+
+        sns.scatterplot(x="serum dilution2", y="OD", hue=hue, estimator='mean', data=sub_serum_df, palette=palette, markers=markers, ax=ax, legend=False)
+
+
+        ax.set(xlim=[10e-5, 10e0])
         ax.set(xscale="log")
+        ax.set(ylim=[-0.05, 1.8])
+
+
+
+
         # ax.set(ylim=[-0.05, 1.5])
+plt.savefig(os.path.join(fig_path, '{}_{}_{}_fit.jpg'.format('combined 005 reg', sec_id, sec_dilutions)),dpi=300, bbox_inches='tight')
 
-plt.savefig(os.path.join(fig_path, '{}_{}_{}_fit.jpg'.format('Pool', sec_id, sec_dilutions)),dpi=300, bbox_inches='tight')
-#%% functions to compute ROC curves and AUC
-# from sklearn.metrics import roc_curve, roc_auc_score
+# %% Make plot with CR3022 fit, pos and neg pool points, zoomed in to lower OD range
 #
-# def roc_from_df(df):
-#     s = {}
-#     y_test = df['serum type']
-#     y_prob = df['OD']
-#     s['False positive rate'], s['True positive rate'], _ = roc_curve(y_test, y_prob, pos_label='positive')
-#     # s['AUC'] = roc_auc_score(y_test, y_prob)
-#     s['AUC'] = [roc_auc_score(y_test, y_prob)] * len(s['False positive rate'])
-#     return pd.Series(s)
+
+# Make combined plot
 #
-# def get_roc_df(df):
-#     """fit model to x, y data in dataframe.
-#     Return a dataframe with fit x, y for plotting
-#     """
-#     df = df[df['serum type'].isin(['positive', 'negative'])]
-#     roc_df = df[['antigen',
-#                  'serum type',
-#                  'secondary ID',
-#                  'secondary dilution',
-#                  'serum dilution',
-#                  'OD',
-#                  'pipeline']].drop_duplicates()
-#     roc_df = roc_df.groupby(['antigen',
-#                              'secondary ID',
-#                              'secondary dilution',
-#                              'serum dilution',
-#                              'pipeline']).apply(roc_from_df)
-#     # roc_df = roc_df.reset_index()
-#     roc_df = roc_df.apply(pd.Series.explode).astype(float).reset_index()
-#     return roc_df
-# roc_df = get_roc_df(stitchedpython_df)
-
-#%% Plot categorical scatter plot for episurvey
-pipeline = 'python'
-sera_list = natsorted(stitchedpython_df['serum ID'].unique())
-serum_cat_list = ['Positive','Negative']
-antigens = natsorted(stitchedpython_df['antigen'].unique())
-serum_df = stitchedpython_df[(stitchedpython_df['pipeline']==pipeline) & stitchedpython_df['serum cat'].isin(serum_cat_list)]
-assert not serum_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
-
-# Draw a categorical scatterplot to show each observation
-sns.catplot(x="serum cat", y="OD", hue="serum cat", col_order=antigens, col="antigen",kind="swarm", palette=["r","c","y"],data=serum_df, col_wrap = 5)
-plt.savefig(os.path.join(fig_path, 'scatter_{}_{}.jpg'.format('positive', 'negative')),
-                              dpi=300, bbox_inches='tight')
-
-#%% Plot zoomed in plots
-fig_path = os.path.join(data_folder1, 'pysero_plots')
+fig_path = os.path.join(data_folder1, 'pysero_plots TEST')
 os.makedirs(fig_path, exist_ok=True)
-# # serum_type = 'Control'
-pipeline = 'python'
-# sera_list = natsorted(stitchedpython_df['serum ID'].unique())
 
-
-sera_list= ['Pool']
-
-sera_fit_list = [' '.join([x, 'fit']) for x in sera_list]
-# sera_list = ['pos 1', 'pos 2', 'pos 3', 'pos 4', 'neg 1', 'neg 2', 'neg 3', 'neg 4']
-# sera_list = ['CR3022']
-# sera_list = ['Neg 1']
-# sera_list = ['neg ' + str(i) for i in range(11, 16)]
-# sera_list = ['positive ' + str(i) for i in range(1, 6)] + ['negative ' + str(i) for i in range(1, 7)]
-# markers = ['o'] * 5 + ['x'] * 6
+pipeline = ['python']
+sera_list = ['Neg pool','Pos Pool',]
+sera_fit_list = ['Neg pool 1/200 + CR3022 fit']
 markers = 'o'
-hue = 'serum ID'
-sec_dilutions = [1e-4]
-style = 'serum type'
+sec_dilutions = [2e-4]
+hue = 'serum ID1'
+style = 'serum cat'
 antigens = natsorted(stitchedpython_df['antigen'].unique())
-serum_df = stitchedpython_df[(stitchedpython_df['pipeline']==pipeline) & stitchedpython_df['serum ID'].isin(sera_list)
-                     & stitchedpython_df['secondary dilution'].isin(sec_dilutions)]
-assert not serum_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
-for sec_id in serum_df['secondary ID'].unique():
-    sub_df = serum_df[(serum_df['secondary ID'] == sec_id)]
-    palette = sns.color_palette(n_colors=len(sub_df[hue].unique()))
+
+serum_df = interp_df[(interp_df['serum ID1'].isin(sera_list)) & (interp_df['serum dilution'].isin(dilutionforplot))]
+serum2_df = serum_df.rename(columns={'serum dilution2':'serum dilution2_1','value on curve':'serum dilution2'})
+#assert not serum2_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
+
+for sec_id in serum2_df['secondary ID'].unique():
+    sub_df = serum2_df[(serum2_df['secondary ID'] == sec_id)]
+    #palette = sns.color_palette(n_colors=len(sub_df[hue].unique()))
+    palette2 = sns.color_palette("Greys")
+    palette = sns.color_palette()
     print('plotting...')
-    g = sns.lmplot(x="serum dilution", y="OD", col_order=antigens,
-                    hue=hue, hue_order=sera_list, col="antigen", ci='sd', palette=palette, markers=markers,
-                     data=sub_df, col_wrap=5, fit_reg=False, x_estimator=np.mean)
-    sub_python_df_fit=python_df_fit[(python_df_fit['pipeline']==pipeline) &
-                                   python_df_fit['serum ID'].isin(sera_fit_list) &
-                                    (python_df_fit['secondary ID'] == sec_id) &
-                                    python_df_fit['secondary dilution'].isin(sec_dilutions)
-                                    ]
-    palette = sns.color_palette(n_colors=len(sub_python_df_fit[hue].unique()))
+    g = sns.lmplot(x="serum dilution2", y="OD", col_order=antigens, hue=hue, hue_order=sera_list, col="antigen", ci='sd', palette=palette, markers=markers, data=sub_df, col_wrap=5, fit_reg=False, x_estimator=np.mean, legend=False)
+    g.set(ylim=(-0.05, 0.3), xlim=(10e-5, 10e0))
+    sub_python_df_fit = python_df_fit[(python_df_fit['serum ID1'].isin(sera_fit_list)) & (python_df_fit['secondary ID'] == sec_id)]
+    palette2 = sns.color_palette("Greys",n_colors=len(sub_python_df_fit[hue].unique()))
+
     for antigen, ax in zip(antigens, g.axes.flat):
         df_fit = sub_python_df_fit[(sub_python_df_fit['antigen'] == antigen)]
-        sns.lineplot(x="serum dilution", y="OD", hue=hue, hue_order=sera_fit_list, data=df_fit,
-                     style=style, palette=palette,
+        sub_serum_df = sub_df[(sub_df['antigen'] == antigen)]
+        palette = sns.color_palette(n_colors=len(sub_serum_df[hue].unique()))
+
+        sns.lineplot(x="serum dilution2", y="OD", hue=hue, hue_order=sera_fit_list, data=df_fit,
+                     style=style, palette=palette2,
                      ax=ax, legend=False)
-        ax.set(xscale="log",ylim=[-0.05,0.2])
+
+        sns.scatterplot(x="serum dilution2", y="OD", hue=hue, estimator='mean', data=sub_serum_df, palette=palette, markers=markers, ax=ax, legend=False)
+        ax.set(xlim=[10e-5, 10e0])
+        ax.set(xscale="log")
+
+        ax.set(ylim=[-0.05, 0.3])
+
+
 
         # ax.set(ylim=[-0.05, 1.5])
+plt.savefig(os.path.join(fig_path, '{}_{}_{}_fit.jpg'.format('combined 005 zoom', sec_id, sec_dilutions)),dpi=300, bbox_inches='tight')
 
-plt.savefig(os.path.join(fig_path, '{}_{}_{}_fit.jpg'.format('Pool zoom', sec_id, sec_dilutions)),dpi=300, bbox_inches='tight')
 
-#%% Plot categorical scatter plot for episurvey
-pipeline = 'python'
-sera_list = natsorted(stitchedpython_df['serum ID'].unique())
-serum_cat_list = ['Positive','Negative']
+# Make combined plot
+#
+fig_path = os.path.join(data_folder1, 'pysero_plots TEST')
+os.makedirs(fig_path, exist_ok=True)
+
+pipeline = ['python']
+# sera_list = ['Neg pool','Pos Pool']
+sera_list = ['Neg pool 1/200 + CR3022 fit']
+
+sera_fit_list = ['Neg pool 1/200 + CR3022 fit']
+markers = 'o'
+sec_dilutions = [2e-4]
+hue = 'serum ID1'
+style = 'secondary ID'
 antigens = natsorted(stitchedpython_df['antigen'].unique())
-serum_df = stitchedpython_df[(stitchedpython_df['pipeline']==pipeline) & stitchedpython_df['serum cat'].isin(serum_cat_list)]
-assert not serum_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
 
-# Draw a categorical scatterplot to show each observation
-g=sns.catplot(x="serum cat", y="OD", hue="serum cat", col_order=antigens, col="antigen",kind="swarm", palette=["r","c","y"],data=serum_df, ax=ax, col_wrap = 5)
-g.set(ylim=(-0.05,0.2))
-plt.savefig(os.path.join(fig_path, 'scatter_zoom_{}_{}.jpg'.format('positive', 'negative')),
-                              dpi=300, bbox_inches='tight')
+# serum_df = interp_df[(interp_df['serum ID1'].isin(sera_list)) & (interp_df['serum dilution'].isin(dilutionforplot))]
+# serum2_df = serum_df.rename(columns={'serum dilution2':'serum dilution2_1','value on curve':'serum dilution2'})
+#assert not serum2_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
+
+for sec_id in python_df_fit['secondary ID'].unique():
+    sub_df = python_df_fit[(python_df_fit['secondary ID'] == sec_id)]
+    #palette = sns.color_palette(n_colors=len(sub_df[hue].unique()))
+    palette2 = sns.color_palette("Greys")
+    palette = sns.color_palette()
+    print('plotting...')
+    g = sns.lmplot(x="serum dilution2", y="OD", col_order=antigens, hue=hue, hue_order=sera_list, col="antigen", ci='sd', palette=palette, markers=markers, data=sub_df, col_wrap=5, fit_reg=False, x_estimator=np.mean)
+    g.set(ylim=(-0.05, 1.8), xlim=(10e-5, 10e0))
+    sub_python_df_fit = python_df_fit[(python_df_fit['serum ID1'].isin(sera_fit_list)) & (python_df_fit['secondary ID'] == sec_id)]
+    palette2 = sns.color_palette("Greys",n_colors=len(sub_python_df_fit[hue].unique()))
+
+    for antigen, ax in zip(antigens, g.axes.flat):
+        df_fit = sub_python_df_fit[(sub_python_df_fit['antigen'] == antigen)]
+        sub_serum_df = sub_df[(sub_df['antigen'] == antigen)]
+        palette = sns.color_palette(n_colors=len(sub_serum_df[hue].unique()))
+
+        sns.lineplot(x="serum dilution2", y="OD", hue=hue, hue_order=sera_fit_list, data=df_fit,
+                     style=style, palette=palette2,
+                     ax=ax, legend=False)
+
+        # sns.scatterplot(x="serum dilution2", y="OD", hue=hue, estimator='mean', data=sub_serum_df, palette=palette, markers=markers, ax=ax, legend=False)
+        ax.set(xlim=[10e-5, 10e0])
+        ax.set(xscale="log")
 
 
-# #%% Plot ROC curves
+
+
+        # ax.set(ylim=[-0.05, 1.5])
+plt.savefig(os.path.join(fig_path, '{}_{}_{}_fit.jpg'.format('Just SC 005', sec_id, sec_dilutions)),dpi=300, bbox_inches='tight')
+
+
+# #%% plot the ODs and fits
+# fig_path = os.path.join(data_folder1, 'pysero_plots TEST')
+# os.makedirs(fig_path, exist_ok=True)
+# # serum_type = 'Control'
+# pipeline = 'python'
+# #sera_list = natsorted(stitchedpython_df['serum ID'].unique())
+# # 200612 JRB ADJUSTMENTS
+#
+# sera_list= ['Pos Pool','Neg pool']
+# # 200612 JRB ADJUSTMENTS
+# sera_fit_list = [' '.join([x, 'fit']) for x in sera_list]
+# # sera_list = ['pos 1', 'pos 2', 'pos 3', 'pos 4', 'neg 1', 'neg 2', 'neg 3', 'neg 4']
+# # sera_list = ['CR3022']
+# # sera_list = ['Neg 1']
+# # sera_list = ['neg ' + str(i) for i in range(11, 16)]
+# # sera_list = ['positive ' + str(i) for i in range(1, 6)] + ['negative ' + str(i) for i in range(1, 7)]
+# # markers = ['o'] * 5 + ['x'] * 6
+# markers = 'o'
 # # hue = 'secondary dilution'
-# hue = "serum dilution"
-# # hue = 'serum ID'
+# hue = 'serum ID'
 # sec_dilutions = [2e-4]
 # # sec_dilutions = [5e-5]
-# # sec_dilutions = roc_df['secondary dilution'].unique()
+# # sec_dilutions = stitchedpython_df['secondary dilution'].unique()
 # # style = 'secondary ID'
 # style = 'serum type'
-# pipeline='python'
-# antigens = natsorted(roc_df['antigen'].unique())
-# roc_py_df = roc_df[(roc_df['pipeline']==pipeline)
-#                 & roc_df['secondary dilution'].isin(sec_dilutions)]
-# sns.set_context("notebook")
-# assert not roc_py_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
-# for sec_id in roc_py_df['secondary ID'].unique():
+# antigens = natsorted(stitchedpython_df['antigen'].unique())
+# serum_df = stitchedpython_df[(stitchedpython_df['pipeline']==pipeline) & stitchedpython_df['serum ID'].isin(sera_list)
+#                      & stitchedpython_df['secondary dilution'].isin(sec_dilutions)]
+# assert not serum_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
+# for sec_id in serum_df['secondary ID'].unique():
+#     sub_df = serum_df[(serum_df['secondary ID'] == sec_id)]
 #     palette = sns.color_palette(n_colors=len(sub_df[hue].unique()))
 #     print('plotting...')
+#     g = sns.lmplot(x="serum dilution", y="OD", col_order=antigens,
+#                     hue=hue, hue_order=sera_list, col="antigen", ci='sd', palette=palette, markers=markers,
+#                      data=sub_df, col_wrap=5, fit_reg=False, x_estimator=np.mean)
+#     sub_python_df_fit=python_df_fit[(python_df_fit['pipeline']==pipeline) &
+#                                    python_df_fit['serum ID'].isin(sera_fit_list) &
+#                                     (python_df_fit['secondary ID'] == sec_id) &
+#                                     python_df_fit['secondary dilution'].isin(sec_dilutions)
+#                                     ]
+#     palette = sns.color_palette(n_colors=len(sub_python_df_fit[hue].unique()))
+#     for antigen, ax in zip(antigens, g.axes.flat):
+#         df_fit = sub_python_df_fit[(sub_python_df_fit['antigen'] == antigen)]
+#         sns.lineplot(x="serum dilution", y="OD", hue=hue, hue_order=sera_fit_list, data=df_fit,
+#                      style=style, palette=palette,
+#                      ax=ax, legend=False)
+#         ax.set(xscale="log")
+#         # ax.set(ylim=[-0.05, 1.5])
 #
-#     g = sns.FacetGrid(roc_py_df, hue=hue, col="antigen", col_wrap=5, aspect=1.05,
-#                       hue_kws={'linestyle': ['-', '--', '-.', ':']})
-#     g = (g.map(plt.plot, 'False positive rate', 'True positive rate').add_legend())
-#
-#     plt.savefig(os.path.join(fig_path, 'ROC_{}_{}.jpg'.format(sec_id, sec_dilutions)),
+#     plt.savefig(os.path.join(fig_path, '{}_{}_{}_fit.jpg'.format('pos neg_sera', sec_id, sec_dilutions)),
 #                              dpi=300, bbox_inches='tight')
-
-
-#%%
-# #%% Generate plots from pysero
-#
-# # 4 positive sera vs 4 negative sera for control antigens
-#
-# fig_path = os.path.join(data_folder, 'pysero_fit_OD_8_sera_per_ag')
-#
-#
-# sera_list = ['pos 1', 'pos 2', 'pos 3', 'pos 4', 'neg 1', 'neg 2', 'neg 3', 'neg 4'] # All +ve sera are affected by comets at some antigens, first 4 negative sera are not affected by comets.
-# control_ag = ['xkappa-biotin','xIgG Fc', 'GFP foldon']
-#
-# # selectsera_ctlag = python_df_fix[(python_df_fix['Sera ID'].isin(seralist) & python_df_fix['antigen'].isin(controlag))]
-# # selectsera_diagag = python_df_fix[(python_df_fix['Sera ID'].isin(seralist) & ~python_df_fix['antigen'].isin(controlag))]
-#
-# python_sera_df = python_df[python_df['serum ID'].isin(sera_list) & (python_df['pipeline']==pipeline)]
-# y_list = ["OD", "intensity", "background"]
-#
-# for y in y_list:
-#     g = sns.relplot(x="dilution", y=y,
-#                         hue="serum ID", style = "type", col="antigen", ci=None,
-#                          data=python_sera_df, col_wrap=3, estimator=np.nanmedian, kind='line')
-#     g.set(xscale="log")
-#     # g.set(xscale="log", ylim=[-0.05, 0.8], xlim=[1E-6, 2E-2])
-#     plt.savefig(os.path.join(fig_path, '_'.join(['pysero', y + '.jpg'])), dpi=300, bbox_inches='tight')
-#
-#
-#
-# #%% Compare pysero and Scienion aross all serum and antigen combinations
-# fig_path = os.path.join(data_folder, 'pysero_plots', 'pysero_metadata_vs_scienion')
-# os.makedirs(fig_path, exist_ok=True)
-# y_list = ["OD", "intensity", "background"]
-# for serum in python_df['serum ID'].unique():
-#     serum_df = python_df[python_df['serum ID']==serum]
-#     for y in y_list:
-#         g = sns.relplot(x="serum dilution", y=y,
-#                     hue="pipeline", col="antigen", ci='sd', style='pipeline',
-#                      data=serum_df, col_wrap=3, estimator=np.mean, kind='line')
-#         g.set(xscale="log", ylim=[-0.05, 1.2])
-#         plt.savefig(os.path.join(fig_path, '_'.join([serum, y + '.jpg'])), dpi=300, bbox_inches='tight')
-#         plt.close()
-#
-#
-

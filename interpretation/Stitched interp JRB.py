@@ -121,42 +121,6 @@ if np.all(plate_info_df['serum dilution'] >= 1):
     plate_info_df['serum dilution'] = 1 / plate_info_df['serum dilution']
 plate_info_df.drop(['row_id', 'col_id'], axis=1, inplace=True)
 
-
-
-# %% Read analysis output from Scienion
-# Read all wells into dictionary.
-scienion_df = pd.DataFrame()
-with pd.ExcelFile(scienion1_path) as scienion_xlsx:
-    for well_id in plate_info_df['well_id']:
-        OD_1_antiten_df = pd.read_excel(scienion_xlsx, sheet_name=well_id)
-        OD_1_antiten_df['well_id'] = well_id
-        scienion_df = scienion_df.append(OD_1_antiten_df, ignore_index=True)
-# %%   parse spot ids
-spot_id_df = scienion_df['ID'].str.extract(r'spot-(\d)-(\d)')
-spot_id_df = spot_id_df.astype(int) - 1  # index starting from 0
-spot_id_df.rename(columns={0: 'antigen_row', 1: 'antigen_col'}, inplace=True)
-scienion_df = pd.concat([spot_id_df, scienion_df], axis=1)
-scienion_df.drop('ID', axis=1, inplace=True)
-
-# %% invert the intensity and compute ODs, check A2
-df_scn = scienion_df.loc[:, ['antigen_row', 'antigen_col', 'well_id']]
-df_scn['intensity'] = 1 - scienion_df['Median'] / 255
-df_scn['background'] = 1 - scienion_df['Background Median'] / 255
-df_scn['OD'] = np.log10(df_scn['background'] / df_scn['intensity'])
-# %% Join Scienion data with plateInfo
-
-
-df_scn = pd.merge(df_scn,
-                  antigen_df,
-                  how='left', on=['antigen_row', 'antigen_col'])
-df_scn = pd.merge(df_scn,
-                  plate_info_df,
-                  how='right', on=['well_id'])
-
-# %% Add a name of the pipeline to the dataframe.
-
-df_scn['pipeline'] = 'scienion'
-
 # %% Read optical density from pysero
 OD_df = pd.DataFrame()
 int_df = pd.DataFrame()
@@ -216,10 +180,7 @@ python_df = python_df.append(df_scn)
 python_df.replace([np.inf, -np.inf], np.nan, inplace=True)
 python_df.dropna(subset=['OD'], inplace=True)
 
-#%% Remove failed wells
-failed_wells = ['B6', 'B8', 'B10', 'B12','F4','H2','H4', 'H6', 'H9', 'H12']
-for failed_well in failed_wells:
-    python_df = python_df[python_df.well_id != failed_well]
+
 # %% Do the same for second path
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -256,44 +217,6 @@ if np.all(plate_info_df2['serum dilution'] >= 1):
     # convert dilution to concentration
     plate_info_df2['serum dilution'] = 1 / plate_info_df2['serum dilution']
 plate_info_df2.drop(['row_id', 'col_id'], axis=1, inplace=True)
-
-# %% Read antigen information.
-
-
-# %% Read analysis output from Scienion
-# Read all wells into dictionary.
-# scienion_df = pd.DataFrame()
-# with pd.ExcelFile(scienion1_path) as scienion_xlsx:
-#     for well_id in plate_info_df2['well_id']:
-#         OD_1_antiten_df = pd.read_excel(scienion_xlsx, sheet_name=well_id)
-#         OD_1_antiten_df['well_id'] = well_id
-#         scienion_df = scienion_df.append(OD_1_antiten_df, ignore_index=True)
-# %%   parse spot ids
-# spot_id_df=scienion_df['ID'].str.extract(r'spot-(\d)-(\d)')
-# spot_id_df = spot_id_df.astype(int) - 1 # index starting from 0
-# spot_id_df.rename(columns={0: 'antigen_row', 1: 'antigen_col'}, inplace=True)
-# scienion_df = pd.concat([spot_id_df, scienion_df], axis=1)
-# scienion_df.drop('ID', axis=1, inplace=True)
-#
-# %% invert the intensity and compute ODs, check A2
-# df_scn = scienion_df.loc[:, ['antigen_row', 'antigen_col', 'well_id']]
-# df_scn['intensity'] = 1 - scienion_df['Median'] / 255
-# df_scn['background'] = 1 - scienion_df['Background Median'] / 255
-# df_scn['OD'] = np.log10(df_scn['background'] / df_scn['intensity'])
-# %% Join Scienion data with plateInfo
-#
-#
-# df_scn = pd.merge(df_scn,
-#                  antigen_df2,
-#                  how='left', on=['antigen_row', 'antigen_col'])
-# df_scn = pd.merge(df_scn,
-#                  plate_info_df2,
-#                  how='right', on=['well_id'])
-
-
-# %% Add a name of the pipeline to the dataframe.
-
-# df_scn['pipeline'] = 'scienion'
 
 
 # %% Read optical density from pysero
@@ -355,9 +278,6 @@ python_df2 = python_df2.append(df_scn)
 python_df2.replace([np.inf, -np.inf], np.nan, inplace=True)
 python_df2.dropna(subset=['OD'], inplace=True)
 
-#%% Remove failed wells
-wells2keep = ['B6', 'B8', 'B10', 'B12']
-python_df22 = python_df2[(python_df2['well_id'].isin(wells2keep))]
 # %% Do the same for third path
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -395,43 +315,6 @@ if np.all(plate_info_df3['serum dilution'] >= 1):
     plate_info_df3['serum dilution'] = 1 / plate_info_df3['serum dilution']
 plate_info_df3.drop(['row_id', 'col_id'], axis=1, inplace=True)
 
-# %% Read antigen information.
-
-
-# %% Read analysis output from Scienion
-# Read all wells into dictionary.
-# scienion_df = pd.DataFrame()
-# with pd.ExcelFile(scienion1_path) as scienion_xlsx:
-#     for well_id in plate_info_df3['well_id']:
-#         OD_1_antiten_df = pd.read_excel(scienion_xlsx, sheet_name=well_id)
-#         OD_1_antiten_df['well_id'] = well_id
-#         scienion_df = scienion_df.append(OD_1_antiten_df, ignore_index=True)
-# %%   parse spot ids
-# spot_id_df=scienion_df['ID'].str.extract(r'spot-(\d)-(\d)')
-# spot_id_df = spot_id_df.astype(int) - 1 # index starting from 0
-# spot_id_df.rename(columns={0: 'antigen_row', 1: 'antigen_col'}, inplace=True)
-# scienion_df = pd.concat([spot_id_df, scienion_df], axis=1)
-# scienion_df.drop('ID', axis=1, inplace=True)
-#
-# %% invert the intensity and compute ODs, check A2
-# df_scn = scienion_df.loc[:, ['antigen_row', 'antigen_col', 'well_id']]
-# df_scn['intensity'] = 1 - scienion_df['Median'] / 255
-# df_scn['background'] = 1 - scienion_df['Background Median'] / 255
-# df_scn['OD'] = np.log10(df_scn['background'] / df_scn['intensity'])
-# %% Join Scienion data with plateInfo
-#
-#
-# df_scn = pd.merge(df_scn,
-#                  antigen_df3,
-#                  how='left', on=['antigen_row', 'antigen_col'])
-# df_scn = pd.merge(df_scn,
-#                  plate_info_df3,
-#                  how='right', on=['well_id'])
-
-
-# %% Add a name of the pipeline to the dataframe.
-
-# df_scn['pipeline'] = 'scienion'
 
 
 # %% Read optical density from pysero
@@ -493,13 +376,6 @@ python_df3 = python_df3.append(df_scn)
 python_df3.replace([np.inf, -np.inf], np.nan, inplace=True)
 python_df3.dropna(subset=['OD'], inplace=True)
 
-#%% Remove failed wells
-# surveys_df[surveys_df.year != 2002]
-failed_wells3 = ['A6']
-for failedwell in failed_wells3:
-    python_df3 = python_df3[python_df3.well_id == failedwell]
-
-
 # %% Do the same for fourth path
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -536,45 +412,6 @@ if np.all(plate_info_df4['serum dilution'] >= 1):
     # convert dilution to concentration
     plate_info_df4['serum dilution'] = 1 / plate_info_df4['serum dilution']
 plate_info_df4.drop(['row_id', 'col_id'], axis=1, inplace=True)
-
-# %% Read antigen information.
-
-
-# %% Read analysis output from Scienion
-# Read all wells into dictionary.
-# scienion_df = pd.DataFrame()
-# with pd.ExcelFile(scienion1_path) as scienion_xlsx:
-#     for well_id in plate_info_df4['well_id']:
-#         OD_1_antiten_df = pd.read_excel(scienion_xlsx, sheet_name=well_id)
-#         OD_1_antiten_df['well_id'] = well_id
-#         scienion_df = scienion_df.append(OD_1_antiten_df, ignore_index=True)
-# %%   parse spot ids
-# spot_id_df=scienion_df['ID'].str.extract(r'spot-(\d)-(\d)')
-# spot_id_df = spot_id_df.astype(int) - 1 # index starting from 0
-# spot_id_df.rename(columns={0: 'antigen_row', 1: 'antigen_col'}, inplace=True)
-# scienion_df = pd.concat([spot_id_df, scienion_df], axis=1)
-# scienion_df.drop('ID', axis=1, inplace=True)
-#
-# %% invert the intensity and compute ODs, check A2
-# df_scn = scienion_df.loc[:, ['antigen_row', 'antigen_col', 'well_id']]
-# df_scn['intensity'] = 1 - scienion_df['Median'] / 255
-# df_scn['background'] = 1 - scienion_df['Background Median'] / 255
-# df_scn['OD'] = np.log10(df_scn['background'] / df_scn['intensity'])
-# %% Join Scienion data with plateInfo
-#
-#
-# df_scn = pd.merge(df_scn,
-#                  antigen_df4,
-#                  how='left', on=['antigen_row', 'antigen_col'])
-# df_scn = pd.merge(df_scn,
-#                  plate_info_df4,
-#                  how='right', on=['well_id'])
-
-
-# %% Add a name of the pipeline to the dataframe.
-
-# df_scn['pipeline'] = 'scienion'
-
 
 # %% Read optical density from pysero
 OD_df4 = pd.DataFrame()
@@ -635,7 +472,18 @@ python_df4 = python_df4.append(df_scn)
 python_df4.replace([np.inf, -np.inf], np.nan, inplace=True)
 python_df4.dropna(subset=['OD'], inplace=True)
 
-#%% Remove failed wells
+#%% Remove failed wells for all dataframes
+failed_wells = ['B6', 'B8', 'B10', 'B12','F4','H2','H4', 'H6', 'H9', 'H12']
+for failed_well in failed_wells:
+    python_df = python_df[python_df.well_id != failed_well]
+
+wells2keep = ['B6', 'B8', 'B10', 'B12']
+python_df22 = python_df2[(python_df2['well_id'].isin(wells2keep))]
+
+failed_wells3 = ['A6']
+for failedwell in failed_wells3:
+    python_df3 = python_df3[python_df3.well_id == failedwell]
+
 failed_wells4 = ['A6']
 for failedwell in failed_wells4:
     python_df4 = python_df4[python_df4.well_id != failedwell]
