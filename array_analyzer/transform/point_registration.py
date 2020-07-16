@@ -95,25 +95,25 @@ def icp(source, target, max_iterate=50, matrix_diff=1.):
     return t_matrix[:2]
 
 
-def check_reg_coords(reg_coords, im_shape, reg_ok):
+def check_reg_coords(reg_coords, im_shape, registration_ok):
     """
     Checks that all registered coordinates are within image bounds.
 
     :param np.array reg_coords: Registered grid coordinates (nbr spots x 2)
     :param tuple im_shape: Image shape (rows, cols)
-    :param bool reg_ok: Variable determining registration is ok
-    :return bool reg_ok: Variable for
+    :param bool registration_ok: Variable determining registration is ok
+    :return bool registration_ok: Variable for
     """
     # If registration is already deemed not ok, do nothing
-    if not reg_ok:
-        return reg_ok
-    reg_max = np.max(reg_coords, axis=0)
-    if reg_max[0] >= im_shape[0] or reg_max[1] >= im_shape[1]:
-        reg_ok = False
-    reg_min = np.min(reg_coords, axis=0)
-    if np.any(reg_min <= 0):
-        reg_ok = False
-    return reg_ok
+    if not registration_ok:
+        return registration_ok
+    reg_coord_max = np.max(reg_coords, axis=0)
+    if reg_coord_max[0] >= im_shape[0] or reg_coord_max[1] >= im_shape[1]:
+        registration_ok = False
+    reg_coord_min = np.min(reg_coords, axis=0)
+    if np.any(reg_coord_min <= 0):
+        registration_ok = False
+    return registration_ok
 
 
 def create_gaussian_particles(stds,
@@ -181,7 +181,8 @@ def particle_filter(fiducial_coords,
     :param int nbr_outliers: If registration hasn't converged, remove worst fitted
         spots when running particle filter
     :return np.array t_matrix: Estimated 2D translation matrix
-    :return float min_dist: Minimum total distance from fiducials to spots
+    :return float registered_dist: Minimum total distance from fiducials to spots
+        of registered grid points
     """
     # Pretrain spot coords
     dst = spot_coords.copy().astype(np.float32)
@@ -246,5 +247,5 @@ def particle_filter(fiducial_coords,
 
     # Generate transformation matrix
     t_matrix = get_translation_matrix(particle)
-    reg_dist = min_dist / (fiducial_coords.shape[0] - nbr_outliers)
-    return t_matrix, reg_dist
+    registered_dist = min_dist / (fiducial_coords.shape[0] - nbr_outliers)
+    return t_matrix, registered_dist
