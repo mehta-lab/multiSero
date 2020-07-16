@@ -58,7 +58,7 @@ def build_centroid_binary_blocks(cent_list, image_, params_, return_type='region
         return target
 
 
-def get_spot_intensity(coords, im, background, params, search_range=2):
+def get_spot_intensity(coords, im, background, search_range=2):
     """
     Extract signal and background intensity at each spot given the spot coordinate
     with the following steps:
@@ -73,8 +73,6 @@ def get_spot_intensity(coords, im, background, params, search_range=2):
         intensity image of the spots (signals)
     :param background: ndarray
         background image without spots
-    :param params: dict
-        parameters parsed from the metadata
     :param float search_range: Factor of bounding box size in which to search for
         spots. E.g. 2 searches 2 * 2 * bbox width * bbox height
     :return pd.DataFrame spots_df: Dataframe containing metrics for
@@ -83,10 +81,10 @@ def get_spot_intensity(coords, im, background, params, search_range=2):
         each spot in the grid
     """
     # values in mm
-    spot_width = params['spot_width']
-    pix_size = params['pixel_size']
-    n_rows = params['rows']
-    n_cols = params['columns']
+    spot_width = constants.params['spot_width']
+    pix_size = constants.params['pixel_size']
+    n_rows = constants.params['rows']
+    n_cols = constants.params['columns']
     # make spot size always odd
     spot_size = 2 * int(0.3 * spot_width / pix_size) + 1
     bbox_width = bbox_height = spot_size
