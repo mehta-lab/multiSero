@@ -199,6 +199,32 @@ def get_roc_df(df):
     roc_df.dropna(inplace=True)
     return roc_df
 
+def scatter_plot(df,
+                 x_col,
+                 y_col,
+                 output_path,
+                 output_fname,
+                 xlim=None,
+                 ylim=None,
+                 alpha=1):
+    diff_df = df[x_col] - df[y_col]
+    mae = diff_df.abs().mean()
+    fig = plt.figure()
+    fig.set_size_inches((6, 6))
+    ax = sns.scatterplot(x=x_col, y=y_col, data=df, alpha=alpha)
+    plt.title(output_fname)
+    if xlim is None:
+        xlim = ax.get_xlim()
+    if ylim is None:
+        ylim = ax.get_xlim()
+    ax.set_xlim(left=xlim[0], right=xlim[1])
+    ax.set_ylim(bottom=ylim[0], top=ylim[1])
+    xfit = np.linspace(xlim[0], xlim[1], 2)
+    plt.plot(xfit, xfit, linewidth=5, color='k', linestyle='--', alpha=0.5)
+    ax.text(0.6 * xlim[1], 0.15 * ylim[1], 'MAE={:.3f}'.format(mae), fontsize=12)  # add text
+    plt.savefig(os.path.join(output_path, ''.join([output_fname, '.jpg'])),
+                dpi=300, bbox_inches='tight')
+    plt.close()
 
 #%% plate 3
 # data_folders = [r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200630_1647',
@@ -365,51 +391,23 @@ plt.savefig(os.path.join(fig_path, 'scatter_{}_{}.jpg'.format('positive', 'negat
 g.set(ylim=(-0.05, 0.2))
 plt.savefig(os.path.join(fig_path, 'scatter_zoom_{}_{}.jpg'.format('positive', 'negative')),
                               dpi=300, bbox_inches='tight')
-
-#%%
-def scatter_plot(frames_metadata,
-                 x_col,
-                  y_col,
-                  output_path,
-                  output_fname,
-                  xlim=None,
-                  ylim=None,
-                  alpha=0.1):
-    fig = plt.figure()
-    fig.set_size_inches((9, 9))
-    ax = sns.scatterplot(x=x_col, y=y_col,
-                        data=frames_metadata,
-                        alpha=alpha)
-    # ax.set_xticklabels(labels=['retardance',
-    #                            'BF',
-    #                            'retardance+slow axis+BF'])
-    # plt.xticks(rotation=25)
-    # plt.title(''.join([metric_name, '_']))
-    if xlim:
-        ax.set_xlim(left=xlim[0], right=xlim[1])
-    if ylim:
-        ax.set_ylim(bottom=ylim[0], top=ylim[1])
-    # ax.legend(bbox_to_anchor=(1.04, 1), loc="upper left", borderaxespad=0)
-    ax.legend(loc="upper left", borderaxespad=0.1)
-    # ax.get_legend().remove()
-    # ax.set_ylabel('Mean intensity')
-    plt.savefig(os.path.join(output_path, ''.join([output_fname, '.jpg'])),
-                dpi=300, bbox_inches='tight')
-#%%
+#%% pivot the dataframe for xy scatter plot
 pysero_df_pivot = pd.pivot_table(stitched_pysero_df, values='OD',
                              index=['well_id', 'antigen_row', 'antigen_col', 'serum ID', 'secondary ID', 'secondary dilution',
-       'serum type', 'serum dilution', 'antigen', 'pipeline'],
+       'serum type', 'serum dilution', 'antigen', 'antigen type', 'pipeline'],
                              columns=['plate_id'])
 pysero_df_pivot.reset_index(inplace=True)
 #%%
-scatter_plot(pysero_df_pivot,
-                 'plate_3',
-                  'plate_9',
-                  fig_path,
-                  'scatter',
-                  xlim=None,
-                  ylim=None,
-                  alpha=1)
+limit = [0, 1.6]
+antigen_OD_df = slice_df(pysero_df_pivot, 'keep', 'antigen type', ['Diagnostic'])
+biotin_OD_df = slice_df(pysero_df_pivot, 'keep', 'antigen', ['xkappa-biotin'])
+igg_OD_df = slice_df(pysero_df_pivot, 'keep', 'antigen', ['xIgG Fc'])
+scatter_plot(pysero_df_pivot, 'plate_3', 'plate_9', fig_path, 'OD_scatter', xlim=limit, ylim=limit)
+scatter_plot(antigen_OD_df, 'plate_3', 'plate_9', fig_path, 'antigen_OD_scatter', xlim=limit, ylim=limit)
+scatter_plot(biotin_OD_df, 'plate_3', 'plate_9', fig_path, 'xkappa_biotin_OD_scatter', xlim=limit, ylim=limit)
+scatter_plot(igg_OD_df, 'plate_3', 'plate_9', fig_path, 'igg_OD_scatter', xlim=limit, ylim=limit)
+#%%
+
 #%%
 # #%% Generate plots from pysero
 #
