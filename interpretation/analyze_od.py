@@ -199,20 +199,59 @@ def get_roc_df(df):
     roc_df.dropna(inplace=True)
     return roc_df
 
+def roc_plot(roc_df, fig_path, fig_name):
+    # Plot ROC curves
+    hue = "serum dilution"
+    antigens = natsorted(roc_df['antigen'].unique())
+    sns.set_context("notebook")
+    assert not roc_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
+    palette = sns.color_palette(n_colors=len(roc_df[hue].unique()))
+    print('plotting ROC curves...')
+    g = sns.FacetGrid(roc_df, hue=hue, col="antigen", col_order=antigens, col_wrap=3, aspect=1.05,
+                      hue_kws={'linestyle': ['-', '--', '-.', ':']})
+    g = (g.map(plt.plot, 'False positive rate', 'True positive rate').add_legend())
+    for antigen, ax in zip(antigens, g.axes.flat):
+        auc = roc_df[roc_df['antigen'] == antigen]['AUC'].unique()[0]
+        ax.set_title(antigen)
+        ax.text(0.6, 0.15, 'AUC={:.3f}'.format(auc), fontsize=12)  # add text
+    plt.savefig(os.path.join(fig_path, fig_name + '.jpg'),
+                             dpi=300, bbox_inches='tight')
+    plt.close()
+
+def normalize_od_helper(norm_antigen):
+    def normalize(df):
+        norm_antigen_df = slice_df(df, 'keep', 'antigen', [norm_antigen])
+        norm_factor = norm_antigen_df['OD'].mean()
+        df['OD'] = df['OD'] / norm_factor
+        return df
+    return normalize
+
+def normalize_od(df, norm_antigen):
+    """fit model to x, y data in dataframe.
+    Return a dataframe with fit x, y for plotting
+    """
+    norm_antigen_df = slice_df(df, 'keep', 'antigen', [norm_antigen])
+    df.loc[df['antigen'] == norm_antigen, 'OD'] = norm_antigen_df['OD'] / norm_antigen_df['OD'].mean()
+    norm_fn = normalize_od_helper(norm_antigen)
+    df = df.groupby(['plate_id']).apply(norm_fn)
+    df = df.reset_index()
+    return df
 def scatter_plot(df,
                  x_col,
                  y_col,
+                 title,
                  output_path,
                  output_fname,
                  xlim=None,
                  ylim=None,
                  alpha=1):
-    diff_df = df[x_col] - df[y_col]
+    diff_df = df[y_col] - df[x_col]
+    me = diff_df.mean()
     mae = diff_df.abs().mean()
     fig = plt.figure()
     fig.set_size_inches((6, 6))
     ax = sns.scatterplot(x=x_col, y=y_col, data=df, alpha=alpha)
-    plt.title(output_fname)
+    plt.title(title)
     if xlim is None:
         xlim = ax.get_xlim()
     if ylim is None:
@@ -221,7 +260,8 @@ def scatter_plot(df,
     ax.set_ylim(bottom=ylim[0], top=ylim[1])
     xfit = np.linspace(xlim[0], xlim[1], 2)
     plt.plot(xfit, xfit, linewidth=5, color='k', linestyle='--', alpha=0.5)
-    ax.text(0.6 * xlim[1], 0.15 * ylim[1], 'MAE={:.3f}'.format(mae), fontsize=12)  # add text
+    ax.text(0.7 * xlim[1], 0.15 * ylim[1], 'Bias={:.3f}'.format(me), fontsize=16)  # add text
+    ax.text(0.7 * xlim[1], 0.1 * ylim[1], 'Noise={:.3f}'.format(mae), fontsize=16)  # add text
     plt.savefig(os.path.join(output_path, ''.join([output_fname, '.jpg'])),
                 dpi=300, bbox_inches='tight')
     plt.close()
@@ -260,17 +300,39 @@ data_folders = [r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion
                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200630_1739',
                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-25-28-COVID_June24_OJassay_plate9_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200701_0933',
                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-25-28-COVID_June24_OJassay_plate9_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200701_1002',
-                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-25-28-COVID_June24_OJassay_plate9_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200701_1028']
-
-fig_path = os.path.join(r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/plate3+9',
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-25-28-COVID_June24_OJassay_plate9_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200701_1028',
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-40-02-COVID_June5_OJassay_plate7_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200611_1257',
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-40-02-COVID_June5_OJassay_plate7_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200613_1341',
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-40-02-COVID_June5_OJassay_plate7_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200709_1024',
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-44-32-COVID_June5_OJassay_plate8_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200613_2017',
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-44-32-COVID_June5_OJassay_plate8_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200613_2042',
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-44-32-COVID_June5_OJassay_plate8_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200613_2051',
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-44-32-COVID_June5_OJassay_plate8_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200618_1449',
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-21-32-COVID_June24_OJassay_plate4_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200630_1756',
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-21-32-COVID_June24_OJassay_plate4_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200701_0849',
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-21-32-COVID_June24_OJassay_plate4_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200701_0903',
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-29-42-COVID_June24_OJassay_plate10_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200701_1047',
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-29-42-COVID_June24_OJassay_plate10_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200701_1110',
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-29-42-COVID_June24_OJassay_plate10_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200701_1141',
+                ]
+fig_path = os.path.join(r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/OJ_plate3_9_7_8_4_10',
                         'pysero_plots')
-plate_ids = ['plate_3'] * 4 + ['plate_9'] * 3
-slice_actions = ['keep', 'drop', 'keep', 'drop'] + [None, 'drop', 'keep']
+plate_ids = ['plate_3'] * 4 + ['plate_9'] * 3 + ['plate_7'] * 3 + ['plate_8'] * 4 + ['plate_4'] * 3 + ['plate_10'] * 3
+slice_actions = ['keep', 'drop', 'keep', 'drop'] + \
+                [None, 'drop', 'keep'] + \
+                [None, 'drop', 'keep'] + \
+                [None, 'keep', 'drop', 'keep'] + \
+                [None, 'drop', 'keep'] + \
+                [None, 'drop', 'keep']
 well_ids = [['E3', 'E4'], ['E3', 'E4'], ['F2'], ['F2']] + \
            [None, ['B7', 'B8', 'B10','B11','D3','D8','D9','D10','D11','F8','F9','F11','H2','H7','H8','H9','H10','H11'],
-                ['B7', 'B8', 'B10','B11','D3','D8','D9','D10','D11','F8','F9','F11','H2','H7','H8','H9','H10','H11']]
-sera_fit_list = ['Pool', 'mab']
-sera_cat_list = ['Pool', 'mab', 'Blank']
+                ['B7', 'B8', 'B10','B11','D3','D8','D9','D10','D11','F8','F9','F11','H2','H7','H8','H9','H10','H11']] + \
+            [None, ['B4','F2'], ['B4','F2']] + \
+            [None, ['B1','D4','D6','F5'], ['B1', 'B12','D4','D6','F5','H11'], ['B12','H11']] + \
+            [None, ['B3','B5','D1','D2','D5','F5'], ['B3','B5','D1','D2','D5','F5']] + \
+            [None, ['B12','D2','D3','D1','D5','H2','H5'], ['B12','D1','D5','D2','D3','H2']]
+sera_fit_list = ['Pool', 'mab', 'CR3022']
+sera_cat_list = ['Pool', 'mab', 'Blank', 'CR3022']
 sera_roc_list = sera_cat_list
 
 #%%
@@ -312,7 +374,10 @@ for data_folder, slice_action, well_id, plate_id in \
 
 #%% Concatenate dataframes
 stitched_pysero_df = pd.concat(df_list)
-
+stitched_pysero_df.reset_index(drop=True, inplace=True)
+stitched_pysero_df = stitched_pysero_df[(stitched_pysero_df['antigen'] != 'xkappa-biotin') |
+                        (stitched_pysero_df['antigen type'] == 'Fiducial')]
+stitched_pysero_df['serum dilution'] = stitched_pysero_df['serum dilution'].round(7)
 #%% 4PL fit
 
 slice_cols = ['pipeline', 'serum ID']
@@ -349,6 +414,11 @@ for antigen, ax in zip(antigens, g.axes.flat):
     ax.set(ylim=[-0.05, 1.5])
 plt.savefig(os.path.join(fig_path, '{}_fit_zoom.jpg'.format(sera_fit_list)),dpi=300, bbox_inches='tight')
 #%% functions to compute ROC curves and AUC
+# for plate_id in stitched_pysero_df['plate_id'].unique():
+# for plate_id in ['plate_8']:
+# slice_cols = ['pipeline', 'serum ID', 'plate_id']
+# slice_keys = [['python'], sera_roc_list, [plate_id]]
+# slice_actions = ['keep', 'drop', 'keep']
 slice_cols = ['pipeline', 'serum ID']
 slice_keys = [['python'], sera_roc_list]
 slice_actions = ['keep', 'drop']
@@ -356,58 +426,74 @@ roc_df = stitched_pysero_df.copy()
 for col, action, key in zip(slice_cols, slice_actions, slice_keys):
     roc_df = slice_df(roc_df, action, col, key)
 roc_df = get_roc_df(roc_df)
-#%% Plot ROC curves
-hue = "serum dilution"
-antigens = natsorted(roc_df['antigen'].unique())
-sns.set_context("notebook")
-assert not roc_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
-palette = sns.color_palette(n_colors=len(roc_df[hue].unique()))
-print('plotting ROC curves...')
-g = sns.FacetGrid(roc_df, hue=hue, col="antigen", col_order=antigens, col_wrap=3, aspect=1.05,
-                  hue_kws={'linestyle': ['-', '--', '-.', ':']})
-g = (g.map(plt.plot, 'False positive rate', 'True positive rate').add_legend())
-for antigen, ax in zip(antigens, g.axes.flat):
-    auc = roc_df[roc_df['antigen'] == antigen]['AUC'].unique()[0]
-    ax.set_title(antigen)
-    ax.text(0.6, 0.15, 'AUC={:.3f}'.format(auc), fontsize=12)  # add text
-plt.savefig(os.path.join(fig_path, 'ROC.jpg'),
-                         dpi=300, bbox_inches='tight')
-
-
+roc_plot(roc_df, fig_path, 'ROC')
+# roc_plot(roc_df, fig_path, 'ROC_' + plate_id)
 #%% Plot categorical scatter plot for episurvey
-slice_cols = ['pipeline', 'serum ID']
-slice_keys = [['python'], sera_cat_list]
-slice_actions = ['keep', 'drop']
-antigens = natsorted(stitched_pysero_df['antigen'].unique())
-serum_df = stitched_pysero_df.copy()
-for col, action, key in zip(slice_cols, slice_actions, slice_keys):
-    serum_df = slice_df(serum_df, action, col, key)
-assert not serum_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
-# Draw a categorical scatterplot to show each observation
-g = sns.catplot(x="serum type", y="OD", hue="serum type", col_order=antigens, col="antigen",kind="swarm",
-                palette=["r", "c", "y"], data=serum_df, col_wrap=5)
-plt.savefig(os.path.join(fig_path, 'scatter_{}_{}.jpg'.format('positive', 'negative')),
-                              dpi=300, bbox_inches='tight')
-g.set(ylim=(-0.05, 0.2))
-plt.savefig(os.path.join(fig_path, 'scatter_zoom_{}_{}.jpg'.format('positive', 'negative')),
-                              dpi=300, bbox_inches='tight')
+# for plate_id in stitched_pysero_df['plate_id'].unique():
+for plate_id in ['plate_4']:
+    slice_cols = ['pipeline', 'serum ID', 'plate_id']
+    slice_keys = [['python'], sera_cat_list, [plate_id]]
+    slice_actions = ['keep', 'drop', 'keep']
+    antigens = natsorted(stitched_pysero_df['antigen'].unique())
+    serum_df = stitched_pysero_df.copy()
+    for col, action, key in zip(slice_cols, slice_actions, slice_keys):
+        serum_df = slice_df(serum_df, action, col, key)
+    assert not serum_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
+    # Draw a categorical scatterplot to show each observation
+    g = sns.catplot(x="serum type", y="OD", hue="serum type", col_order=antigens, col="antigen",kind="swarm",
+                    palette=["r", "c", "y"], data=serum_df, col_wrap=5)
+    plt.savefig(os.path.join(fig_path, 'catplot_{}.jpg'.format(plate_id)),
+                                  dpi=300, bbox_inches='tight')
+    g.set(ylim=(-0.05, 0.4))
+    plt.savefig(os.path.join(fig_path, 'catplot_zoom_{}.jpg'.format(plate_id)),
+                                  dpi=300, bbox_inches='tight')
+    plt.close('all')
 #%% pivot the dataframe for xy scatter plot
-pysero_df_pivot = pd.pivot_table(stitched_pysero_df, values='OD',
+norm_antigen = 'xIgG Fc'
+# norm_antigen = 'xkappa-biotin'
+suffix = '_'.join([norm_antigen, 'norm_per_plate'])
+# norm_antigen = ''
+df_norm = stitched_pysero_df.copy()
+df_norm = normalize_od(stitched_pysero_df, norm_antigen)
+pysero_df_pivot = pd.pivot_table(df_norm, values='OD',
                              index=['well_id', 'antigen_row', 'antigen_col', 'serum ID', 'secondary ID', 'secondary dilution',
        'serum type', 'serum dilution', 'antigen', 'antigen type', 'pipeline'],
                              columns=['plate_id'])
 pysero_df_pivot.reset_index(inplace=True)
 #%%
-limit = [0, 1.6]
+limit = [0, 2.0]
+x_cols = ['plate_3', 'plate_7', 'plate_4']
+y_cols = ['plate_9', 'plate_8', 'plate_10']
+
+# suffix = ''
 antigen_OD_df = slice_df(pysero_df_pivot, 'keep', 'antigen type', ['Diagnostic'])
 biotin_OD_df = slice_df(pysero_df_pivot, 'keep', 'antigen', ['xkappa-biotin'])
+# biotin_OD_df = slice_df(biotin_OD_df, 'keep', 'antigen type', ['Fiducial'])
 igg_OD_df = slice_df(pysero_df_pivot, 'keep', 'antigen', ['xIgG Fc'])
-scatter_plot(pysero_df_pivot, 'plate_3', 'plate_9', fig_path, 'OD_scatter', xlim=limit, ylim=limit)
-scatter_plot(antigen_OD_df, 'plate_3', 'plate_9', fig_path, 'antigen_OD_scatter', xlim=limit, ylim=limit)
-scatter_plot(biotin_OD_df, 'plate_3', 'plate_9', fig_path, 'xkappa_biotin_OD_scatter', xlim=limit, ylim=limit)
-scatter_plot(igg_OD_df, 'plate_3', 'plate_9', fig_path, 'igg_OD_scatter', xlim=limit, ylim=limit)
 #%%
-
+for x_col, y_col in zip(x_cols, y_cols):
+    # scatter_plot(pysero_df_pivot, x_col, y_col, fig_path, '_'.join(['OD_scatter', x_col, y_col, suffix]), xlim=limit, ylim=limit)
+    scatter_plot(antigen_OD_df, x_col, y_col, 'antigen', fig_path,
+                 '_'.join(['antigen_OD_scatter', x_col, y_col, suffix]), xlim=limit, ylim=limit)
+    scatter_plot(biotin_OD_df, x_col, y_col, 'biotin', fig_path,
+                 '_'.join(['biotin_OD_scatter', x_col, y_col, suffix]), xlim=limit, ylim=limit)
+    scatter_plot(igg_OD_df, x_col, y_col, 'igg', fig_path,
+                 '_'.join(['igg_OD_scatter', x_col, y_col, suffix]), xlim=limit, ylim=limit)
+#%% functions to compute ROC curves and AUC
+slice_cols = ['pipeline', 'serum ID']
+slice_keys = [['python'], sera_roc_list]
+slice_actions = ['keep', 'drop']
+roc_df = df_norm.copy()
+for col, action, key in zip(slice_cols, slice_actions, slice_keys):
+    roc_df = slice_df(roc_df, action, col, key)
+roc_df = get_roc_df(roc_df)
+roc_plot(roc_df, fig_path, '_'.join(['ROC', suffix]))
+#%%
+serum_df = serum_df[(serum_df['antigen'] == 'SARS CoV2 RBD 500')]
+neg_max = serum_df[(serum_df['serum type'] == 'negative')]['OD'].max()
+overlap_df = serum_df[(serum_df['serum type'] == 'positive') & (serum_df['OD'] <= neg_max)]
+#%%
+serum_id = stitched_pysero_df['serum ID'].unique()
 #%%
 # #%% Generate plots from pysero
 #
