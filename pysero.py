@@ -41,7 +41,7 @@ def parse_args():
         '-o', '--output',
         type=str,
         required=True,
-        help="Output directory path, where a timestamped subdir will be generated."
+        help="Output directory path, where a timestamped subdir will be generated. "
              "In case of rerun, give path to timestamped run directory",
     )
     parser.add_argument(
@@ -49,30 +49,32 @@ def parse_args():
         type=str,
         choices=['well_segmentation', 'well_crop', 'array_interp', 'array_fit'],
         default='array_fit',
-        help="Workflow to automatically identify and extract intensities from experiment.  "
+        help="Workflow to automatically identify and extract intensities from experiment. "
              "'Well' experiments are for standard ELISA.  "
-             "'Array' experiments are for ELISA assays using antigen arrays printed with Scienion Array Printer ",
+             "'Array' experiments are for ELISA assays using antigen arrays printed with Scienion Array Printer "
+             "Default: array_fit",
     )
     parser.add_argument(
         '-d', '--debug',
         dest='debug',
         action='store_true',
-        help="Write debug plots of well and spots",
+        help="Write debug plots of well and spots. Default: False",
     )
     parser.set_defaults(debug=False)
     parser.add_argument(
         '-r', '--rerun',
         dest='rerun',
         action='store_true',
-        help="Rerun wells listed in 'rerun_wells sheets of metadata file",
+        help="Rerun wells listed in 'rerun_wells sheets of metadata file. Default: False",
     )
     parser.set_defaults(rerun=False)
     parser.add_argument(
         '-m', '--metadata',
         type=str,
         default='pysero_output_data_metadata.xlsx',
-        help="specify the file name for the experiment metadata."
-             "Assumed to be in the same directory as images."
+        help="specify the file name for the experiment metadata. "
+             "Assumed to be in the same directory as images. "
+             "Default: 'pysero_output_data_metadata.xlsx'"
     )
     return parser.parse_args()
 
