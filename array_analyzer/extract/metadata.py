@@ -70,6 +70,8 @@ class MetaData:
             if constants.RERUN:
                 if 'rerun_wells' in sheets.keys():
                     constants.RERUN_WELLS = list(sheets['rerun_wells']['well_name'])
+                    assert len(constants.RERUN_WELLS) > 0,\
+                        "No rerun well names found"
                 else:
                     raise IOError("Rerun flag given but no rerun_wells sheet")
             # parsing .xlsx
@@ -99,16 +101,16 @@ class MetaData:
         self._calculate_fiduc_coords()
         self._calculate_fiduc_idx()
         self._calc_spot_dist()
-        if len(constants.RERUN_WELLS) > 0:
+        if constants.RERUN:
             # Rerun certain wells in existing run path
             assert os.path.isdir(constants.RUN_PATH),\
                 "Can't find re-run dir {}".format(constants.RUN_PATH)
+            # Make sure it's a pysero directory
+            base_path = os.path.basename(os.path.normpath(constants.RUN_PATH))
+            assert base_path[:7] == 'pysero_',\
+                "Rerun path should be a pysero_... path, not".format(constants.RUN_PATH)
 
         self._copy_metadata_to_output()
-
-        # setting 96-well constants
-        self._calc_image_to_well()
-        self._calc_empty_plate_const()
 
     def _assign_params(self):
         constants.params['rows'] = int(self.params['rows'])
@@ -251,28 +253,3 @@ class MetaData:
             shutil.copy2(self.xlsx_path, constants.RUN_PATH)
         elif self.metadata_extension == 'xml':
             shutil.copy2(self.xml_path, constants.RUN_PATH)
-
-    # create image-to-well mapping dictionary
-    @staticmethod
-    def _calc_image_to_well():
-        """
-        Calculate the mapping from ImageName: (row, col) position in the plate.
-        :return:
-        """
-        # assuming file names are "rowcol" or "A1" - "H12"
-        rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
-        cols = list(range(1, 13))
-        for r_idx, row in enumerate(rows):
-            for col in cols:
-                constants.IMAGE_TO_WELL[row+str(col)] = (r_idx+1, col)
-
-    @staticmethod
-    def _calc_empty_plate_const():
-        """
-        initialize report arrays assuming a 96-well plate format
-        each element of these arrays contains a sub-array of antigens
-        :return:
-        """
-        constants.WELL_BG_ARRAY = np.empty((8, 12), dtype=object)
-        constants.WELL_INT_ARRAY = np.empty((8, 12), dtype=object)
-        constants.WELL_OD_ARRAY = np.empty((8, 12), dtype=object)

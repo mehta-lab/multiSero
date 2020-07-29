@@ -74,7 +74,7 @@ def create_good_xml(tmp_path_factory):
 @pytest.fixture(scope="session")
 def create_good_xlsx(tmp_path_factory):
     input_dir = tmp_path_factory.mktemp("input_dir")
-    output_dir = tmp_path_factory.mktemp("output_dir")
+    output_dir = tmp_path_factory.mktemp("pysero_output_dir")
 
     # make a dummy worksheet with realistic parameters
     params_worksheet = {'': '',

@@ -63,10 +63,8 @@ def test_nonetype_well_array(create_good_xlsx):
     input_dir, output_dir = create_good_xlsx
     constants.METADATA_FILE = 'pysero_output_data_metadata.xlsx'
     constants.RUN_PATH = output_dir
+    constants.RERUN = True
     MetaData(input_dir, output_dir)
-    assert constants.WELL_BG_ARRAY[0][0] is None
-    assert constants.WELL_INT_ARRAY[0][0] is None
-    assert constants.WELL_OD_ARRAY[0][0] is None
     assert constants.RERUN_WELLS == ['A3', 'B7']
     assert constants.params['rows'] == 6
     assert constants.params['columns'] == 6

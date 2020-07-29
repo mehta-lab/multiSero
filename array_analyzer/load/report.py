@@ -69,7 +69,6 @@ class ReportWriter:
 
         report_dict = collections.OrderedDict()
         for sheet_name in self.antigen_names:
-            print(sheet_name)
             # Add empty plate dataframe to antigen
             report_dict[sheet_name] = plate_df.copy()
 
