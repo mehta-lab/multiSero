@@ -67,8 +67,11 @@ class MetaData:
             if 'antigen_array' not in sheets.keys():
                 raise IOError("sheet by name 'array_antigens' not present in excel file, aborting")
             # Collect well names for rerun, if sheet exists
-            if 'rerun_wells' in sheets.keys():
-                constants.RERUN_WELLS = list(sheets['rerun_wells']['well_name'])
+            if constants.RERUN:
+                if 'rerun_wells' in sheets.keys():
+                    constants.RERUN_WELLS = list(sheets['rerun_wells']['well_name'])
+                else:
+                    raise IOError("Rerun flag given but no rerun_wells sheet")
             # parsing .xlsx
             self.fiduc, self.repl, self.params = txt_parser.create_xlsx_dict(sheets)
 
@@ -98,7 +101,6 @@ class MetaData:
         self._calc_spot_dist()
         if len(constants.RERUN_WELLS) > 0:
             # Rerun certain wells in existing run path
-            constants.RUN_PATH = output_folder_
             assert os.path.isdir(constants.RUN_PATH),\
                 "Can't find re-run dir {}".format(constants.RUN_PATH)
 

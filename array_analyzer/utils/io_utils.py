@@ -108,7 +108,7 @@ def get_image_paths(input_dir):
     return well_images
 
 
-def make_run_dir(input_dir, output_dir):
+def make_run_dir(input_dir, output_dir, rerun=False):
     """
     For a specific processing run, create a subdirectory in the output directory
     which specifies which input directory was used and when the processing took
@@ -116,8 +116,11 @@ def make_run_dir(input_dir, output_dir):
 
     :param str input_dir: Path to input directory, to be processed
     :param str output_dir: Path to main output directory
+    :param bool rerun: Determine if this is a rerun
     :return str run_dir: Path to directory where processed data is stored
     """
+    if rerun:
+        return output_dir
     run_dir = os.path.join(
         output_dir,
         '_'.join(['pysero',

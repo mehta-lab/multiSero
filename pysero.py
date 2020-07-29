@@ -131,13 +131,13 @@ def run_pysero(args):
 
     constants.METADATA_FILE = args.metadata
     constants.DEBUG = args.debug
-    if args.rerun:
-        constants.RUN_PATH = output_dir
-    else:
-        constants.RUN_PATH = io_utils.make_run_dir(
-            input_dir=input_dir,
-            output_dir=output_dir,
-        )
+    constants.RERUN = args.rerun
+
+    constants.RUN_PATH = io_utils.make_run_dir(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        rerun=constants.RERUN,
+    )
     # Default log level is info, otherwise debug
     log_level = 20
     if constants.DEBUG:
