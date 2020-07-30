@@ -141,7 +141,7 @@ def create_xlsx_dict(xlsx):
 
     :param dict xlsx: Opened xlsx sheets
     :return list fiduc: Fiducials and control info
-sk    :return list spots: None.  spots IDs not needed for .xlsx
+    :return list spots: None.  spots IDs not needed for .xlsx
     :return list repl: Replicate (antigen)
     :return dict params: Additional parameters about hardware and array
     """
