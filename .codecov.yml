@@ -8,6 +8,9 @@ coverage:
     patch: no
     changes: no
 
+ignore:
+  - "tests/"
+
 comment:
   layout: "header, reach, diff, flags, files, footer"
   behavior: default
