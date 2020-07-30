@@ -171,7 +171,7 @@ python_df = pd.merge(python_df,
 python_df['pipeline'] = 'python'
 
 # In[171]:
-# python_df = python_df.append(df_scn)
+# python_df = python_df.append(scn_df)
 python_df.replace([np.inf, -np.inf], np.nan, inplace=True)
 python_df.dropna(subset=['OD'], inplace=True)
 
@@ -269,7 +269,7 @@ python_df2['pipeline'] = 'python'
 
 
 # In[171]:
-# python_df2 = python_df2.append(df_scn)
+# python_df2 = python_df2.append(scn_df)
 python_df2.replace([np.inf, -np.inf], np.nan, inplace=True)
 python_df2.dropna(subset=['OD'], inplace=True)
 
@@ -362,7 +362,7 @@ python_df3['pipeline'] = 'python'
 # python_df3.dropna(inplace=True)\
 
 # In[171]:
-#python_df3 = python_df3.append(df_scn)
+#python_df3 = python_df3.append(scn_df)
 python_df3.replace([np.inf, -np.inf], np.nan, inplace=True)
 python_df3.dropna(subset=['OD'], inplace=True)
 
@@ -460,7 +460,7 @@ python_df4['pipeline'] = 'python'
 
 
 # In[171]:
-# python_df4 = python_df4.append(df_scn)
+# python_df4 = python_df4.append(scn_df)
 python_df4.replace([np.inf, -np.inf], np.nan, inplace=True)
 python_df4.dropna(subset=['OD'], inplace=True)
 

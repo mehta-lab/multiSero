@@ -139,23 +139,23 @@ antigen_df = antigen2D_to_df1D(xlsx_path=metadata_path1, sheet='antigen_array', 
 # scienion_df.drop('ID', axis=1, inplace=True)
 #
 # # %% invert the intensity and compute ODs, check A2
-# df_scn = scienion_df.loc[:, ['antigen_row', 'antigen_col', 'well_id']]
-# df_scn['intensity'] = 1 - scienion_df['Median'] / 255
-# df_scn['background'] = 1 - scienion_df['Background Median'] / 255
-# df_scn['OD'] = np.log10(df_scn['background'] / df_scn['intensity'])
+# scn_df = scienion_df.loc[:, ['antigen_row', 'antigen_col', 'well_id']]
+# scn_df['intensity'] = 1 - scienion_df['Median'] / 255
+# scn_df['background'] = 1 - scienion_df['Background Median'] / 255
+# scn_df['OD'] = np.log10(scn_df['background'] / scn_df['intensity'])
 # %% Join Scienion data with plateInfo
 #
 #
-# df_scn = pd.merge(df_scn,
+# scn_df = pd.merge(scn_df,
 #                   antigen_df,
 #                   how='left', on=['antigen_row', 'antigen_col'])
-# df_scn = pd.merge(df_scn,
+# scn_df = pd.merge(scn_df,
 #                   plate_info_df,
 #                   how='right', on=['well_id'])
 
 # # %% Add a name of the pipeline to the dataframe.
 #
-# df_scn['pipeline'] = 'scienion'
+# scn_df['pipeline'] = 'scienion'
 
 # %% Read optical density from pysero
 OD_df = pd.DataFrame()
@@ -212,7 +212,7 @@ python_df['pipeline'] = 'python'
 
 
 # In[171]:
-# python_df = python_df.append(df_scn)
+# python_df = python_df.append(scn_df)
 python_df.replace([np.inf, -np.inf], np.nan, inplace=True)
 python_df.dropna(subset=['OD'], inplace=True)
 
@@ -271,24 +271,24 @@ antigen_df2 = antigen2D_to_df1D(xlsx_path=metadata_path2, sheet='antigen_array',
 # scienion_df.drop('ID', axis=1, inplace=True)
 #
 # %% invert the intensity and compute ODs, check A2
-# df_scn = scienion_df.loc[:, ['antigen_row', 'antigen_col', 'well_id']]
-# df_scn['intensity'] = 1 - scienion_df['Median'] / 255
-# df_scn['background'] = 1 - scienion_df['Background Median'] / 255
-# df_scn['OD'] = np.log10(df_scn['background'] / df_scn['intensity'])
+# scn_df = scienion_df.loc[:, ['antigen_row', 'antigen_col', 'well_id']]
+# scn_df['intensity'] = 1 - scienion_df['Median'] / 255
+# scn_df['background'] = 1 - scienion_df['Background Median'] / 255
+# scn_df['OD'] = np.log10(scn_df['background'] / scn_df['intensity'])
 # %% Join Scienion data with plateInfo
 #
 #
-# df_scn = pd.merge(df_scn,
+# scn_df = pd.merge(scn_df,
 #                  antigen_df2,
 #                  how='left', on=['antigen_row', 'antigen_col'])
-# df_scn = pd.merge(df_scn,
+# scn_df = pd.merge(scn_df,
 #                  plate_info_df2,
 #                  how='right', on=['well_id'])
 
 
 # %% Add a name of the pipeline to the dataframe.
 
-# df_scn['pipeline'] = 'scienion'
+# scn_df['pipeline'] = 'scienion'
 
 
 # %% Read optical density from pysero
@@ -346,7 +346,7 @@ python_df2['pipeline'] = 'python'
 
 
 # In[171]:
-# python_df2 = python_df2.append(df_scn)
+# python_df2 = python_df2.append(scn_df)
 python_df2.replace([np.inf, -np.inf], np.nan, inplace=True)
 python_df2.dropna(subset=['OD'], inplace=True)
 
@@ -405,24 +405,24 @@ antigen_df3 = antigen2D_to_df1D(xlsx_path=metadata_path3, sheet='antigen_array',
 # scienion_df.drop('ID', axis=1, inplace=True)
 #
 # %% invert the intensity and compute ODs, check A2
-# df_scn = scienion_df.loc[:, ['antigen_row', 'antigen_col', 'well_id']]
-# df_scn['intensity'] = 1 - scienion_df['Median'] / 255
-# df_scn['background'] = 1 - scienion_df['Background Median'] / 255
-# df_scn['OD'] = np.log10(df_scn['background'] / df_scn['intensity'])
+# scn_df = scienion_df.loc[:, ['antigen_row', 'antigen_col', 'well_id']]
+# scn_df['intensity'] = 1 - scienion_df['Median'] / 255
+# scn_df['background'] = 1 - scienion_df['Background Median'] / 255
+# scn_df['OD'] = np.log10(scn_df['background'] / scn_df['intensity'])
 # %% Join Scienion data with plateInfo
 #
 #
-# df_scn = pd.merge(df_scn,
+# scn_df = pd.merge(scn_df,
 #                  antigen_df3,
 #                  how='left', on=['antigen_row', 'antigen_col'])
-# df_scn = pd.merge(df_scn,
+# scn_df = pd.merge(scn_df,
 #                  plate_info_df3,
 #                  how='right', on=['well_id'])
 
 
 # %% Add a name of the pipeline to the dataframe.
 
-# df_scn['pipeline'] = 'scienion'
+# scn_df['pipeline'] = 'scienion'
 
 
 # %% Read optical density from pysero
@@ -542,24 +542,24 @@ antigen_df4 = antigen2D_to_df1D(xlsx_path=metadata_path4, sheet='antigen_array',
 # scienion_df.drop('ID', axis=1, inplace=True)
 #
 # %% invert the intensity and compute ODs, check A2
-# df_scn = scienion_df.loc[:, ['antigen_row', 'antigen_col', 'well_id']]
-# df_scn['intensity'] = 1 - scienion_df['Median'] / 255
-# df_scn['background'] = 1 - scienion_df['Background Median'] / 255
-# df_scn['OD'] = np.log10(df_scn['background'] / df_scn['intensity'])
+# scn_df = scienion_df.loc[:, ['antigen_row', 'antigen_col', 'well_id']]
+# scn_df['intensity'] = 1 - scienion_df['Median'] / 255
+# scn_df['background'] = 1 - scienion_df['Background Median'] / 255
+# scn_df['OD'] = np.log10(scn_df['background'] / scn_df['intensity'])
 # %% Join Scienion data with plateInfo
 #
 #
-# df_scn = pd.merge(df_scn,
+# scn_df = pd.merge(scn_df,
 #                  antigen_df4,
 #                  how='left', on=['antigen_row', 'antigen_col'])
-# df_scn = pd.merge(df_scn,
+# scn_df = pd.merge(scn_df,
 #                  plate_info_df4,
 #                  how='right', on=['well_id'])
 
 
 # %% Add a name of the pipeline to the dataframe.
 
-# df_scn['pipeline'] = 'scienion'
+# scn_df['pipeline'] = 'scienion'
 
 
 # %% Read optical density from pysero

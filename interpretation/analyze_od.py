@@ -109,6 +109,27 @@ def read_pysero_output(file_path, antigen_df, file_type='od'):
             data_df = data_df.append(data_1_antiten_df, ignore_index=True)
     return data_df
 
+def read_scn_output(file_path, plate_info_df):
+    # Read analysis output from Scienion
+    scienion_df = pd.DataFrame()
+    with pd.ExcelFile(file_path) as scienion_xlsx:
+        for well_id in plate_info_df['well_id']:
+            OD_1_antiten_df = pd.read_excel(scienion_xlsx, sheet_name=well_id)
+            OD_1_antiten_df['well_id'] = well_id
+            scienion_df = scienion_df.append(OD_1_antiten_df, ignore_index=True)
+    # parse spot ids
+    spot_id_df = scienion_df['ID'].str.extract(r'spot-(\d)-(\d)')
+    spot_id_df = spot_id_df.astype(int) - 1  # index starting from 0
+    spot_id_df.rename(columns={0: 'antigen_row', 1: 'antigen_col'}, inplace=True)
+    scienion_df = pd.concat([spot_id_df, scienion_df], axis=1)
+    scienion_df.drop('ID', axis=1, inplace=True)
+    # invert the intensity and compute ODs
+    df_scn = scienion_df.loc[:, ['antigen_row', 'antigen_col', 'well_id']]
+    df_scn['intensity'] = 1 - scienion_df['Median'] / 255
+    df_scn['background'] = 1 - scienion_df['Background Median'] / 255
+    df_scn['OD'] = np.log10(df_scn['background'] / df_scn['intensity'])
+    return df_scn
+
 def slice_df(df, slice_action, column, keys):
     if slice_action is None:
         return df
@@ -168,7 +189,7 @@ def roc_from_df(df):
     s = {}
     y_test = df['serum type']
     y_prob = df['OD']
-    s['False positive rate'], s['True positive rate'], _ = roc_curve(y_test, y_prob, pos_label='positive')
+    s['False positive rate'], s['True positive rate'], s['threshold'] = roc_curve(y_test, y_prob, pos_label='positive')
     try:
         s['AUC'] = [roc_auc_score(y_test, y_prob)] * len(s['False positive rate'])
     except ValueError as err:
@@ -199,7 +220,20 @@ def get_roc_df(df):
     roc_df.dropna(inplace=True)
     return roc_df
 
-def roc_plot(roc_df, fig_path, fig_name):
+def roc_plot(x, y, **kwargs):
+    df = kwargs.pop('data')
+    y2 = kwargs.pop('y2')
+    ax = plt.gca()
+    df.plot(x=x, y=y, ax=ax)
+    # df.plot(x=x, y=y2, ax=ax)
+    # ax.set_ylabel('rate')
+    ax2 = ax.twinx()
+    color = 'g'
+    df.plot(x=x, y=y2, ax=ax2 , color=color)
+    ax2.set_ylabel(y2, color=color)  # we already handled the x-label with ax1
+    ax2.tick_params(axis='y', labelcolor=color)
+
+def roc_plot_grid(roc_df, fig_path, fig_name):
     # Plot ROC curves
     hue = "serum dilution"
     antigens = natsorted(roc_df['antigen'].unique())
@@ -207,13 +241,17 @@ def roc_plot(roc_df, fig_path, fig_name):
     assert not roc_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
     palette = sns.color_palette(n_colors=len(roc_df[hue].unique()))
     print('plotting ROC curves...')
-    g = sns.FacetGrid(roc_df, hue=hue, col="antigen", col_order=antigens, col_wrap=3, aspect=1.05,
+    g = sns.FacetGrid(roc_df, hue=hue, col="antigen", col_order=antigens, col_wrap=3, aspect=1.1,
                       hue_kws={'linestyle': ['-', '--', '-.', ':']})
-    g = (g.map(plt.plot, 'False positive rate', 'True positive rate').add_legend())
+    # g = (g.map(plt.plot, 'False positive rate', 'True positive rate').add_legend())
+    g = (g.map_dataframe(roc_plot, 'False positive rate', 'True positive rate', y2='threshold'))
     for antigen, ax in zip(antigens, g.axes.flat):
-        auc = roc_df[roc_df['antigen'] == antigen]['AUC'].unique()[0]
+        sub_df = roc_df[roc_df['antigen'] == antigen]
+        auc = sub_df['AUC'].unique()[0]
         ax.set_title(antigen)
         ax.text(0.6, 0.15, 'AUC={:.3f}'.format(auc), fontsize=12)  # add text
+        # ax2 = ax.twinx()
+        # sub_df.plot(x='False positive rate', y='threshold', ax=ax2)
     plt.savefig(os.path.join(fig_path, fig_name + '.jpg'),
                              dpi=300, bbox_inches='tight')
     plt.close()
@@ -236,6 +274,7 @@ def normalize_od(df, norm_antigen):
     df = df.groupby(['plate_id']).apply(norm_fn)
     df = df.reset_index()
     return df
+
 def scatter_plot(df,
                  x_col,
                  y_col,
@@ -267,34 +306,34 @@ def scatter_plot(df,
     plt.close()
 
 #%% plate 3
-# data_folders = [r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200630_1647',
+# scn_psr_dirs = [r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200630_1647',
 #                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200630_1657',
 #                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200630_1708',
 #                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200630_1739']
 # fig_path = os.path.join(r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/Stitched data from multiple pysero outputs',
 #                         'pysero_plots')
-# plate_ids = ['plate_3'] * len(data_folders)
-# slice_actions = ['keep', 'drop', 'keep', 'drop']
-# well_ids = [['E3', 'E4'], ['E3', 'E4'], ['F2'], ['F2']]
+# scn_psr_plate_ids = ['plate_3'] * len(scn_psr_dirs)
+# scn_psr_slice_actions = ['keep', 'drop', 'keep', 'drop']
+# scn_psr_well_ids = [['E3', 'E4'], ['E3', 'E4'], ['F2'], ['F2']]
 # sera_fit_list = ['Pool']
 # sera_cat_list = ['Pool', 'Blank']
 # sera_roc_list = sera_cat_list
 
 #%% plate 9
-# data_folders = [r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-25-28-COVID_June24_OJassay_plate9_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200701_0933',
+# scn_psr_dirs = [r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-25-28-COVID_June24_OJassay_plate9_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200701_0933',
 #                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-25-28-COVID_June24_OJassay_plate9_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200701_1002',
 #                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-25-28-COVID_June24_OJassay_plate9_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200701_1028']
 # fig_path = os.path.join(r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-25-28-COVID_June24_OJassay_plate9_images/Stitched data from multiple pysero outputs',
 #                         'pysero_plots')
-# plate_ids = ['plate_9'] * len(data_folders)
-# slice_actions = [None, 'drop', 'keep']
-# well_ids = [None, ['B7', 'B8', 'B10','B11','D3','D8','D9','D10','D11','F8','F9','F11','H2','H7','H8','H9','H10','H11'],
+# scn_psr_plate_ids = ['plate_9'] * len(scn_psr_dirs)
+# scn_psr_slice_actions = [None, 'drop', 'keep']
+# scn_psr_well_ids = [None, ['B7', 'B8', 'B10','B11','D3','D8','D9','D10','D11','F8','F9','F11','H2','H7','H8','H9','H10','H11'],
 #                 ['B7', 'B8', 'B10','B11','D3','D8','D9','D10','D11','F8','F9','F11','H2','H7','H8','H9','H10','H11']]
 # sera_fit_list = ['mab']
 # sera_cat_list = ['mab', 'Blank']
 # sera_roc_list = sera_cat_list
 #%% plate 3 & 9
-data_folders = [r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200630_1647',
+scn_psr_dirs = [r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200630_1647',
                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200630_1657',
                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200630_1708',
                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200630_1739',
@@ -315,37 +354,109 @@ data_folders = [r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion
                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-29-42-COVID_June24_OJassay_plate10_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200701_1110',
                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-29-42-COVID_June24_OJassay_plate10_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200701_1141',
                 ]
+
+scn_scn_dirs = [r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/',
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-25-28-COVID_June24_OJassay_plate9_images/',
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-40-02-COVID_June5_OJassay_plate7_images/',
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-44-32-COVID_June5_OJassay_plate8_images/',
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-21-32-COVID_June24_OJassay_plate4_images/',
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-29-42-COVID_June24_OJassay_plate10_images/',
+                ]
+
 fig_path = os.path.join(r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/OJ_plate3_9_7_8_4_10',
                         'pysero_plots')
-plate_ids = ['plate_3'] * 4 + ['plate_9'] * 3 + ['plate_7'] * 3 + ['plate_8'] * 4 + ['plate_4'] * 3 + ['plate_10'] * 3
-slice_actions = ['keep', 'drop', 'keep', 'drop'] + \
-                [None, 'drop', 'keep'] + \
-                [None, 'drop', 'keep'] + \
-                [None, 'keep', 'drop', 'keep'] + \
-                [None, 'drop', 'keep'] + \
-                [None, 'drop', 'keep']
-well_ids = [['E3', 'E4'], ['E3', 'E4'], ['F2'], ['F2']] + \
-           [None, ['B7', 'B8', 'B10','B11','D3','D8','D9','D10','D11','F8','F9','F11','H2','H7','H8','H9','H10','H11'],
+scn_psr_plate_ids = ['plate_3'] * 4 + ['plate_9'] * 3 + ['plate_7'] * 3 + ['plate_8'] * 4 + ['plate_4'] * 3 + ['plate_10'] * 3
+scn_scn_plate_ids = ['plate_3', 'plate_9', 'plate_7', 'plate_8', 'plate_4', 'plate_10']
+scn_psr_slice_actions = ['keep', 'drop', 'keep', 'drop'] + \
+                        [None, 'drop', 'keep'] + \
+                        [None, 'drop', 'keep'] + \
+                        [None, 'keep', 'drop', 'keep'] + \
+                        [None, 'drop', 'keep'] + \
+                        [None, 'drop', 'keep']
+scn_psr_well_ids = [['E3', 'E4'], ['E3', 'E4'], ['F2'], ['F2']] + \
+                   [None, ['B7', 'B8', 'B10','B11','D3','D8','D9','D10','D11','F8','F9','F11','H2','H7','H8','H9','H10','H11'],
                 ['B7', 'B8', 'B10','B11','D3','D8','D9','D10','D11','F8','F9','F11','H2','H7','H8','H9','H10','H11']] + \
-            [None, ['B4','F2'], ['B4','F2']] + \
-            [None, ['B1','D4','D6','F5'], ['B1', 'B12','D4','D6','F5','H11'], ['B12','H11']] + \
-            [None, ['B3','B5','D1','D2','D5','F5'], ['B3','B5','D1','D2','D5','F5']] + \
-            [None, ['B12','D2','D3','D1','D5','H2','H5'], ['B12','D1','D5','D2','D3','H2']]
+                   [None, ['B4','F2'], ['B4','F2']] + \
+                   [None, ['B1','D4','D6','F5'], ['B1', 'B12','D4','D6','F5','H11'], ['B12','H11']] + \
+                   [None, ['B3','B5','D1','D2','D5','F5'], ['B3','B5','D1','D2','D5','F5']] + \
+                   [None, ['B12','D2','D3','D1','D5','H2','H5'], ['B12','D1','D5','D2','D3','H2']]
 sera_fit_list = ['Pool', 'mab', 'CR3022']
 sera_cat_list = ['Pool', 'mab', 'Blank', 'CR3022']
 sera_roc_list = sera_cat_list
+#%% Nautilus
 
+ntl_dirs = [r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-24-COVID_June24_OJAssay_Plate10_images_655_2020-06-24 18-37-39.863642/0 renamed 16bit/biotin_fiducial/pysero_biotin_fiducial_20200708_1813',
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-24-COVID_June24_OJAssay_Plate10_images_655_2020-06-24 18-37-39.863642/0 renamed 16bit/igg_fiducial/pysero_igg_fiducial_20200708_1853',
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-24-COVID_June24_OJAssay_Plate10_images_655_2020-06-24 18-37-39.863642/0 renamed 16bit/igg_fiducial/pysero_igg_fiducial_20200709_1431',
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-24-COVID_June24_OJAssay_Plate10_images_655_2020-06-24 18-37-39.863642/0 renamed 16bit/igg_fiducial/pysero_igg_fiducial_20200709_1613',
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-24-COVID_June24_OJAssay_Plate10_images_655_2020-06-24 18-37-39.863642/0 renamed 16bit/igg_fiducial/pysero_igg_fiducial_20200709_1516',
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-24-COVID_June24_OJAssay_Plate3_images_655_2020-06-24 17-58-27.941906/0 renamed 16bit/biotin_fiducial/pysero_biotin_fiducial_20200702_1350',
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-24-COVID_June24_OJAssay_Plate3_images_655_2020-06-24 17-58-27.941906/0 renamed 16bit/igg_fiducial/pysero_igg_fiducial_20200727_1954',
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-24-COVID_June24_OJAssay_Plate3_images_655_2020-06-24 17-58-27.941906/0 renamed 16bit/igg_fiducial/pysero_igg_fiducial_20200706_0654',
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-24-COVID_June24_OJAssay_Plate3_images_655_2020-06-24 17-58-27.941906/0 renamed 16bit/igg_fiducial/pysero_igg_fiducial_20200728_1129',
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-24-COVID_June24_OJAssay_Plate9_images_655_2020-06-24 18-26-58.173049/0 renamed/Stitched data/pysero_biotin_fiducial_20200706_0847',
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-24-COVID_June24_OJAssay_Plate9_images_655_2020-06-24 18-26-58.173049/0 renamed/Stitched data/pysero_igg_fiducial_20200706_0903',
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-24-COVID_June24_OJAssay_Plate9_images_655_2020-06-24 18-26-58.173049/0 renamed/Stitched data/pysero_igg_fiducial_20200706_0937',
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-24-COVID_June24_OJAssay_Plate9_images_655_2020-06-24 18-26-58.173049/0 renamed/Stitched data/pysero_igg_fiducial_20200708_1136',
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-08-COVID_June5_OJassay_plate7_images_2020-06-08 19-54-45.277504/0 renamed/biotin fiducial/pysero_biotin fiducial_20200727_2016',
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-08-COVID_June5_OJassay_plate7_images_2020-06-08 19-54-45.277504/0 renamed/igg fiducial/pysero_igg fiducial_20200727_2038',
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-08-COVID_June5_OJassay_plate7_images_2020-06-08 19-54-45.277504/0 renamed/igg fiducial/pysero_igg fiducial_20200728_0822',
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-08-COVID_June5_OJassay_plate7_images_2020-06-08 19-54-45.277504/0 renamed/igg fiducial/pysero_igg fiducial_20200728_0902',
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-08-COVID_June5_OJassay_plate8_images_2020-06-08 20-38-40.554230/0 renamed/biotin_fiducial/pysero_biotin_fiducial_20200728_1018',
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-08-COVID_June5_OJassay_plate8_images_2020-06-08 20-38-40.554230/0 renamed/igg_fiducial/pysero_igg_fiducial_20200728_1044',
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-08-COVID_June5_OJassay_plate8_images_2020-06-08 20-38-40.554230/0 renamed/igg_fiducial/pysero_igg_fiducial_20200728_1108',
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-24-COVID_June24_OJAssay_Plate4_images_655_2020-06-24 18-13-40.894052/0 renamed/biotin_fiducial/pysero_biotin_fiducial_20200728_0921',
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-24-COVID_June24_OJAssay_Plate4_images_655_2020-06-24 18-13-40.894052/0 renamed/igg_fiducial/pysero_igg_fiducial_20200709_1411',
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-24-COVID_June24_OJAssay_Plate4_images_655_2020-06-24 18-13-40.894052/0 renamed/igg_fiducial/pysero_igg_fiducial_20200728_0956',]
+
+ntl_plate_ids = ['plate_10'] * 5 + ['plate_3'] * 4 + ['plate_9'] * 4 + ['plate_7'] * 4 + ['plate_8'] * 3 + ['plate_4'] * 3
+
+ntl_slice_actions = [None, 'drop','drop','keep','keep'] +\
+                  [None,'drop','keep','keep'] +\
+                  [None, 'drop','drop','keep'] +\
+                  [None, 'keep', 'drop', 'keep'] +\
+                  [None,'drop','keep'] +\
+                   [None,'drop','keep']
+
+
+ntl_well_ids = [None,['B2', 'B6', 'B7', 'B8', 'B9', 'B10', 'B11', 'B12', 'D6', 'D7', 'D8', 'D9', 'D10', 'D11', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'H4', 'H5', 'H6', 'H7', 'H8', 'H9', 'H10', 'H11'],['B1', 'B2', 'B4', 'B12', 'D2', 'D4', 'D5', 'D8', 'F3','H4','B3','B5','D1','D2','D3','D12','F1','F2','F4','F5','F12','H1','H2','H3','H12'],['B12', 'H4'],['B2','D8']] + \
+           [None, ['D4','D7','D8','D9','D10', 'D11', 'F7', 'F8', 'F9','F10', 'F12','H7','H9','H10','H11'],['D8','D9','D10','D11','F8','F9','F10','H7','H9','H10','H11'], ['D4','D7','F7','F12']] + \
+            [None, ['B1',' B2', 'B5','B7','B8','b9','b10','B11','D3','D5','D7','D8','D9','D10','D11','F7','F8','F9','F10','F11','H7','H8','H9','H10','H11'], ['B5','D5','D6'],['B5','D2','D6']] + \
+            [None, ['B2','B12','D3','D12', 'F4','F12','H1','H2','H3','H6'], ['B2','B12','D3','D12', 'F4','F12','H1','H2','H3','H6','B7','B8','B9','B10','B11','D7','D8','D9','D10','D11','F2','F6','F7','F8','F9','F10','F11','H4','H7','H8','H9','H10','H11','H12'], ['B7','B8','B9','B10','B11','D7','D8','D9','D10','D11','F2','F6','F7','F8','F9', 'F10','F11','H4','H7','H8','H9','H10','H11','H12']] + \
+            [None, ['B9','B10','B11','B12','D7','D8','D9','D11','F6','F7','F8','F9','F10','F11','H6','H7','H8','H9', 'H11','H12'], ['B9','B10','B11','D7','D8','D9','D11','F6','F7','F8','F9','F10','F11','H6','H7','H8','H9', 'H11','H12']] + \
+            [None,['D1','D5','D12','H2'], ['D1','D5','D12','H2']]
 #%%
 os.makedirs(fig_path, exist_ok=True)
 df_list = []
+scn_df = pd.DataFrame()
 
+for scn_scn_dir, plate_id, in zip(scn_scn_dirs, scn_scn_plate_ids):
+    metadata_path = os.path.join(scn_scn_dir, 'pysero_output_data_metadata.xlsx')
+    with pd.ExcelFile(metadata_path) as meta_file:
+        antigen_df = read_antigen_info(meta_file)
+        plate_info_df = read_plate_info(meta_file)
+    plate_info_df['plate_id'] = plate_id
+    scn_fname = [f for f in os.listdir(scn_scn_dir) if '_analysis.xlsx' in f]
+    scn_path = os.path.join(scn_scn_dir, scn_fname[0])
+    scn_df_tmp = read_scn_output(scn_path, plate_info_df)
+    # Join Scienion data with plateInfo
+    scn_df_tmp = pd.merge(scn_df_tmp,
+                      antigen_df,
+                      how='left', on=['antigen_row', 'antigen_col'])
+    scn_df_tmp = pd.merge(scn_df_tmp,
+                      plate_info_df,
+                      how='right', on=['well_id'])
+    scn_df = scn_df.append(scn_df_tmp, ignore_index=True)
+scn_df['pipeline'] = 'scienion'
+scn_df.dropna(subset=['OD'], inplace=True)
+#%%
 for data_folder, slice_action, well_id, plate_id in \
-        zip(data_folders, slice_actions, well_ids, plate_ids):
+        zip(scn_psr_dirs, scn_psr_slice_actions, scn_psr_well_ids, scn_psr_plate_ids):
     metadata_path = os.path.join(data_folder, 'pysero_output_data_metadata.xlsx')
     OD_path = os.path.join(data_folder, 'median_ODs.xlsx')
     int_path = os.path.join(data_folder, 'median_intensities.xlsx')
     bg_path = os.path.join(data_folder, 'median_backgrounds.xlsx')
-    # # scienion_path=os.path.join(data_folder, '2020-05-18-17-59-01-COVID_May18_JVassay_analysis.xlsx')
+
     with pd.ExcelFile(metadata_path) as meta_file:
         antigen_df = read_antigen_info(meta_file)
         plate_info_df = read_plate_info(meta_file)
@@ -366,77 +477,160 @@ for data_folder, slice_action, well_id, plate_id in \
                          bg_df,
                          how='left', on=['antigen_row', 'antigen_col', 'well_id'])
     pysero_df['pipeline'] = 'python'
-    # pysero_df = pysero_df.append(df_scn)
+    # pysero_df = pysero_df.append(scn_df)
     pysero_df.replace([np.inf, -np.inf], np.nan, inplace=True)
     pysero_df.dropna(subset=['OD'], inplace=True)
     pysero_df = slice_df(pysero_df, slice_action, 'well_id', well_id)
     df_list.append(pysero_df)
+#%%
+for data_folder, slice_action, well_id, plate_id in \
+        zip(ntl_dirs, ntl_slice_actions, ntl_well_ids, ntl_plate_ids):
+    metadata_path = os.path.join(data_folder, 'pysero_output_data_metadata.xlsx')
+    OD_path = os.path.join(data_folder, 'median_ODs.xlsx')
+    int_path = os.path.join(data_folder, 'median_intensities.xlsx')
+    bg_path = os.path.join(data_folder, 'median_backgrounds.xlsx')
 
+    with pd.ExcelFile(metadata_path) as meta_file:
+        antigen_df = read_antigen_info(meta_file)
+        plate_info_df = read_plate_info(meta_file)
+    plate_info_df['plate_id'] = plate_id
+    OD_df = read_pysero_output(OD_path, antigen_df, file_type='od')
+    int_df = read_pysero_output(int_path, antigen_df, file_type='int')
+    bg_df = read_pysero_output(bg_path, antigen_df, file_type='bg')
+    OD_df = pd.merge(OD_df,
+                     antigen_df[['antigen_row', 'antigen_col', 'antigen type']],
+                     how='left', on=['antigen_row', 'antigen_col'])
+    OD_df = pd.merge(OD_df,
+                     plate_info_df,
+                     how='right', on=['well_id'])
+    pysero_df = pd.merge(OD_df,
+                         int_df,
+                         how='left', on=['antigen_row', 'antigen_col', 'well_id'])
+    pysero_df = pd.merge(pysero_df,
+                         bg_df,
+                         how='left', on=['antigen_row', 'antigen_col', 'well_id'])
+    pysero_df['pipeline'] = 'nautilus'
+    pysero_df.replace([np.inf, -np.inf], np.nan, inplace=True)
+    pysero_df.dropna(subset=['OD'], inplace=True)
+    pysero_df = slice_df(pysero_df, slice_action, 'well_id', well_id)
+    df_list.append(pysero_df)
+df_list.append(scn_df)
 #%% Concatenate dataframes
 stitched_pysero_df = pd.concat(df_list)
 stitched_pysero_df.reset_index(drop=True, inplace=True)
+# remove empty xkappa-biotin spots, round off dilution
 stitched_pysero_df = stitched_pysero_df[(stitched_pysero_df['antigen'] != 'xkappa-biotin') |
                         (stitched_pysero_df['antigen type'] == 'Fiducial')]
 stitched_pysero_df['serum dilution'] = stitched_pysero_df['serum dilution'].round(7)
 #%% 4PL fit
-
 slice_cols = ['pipeline', 'serum ID']
 slice_keys = [['python'], sera_fit_list]
-slice_actions = ['keep', 'keep']
+scn_psr_slice_actions = ['keep', 'keep']
 serum_df = stitched_pysero_df.copy()
 serum_df_fit = stitched_pysero_df.copy()
-for col, action, key in zip(slice_cols, slice_actions, slice_keys):
+for col, action, key in zip(slice_cols, scn_psr_slice_actions, slice_keys):
     serum_df = slice_df(serum_df, action, col, key)
     serum_df_fit = slice_df(serum_df_fit, action, col, key)
 serum_df_fit = fit2df(serum_df_fit, fourPL, 'python')
-#%% plot the ODs and fits
-sera_4pl_list = [' '.join([x, 'fit']) for x in sera_fit_list]
-markers = 'o'
-hue = 'serum ID'
-style = 'serum type'
-antigens = natsorted(stitched_pysero_df['antigen'].unique())
-assert not serum_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
-palette = sns.color_palette(n_colors=len(serum_df[hue].unique()))
-print('plotting standard curves...')
-g = sns.lmplot(x="serum dilution", y="OD", col_order=antigens,
-                hue=hue, hue_order=sera_fit_list, col="antigen", ci='sd', palette=palette, markers=markers,
-                 data=serum_df, col_wrap=5, fit_reg=False, x_estimator=np.mean)
-palette = sns.color_palette(n_colors=len(serum_df_fit[hue].unique()))
-for antigen, ax in zip(antigens, g.axes.flat):
-    df_fit = serum_df_fit[(serum_df_fit['antigen'] == antigen)]
-    sns.lineplot(x="serum dilution", y="OD", hue=hue, hue_order=sera_4pl_list, data=df_fit,
-                 style=style, palette=palette,
-                 ax=ax, legend=False)
-    ax.set(xscale="log")
-plt.savefig(os.path.join(fig_path, '{}_fit.jpg'.format(sera_fit_list)),dpi=300, bbox_inches='tight')
 
-for antigen, ax in zip(antigens, g.axes.flat):
-    ax.set(ylim=[-0.05, 1.5])
-plt.savefig(os.path.join(fig_path, '{}_fit_zoom.jpg'.format(sera_fit_list)),dpi=300, bbox_inches='tight')
+#%%
+def roc_plot(x, y, **kwargs):
+    df = kwargs.pop('data')
+    y2 = kwargs.pop('y2')
+    ax = plt.gca()
+    df.plot(x=x, y=y, ax=ax, legend=False)
+    # df.plot(x=x, y=y2, ax=ax)
+    # ax.set_ylabel('rate')
+    ax2 = ax.twinx()
+    color = 'g'
+    df.plot(x=x, y=y2, ax=ax2, color=color, style='--', legend=False)
+    ax2.set_ylabel(y2, color=color)  # we already handled the x-label with ax1
+    ax2.tick_params(axis='y', labelcolor=color)
+
+def roc_plot_grid(roc_df, fig_path, fig_name):
+    # Plot ROC curves
+    hue = "serum dilution"
+    antigens = natsorted(roc_df['antigen'].unique())
+    sns.set_context("notebook")
+    assert not roc_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
+    palette = sns.color_palette(n_colors=len(roc_df[hue].unique()))
+    print('plotting ROC curves...')
+    g = sns.FacetGrid(roc_df, hue=hue, col="antigen", col_order=antigens, col_wrap=3, aspect=1.2,
+                      hue_kws={'linestyle': ['-', '--', '-.', ':']})
+    # g = (g.map(plt.plot, 'False positive rate', 'True positive rate').add_legend())
+    g = (g.map_dataframe(roc_plot, 'False positive rate', 'True positive rate', y2='threshold'))
+    for antigen, ax in zip(antigens, g.axes.flat):
+        sub_df = roc_df[roc_df['antigen'] == antigen]
+        auc = sub_df['AUC'].unique()[0]
+        ax.set_title(antigen)
+        ax.text(0.6, 0.15, 'AUC={:.3f}'.format(auc), fontsize=12)  # add text
+        # ax2 = ax.twinx()
+        # sub_df.plot(x='False positive rate', y='threshold', ax=ax2)
+    plt.savefig(os.path.join(fig_path, fig_name + '.jpg'),
+                             dpi=300, bbox_inches='tight')
+    plt.close()
+
+def thr_plot_grid(roc_df, fig_path, fig_name):
+    # Plot ROC curves
+    hue = 'category'
+    antigens = natsorted(roc_df['antigen'].unique())
+    sns.set_context("notebook")
+    assert not roc_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
+    palette = sns.color_palette(n_colors=len(roc_df[hue].unique()))
+    print('plotting ROC curves...')
+    g = sns.FacetGrid(roc_df, hue=hue, col="antigen", col_order=antigens, col_wrap=3, aspect=1.05,
+                      hue_kws={'linestyle': ['-', '--', '-.', ':']})
+    g = (g.map(plt.plot, 'threshold', 'rate').add_legend())
+    # g = (g.map_dataframe(roc_plot, 'False positive rate', 'True positive rate', y2='threshold'))
+    for antigen, ax in zip(antigens, g.axes.flat):
+        sub_df = roc_df[roc_df['antigen'] == antigen]
+        auc = sub_df['AUC'].unique()[0]
+        ax.set_title(antigen)
+        ax.text(1.5, 0.2, 'AUC={:.3f}'.format(auc), fontsize=12)  # add text
+        # ax2 = ax.twinx()
+        # sub_df.plot(x='False positive rate', y='threshold', ax=ax2)
+    plt.savefig(os.path.join(fig_path, fig_name + '.jpg'),
+                             dpi=300, bbox_inches='tight')
+    plt.close()
 #%% functions to compute ROC curves and AUC
 # for plate_id in stitched_pysero_df['plate_id'].unique():
 # for plate_id in ['plate_8']:
-# slice_cols = ['pipeline', 'serum ID', 'plate_id']
-# slice_keys = [['python'], sera_roc_list, [plate_id]]
-# slice_actions = ['keep', 'drop', 'keep']
-slice_cols = ['pipeline', 'serum ID']
-slice_keys = [['python'], sera_roc_list]
-slice_actions = ['keep', 'drop']
-roc_df = stitched_pysero_df.copy()
-for col, action, key in zip(slice_cols, slice_actions, slice_keys):
-    roc_df = slice_df(roc_df, action, col, key)
-roc_df = get_roc_df(roc_df)
-roc_plot(roc_df, fig_path, 'ROC')
-# roc_plot(roc_df, fig_path, 'ROC_' + plate_id)
+#     slice_cols = ['pipeline', 'serum ID', 'plate_id']
+#     slice_keys = [['python'], sera_roc_list, [plate_id]]
+#     scn_psr_slice_actions = ['keep', 'drop', 'keep']
+for pipeline in stitched_pysero_df['pipeline'].unique():
+    slice_cols = ['pipeline', 'serum ID']
+    slice_keys = [[pipeline], sera_roc_list]
+    scn_psr_slice_actions = ['keep', 'drop']
+    roc_df = stitched_pysero_df.copy()
+    for col, action, key in zip(slice_cols, scn_psr_slice_actions, slice_keys):
+        roc_df = slice_df(roc_df, action, col, key)
+    roc_df = get_roc_df(roc_df)
+    # roc_plot_grid(roc_df, fig_path, 'ROC')
+    # roc_plot_grid(roc_df, fig_path, 'ROC_' + plate_id)
+    roc_plot_grid(roc_df, fig_path, 'ROC_' + pipeline)
+    roc_df = roc_df.melt(id_vars=['antigen',
+                                 'secondary ID',
+                                 'secondary dilution',
+                                 'serum dilution',
+                                 'pipeline',
+                                'threshold',
+                                'AUC'],
+                         var_name='category',
+                         value_name='rate'
+                         )
+    # thr_plot_grid(roc_df, fig_path, 'ROC_thr')
+    # thr_plot_grid(roc_df, fig_path, 'ROC_thr_' + plate_id)
+    thr_plot_grid(roc_df, fig_path, 'ROC_thr_' + pipeline)
 #%% Plot categorical scatter plot for episurvey
-# for plate_id in stitched_pysero_df['plate_id'].unique():
-for plate_id in ['plate_4']:
+for plate_id in stitched_pysero_df['plate_id'].unique():
+# for plate_id in ['plate_4']:
     slice_cols = ['pipeline', 'serum ID', 'plate_id']
     slice_keys = [['python'], sera_cat_list, [plate_id]]
-    slice_actions = ['keep', 'drop', 'keep']
+    scn_psr_slice_actions = ['keep', 'drop', 'keep']
     antigens = natsorted(stitched_pysero_df['antigen'].unique())
     serum_df = stitched_pysero_df.copy()
-    for col, action, key in zip(slice_cols, slice_actions, slice_keys):
+    for col, action, key in zip(slice_cols, scn_psr_slice_actions, slice_keys):
         serum_df = slice_df(serum_df, action, col, key)
     assert not serum_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
     # Draw a categorical scatterplot to show each observation
@@ -482,18 +676,42 @@ for x_col, y_col in zip(x_cols, y_cols):
 #%% functions to compute ROC curves and AUC
 slice_cols = ['pipeline', 'serum ID']
 slice_keys = [['python'], sera_roc_list]
-slice_actions = ['keep', 'drop']
+scn_psr_slice_actions = ['keep', 'drop']
 roc_df = df_norm.copy()
-for col, action, key in zip(slice_cols, slice_actions, slice_keys):
+for col, action, key in zip(slice_cols, scn_psr_slice_actions, slice_keys):
     roc_df = slice_df(roc_df, action, col, key)
 roc_df = get_roc_df(roc_df)
-roc_plot(roc_df, fig_path, '_'.join(['ROC', suffix]))
+roc_plot_grid(roc_df, fig_path, '_'.join(['ROC', suffix]))
 #%%
 serum_df = serum_df[(serum_df['antigen'] == 'SARS CoV2 RBD 500')]
 neg_max = serum_df[(serum_df['serum type'] == 'negative')]['OD'].max()
 overlap_df = serum_df[(serum_df['serum type'] == 'positive') & (serum_df['OD'] <= neg_max)]
 #%%
 serum_id = stitched_pysero_df['serum ID'].unique()
+#%% plot the ODs and fits
+sera_4pl_list = [' '.join([x, 'fit']) for x in sera_fit_list]
+markers = 'o'
+hue = 'serum ID'
+style = 'serum type'
+antigens = natsorted(stitched_pysero_df['antigen'].unique())
+assert not serum_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
+palette = sns.color_palette(n_colors=len(serum_df[hue].unique()))
+print('plotting standard curves...')
+g = sns.lmplot(x="serum dilution", y="OD", col_order=antigens,
+                hue=hue, hue_order=sera_fit_list, col="antigen", ci='sd', palette=palette, markers=markers,
+                 data=serum_df, col_wrap=5, fit_reg=False, x_estimator=np.mean)
+palette = sns.color_palette(n_colors=len(serum_df_fit[hue].unique()))
+for antigen, ax in zip(antigens, g.axes.flat):
+    df_fit = serum_df_fit[(serum_df_fit['antigen'] == antigen)]
+    sns.lineplot(x="serum dilution", y="OD", hue=hue, hue_order=sera_4pl_list, data=df_fit,
+                 style=style, palette=palette,
+                 ax=ax, legend=False)
+    ax.set(xscale="log")
+plt.savefig(os.path.join(fig_path, '{}_fit.jpg'.format(sera_fit_list)),dpi=300, bbox_inches='tight')
+
+for antigen, ax in zip(antigens, g.axes.flat):
+    ax.set(ylim=[-0.05, 1.5])
+plt.savefig(os.path.join(fig_path, '{}_fit_zoom.jpg'.format(sera_fit_list)),dpi=300, bbox_inches='tight')
 #%%
 # #%% Generate plots from pysero
 #
@@ -537,39 +755,7 @@ serum_id = stitched_pysero_df['serum ID'].unique()
 #
 #
 
-# %% Read analysis output from Scienion
-# # Read all wells into dictionary.
-# scienion_df = pd.DataFrame()
-# with pd.ExcelFile(scienion1_path) as scienion_xlsx:
-#     for well_id in plate_info_df['well_id']:
-#         OD_1_antiten_df = pd.read_excel(scienion_xlsx, sheet_name=well_id)
-#         OD_1_antiten_df['well_id'] = well_id
-#         scienion_df = scienion_df.append(OD_1_antiten_df, ignore_index=True)
-# # %%   parse spot ids
-# spot_id_df = scienion_df['ID'].str.extract(r'spot-(\d)-(\d)')
-# spot_id_df = spot_id_df.astype(int) - 1  # index starting from 0
-# spot_id_df.rename(columns={0: 'antigen_row', 1: 'antigen_col'}, inplace=True)
-# scienion_df = pd.concat([spot_id_df, scienion_df], axis=1)
-# scienion_df.drop('ID', axis=1, inplace=True)
-#
-# # %% invert the intensity and compute ODs, check A2
-# df_scn = scienion_df.loc[:, ['antigen_row', 'antigen_col', 'well_id']]
-# df_scn['intensity'] = 1 - scienion_df['Median'] / 255
-# df_scn['background'] = 1 - scienion_df['Background Median'] / 255
-# df_scn['OD'] = np.log10(df_scn['background'] / df_scn['intensity'])
-# %% Join Scienion data with plateInfo
-#
-#
-# df_scn = pd.merge(df_scn,
-#                   antigen_df,
-#                   how='left', on=['antigen_row', 'antigen_col'])
-# df_scn = pd.merge(df_scn,
-#                   plate_info_df,
-#                   how='right', on=['well_id'])
 
-# # %% Add a name of the pipeline to the dataframe.
-#
-# df_scn['pipeline'] = 'scienion'
 
 
 
