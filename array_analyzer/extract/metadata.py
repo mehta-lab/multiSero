@@ -26,10 +26,18 @@ class MetaData:
         constants.INPUT_FOLDER = input_folder_
         constants.OUTPUT_FOLDER = output_folder_
         metadata_split = constants.METADATA_FILE.split('.')
-        assert len(metadata_split) == 2,\
-            "Metadata file must be of type file_name.extension," \
-            "not {}".format(constants.METADATA_FILE)
-        self.metadata_extension = metadata_split[-1]
+        # In case of a 'well' run
+        if len(metadata_split) == 1:
+            assert metadata_split[0] == 'well',\
+                "Only metadata without extension allowed is 'well,"\
+                "not {}".format(metadata_split[0])
+            return
+        elif len(metadata_split) == 2:
+            self.metadata_extension = metadata_split[-1]
+        else:
+            raise IOError("Metadata file must be of type"
+                          "file_name.extension or 'well'"
+                          "not {}".format(constants.METADATA_FILE))
 
         # parse fiducials, spot types, antigens, and hardware parameters from metadata
         if self.metadata_extension == 'xml':
