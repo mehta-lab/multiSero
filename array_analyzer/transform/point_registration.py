@@ -69,7 +69,7 @@ class ParticleFilter:
     Framework for registering grid points to spot coordinates using a
     particle filter approach.
     """
-    def __init__(self, spot_coords, im_shape, fiducials_idx):
+    def __init__(self, spot_coords, im_shape, fiducials_idx, random_seed=None):
         """
         Initialize by creating grid coordinates and particles.
 
@@ -77,10 +77,13 @@ class ParticleFilter:
         :param tuple im_shape: Image shape
         :param list fiducials_idx: Indices of grid coordinates which are considered
             fiducials
+        :param int random_seed: Optional random seed for deterministic runs
         """
         self.logger = logging.getLogger(constants.LOG_NAME)
         self.im_shape = im_shape
         self.fiducials_idx = fiducials_idx
+        # Initialize random number generator
+        np.random.seed(random_seed)
 
         self.spot_coords = spot_coords
         self.grid_coords = self.create_reference_grid()
@@ -157,7 +160,7 @@ class ParticleFilter:
         Create a 2D translation matrix from x, y, scale and angle.
 
         :param np.array particle: The four parameters x, y, scale and angle
-        :return np.array t_matrix: 2D translation matrix (3 x 2)
+        :return np.array t_matrix: 2D translation matrix (2 x 3)
         """
         a = particle[3] * np.cos(particle[2] * np.pi / 180)
         b = particle[3] * np.sin(particle[2] * np.pi / 180)
