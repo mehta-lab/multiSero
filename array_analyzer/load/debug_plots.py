@@ -1,8 +1,6 @@
 # bchhun, {2020-03-26}
 
 import cv2 as cv
-import skimage as si
-import skimage.io
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -19,11 +17,10 @@ def save_all_wells(region_props_array, spot_ids_, output_folder, well_name):
 
             prop = region_props_array[row][col]
             if prop is not None:
-                si.io.imsave(output_folder + os.sep + well_name + f"_{cell}.png",
-                             (255 * prop.intensity_image).astype('uint8'))
-            else:
-                si.io.imsave(output_folder + os.sep + well_name + f"_{cell}.png",
-                             (255 * np.ones((32, 32)).astype('uint8')))
+                cv.imwrite(
+                    output_folder + os.sep + well_name + f"_{cell}.png",
+                    (255 * prop.intensity_image).astype('uint8'),
+                )
 
 
 def save_composite_spots(spot_props,
@@ -156,7 +153,7 @@ def plot_background_overlay(im, background, output_name):
     :param str output_name: Path and image name minus extension
     """
     im_stack = np.stack([background, im, background], axis=2)
-    skimage.io.imsave(
+    cv.imwrite(
         output_name + "_crop_bg_overlay.png",
         (255 * im_stack).astype('uint8'),
     )

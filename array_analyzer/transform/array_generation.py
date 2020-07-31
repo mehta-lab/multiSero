@@ -1,3 +1,4 @@
+import itertools
 import numpy as np
 import pandas as pd
 
@@ -97,19 +98,9 @@ def get_spot_intensity(coords, im, background, params, search_range=2):
     spot_props = txt_parser.create_array(n_rows, n_cols, dtype=object)
     # Dataframe to hold spot metrics for the well
     spots_df = pd.DataFrame(columns=constants.SPOT_DF_COLS)
-
-    row_min = np.min(coords[:, 0])
-    row_max = np.max(coords[:, 0])
-    col_min = np.min(coords[:, 1])
-    col_max = np.max(coords[:, 1])
-    # scaled max-col, max-row
-    row_range = row_max - row_min
-    col_range = col_max - col_min
-    for count, coord in enumerate(coords):
-        # convert the centroid position to an integer that maps to array indices
-        grid_row_idx = int(round((n_rows - 1) * ((coord[0] - row_min) / row_range)))
-        grid_col_idx = int(round((n_cols - 1) * ((coord[1] - col_min) / col_range)))
-
+    row_col_iter = itertools.product(np.arange(n_rows), np.arange(n_cols))
+    for count, (row_idx, col_idx) in enumerate(row_col_iter):
+        coord = coords[count, :]
         # make bounding boxes larger to account for interpolation errors
         spot_height = int(np.round(search_range * bbox_height))
         spot_width = int(np.round(search_range * bbox_width))
@@ -129,8 +120,8 @@ def get_spot_intensity(coords, im, background, params, search_range=2):
         )
         # Create spot and background instance
         spot_prop = regionprop.SpotRegionprop(
-            row_idx=grid_row_idx,
-            col_idx=grid_col_idx,
+            row_idx=row_idx,
+            col_idx=col_idx,
             label=count,
         )
 
@@ -170,6 +161,6 @@ def get_spot_intensity(coords, im, background, params, search_range=2):
                 centroid=coord,
             )
         spots_df = spots_df.append(spot_prop.spot_dict, ignore_index=True)
-        spot_props[grid_row_idx, grid_col_idx] = spot_prop
+        spot_props[row_idx, col_idx] = spot_prop
 
     return spots_df, spot_props

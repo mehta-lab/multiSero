@@ -63,6 +63,7 @@ def point_registration(input_dir, output_dir):
     well_names = list(well_images)
     # If rerunning only a subset of wells
     if constants.RERUN:
+        logger.info("Rerunning wells: {}".format(constants.RERUN_WELLS))
         txt_parser.rerun_xl_od(
             well_names=well_names,
             well_xlsx_path=well_xlsx_path,
