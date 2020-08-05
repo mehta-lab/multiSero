@@ -62,7 +62,8 @@ def point_registration(input_dir, output_dir):
     well_images = io_utils.get_image_paths(input_dir)
     well_names = list(well_images)
     # If rerunning only a subset of wells
-    if len(constants.RERUN_WELLS) > 0:
+    if constants.RERUN:
+        logger.info("Rerunning wells: {}".format(constants.RERUN_WELLS))
         txt_parser.rerun_xl_od(
             well_names=well_names,
             well_xlsx_path=well_xlsx_path,
@@ -71,6 +72,8 @@ def point_registration(input_dir, output_dir):
         )
         reporter.load_existing_reports()
         well_names = constants.RERUN_WELLS
+    else:
+        reporter.create_new_reports()
 
     # ================
     # loop over well images

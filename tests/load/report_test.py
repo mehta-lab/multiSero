@@ -16,17 +16,17 @@ def report_test(tmpdir_factory):
     antigen_array[0, 0] = 'antigen_0_0'
     antigen_array[1, 2] = 'antigen_1_2'
     constants.ANTIGEN_ARRAY = antigen_array
-    cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
-    rows = list(range(1, 13))
+    rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+    cols = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
     plate_df = pd.DataFrame(None, index=rows, columns=cols)
     report_test = collections.OrderedDict()
     for antigen_name in ['0_0_antigen_0_0', '1_2_antigen_1_2']:
         report_test[antigen_name] = plate_df.copy()
     # Assign some values to a report
-    report_test['0_0_antigen_0_0'].at[3, 'A'] = .75
-    report_test['0_0_antigen_0_0'].at[12, 'H'] = .5
-    report_test['1_2_antigen_1_2'].at[3, 'A'] = .1
-    report_test['1_2_antigen_1_2'].at[12, 'H'] = .2
+    report_test['0_0_antigen_0_0'].at['A', '3'] = .75
+    report_test['0_0_antigen_0_0'].at['H', '12'] = .5
+    report_test['1_2_antigen_1_2'].at['A', '3'] = .1
+    report_test['1_2_antigen_1_2'].at['H', '12'] = .2
     return report_test
 
 
@@ -57,16 +57,6 @@ def test_report_init():
     antigen = antigen_df.loc[(antigen_df['grid_row'] == 0) &
                              (antigen_df['grid_col'] == 1), 'antigen'].values[0]
     assert antigen == '0_1_suuuuuuuuper_loooooooong_an'
-    # Check the dicts that will be reports
-    assert list(reporter.report_int) == [
-        '0_0_antigen_0_0',
-        '0_1_suuuuuuuuper_loooooooong_an',
-        '1_2_antigen_1_2',
-    ]
-    # Check first dataframe
-    plate_df = reporter.report_int['0_0_antigen_0_0']
-    assert plate_df.shape == (12, 8)
-    assert list(plate_df) == ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 
 
 def test_antigen_df():
@@ -81,6 +71,22 @@ def test_antigen_df():
     assert list(antigen_df) == ['antigen', 'grid_row', 'grid_col']
     assert list(antigen_df['antigen'].values) == \
            ['0_0_antigen_0_0', '1_2_antigen_1_2']
+
+
+def test_create_new_reports(report_test):
+    # Check the dicts that will be reports
+    reporter = report.ReportWriter()
+    reporter.create_new_reports()
+    assert list(reporter.report_int) == [
+        '0_0_antigen_0_0',
+        '1_2_antigen_1_2',
+    ]
+    # Check first dataframe
+    plate_df = reporter.report_int['0_0_antigen_0_0']
+    assert plate_df.shape == (8, 12)
+    assert list(plate_df) ==\
+        ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
+    assert list(plate_df.index) == ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 
 
 def test_load_existing_reports(report_test):
@@ -251,16 +257,19 @@ def test_assign_well_to_plate():
     constants.ANTIGEN_ARRAY = antigen_array
     # Assign wells to plate and check values
     reporter = report.ReportWriter()
+    reporter.create_new_reports()
     reporter.assign_well_to_plate(well_name=well_name, spots_df=spots_df)
     assert list(reporter.report_int['0_0_antigen_0_0']) ==\
+           ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
+    assert list(reporter.report_int['0_0_antigen_0_0'].index) ==\
            ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 
-    assert reporter.report_int['0_0_antigen_0_0'].at[11, 'D'] == 1.
-    assert reporter.report_bg['0_0_antigen_0_0'].at[11, 'D'] == .5
-    assert reporter.report_od['0_0_antigen_0_0'].at[11, 'D'] == .75
-    assert reporter.report_int['1_2_antigen_1_2'].at[11, 'D'] == .1
-    assert reporter.report_bg['1_2_antigen_1_2'].at[11, 'D'] == .2
-    assert reporter.report_od['1_2_antigen_1_2'].at[11, 'D'] == .3
+    assert reporter.report_int['0_0_antigen_0_0'].at['D', '11'] == 1.
+    assert reporter.report_bg['0_0_antigen_0_0'].at['D', '11'] == .5
+    assert reporter.report_od['0_0_antigen_0_0'].at['D', '11'] == .75
+    assert reporter.report_int['1_2_antigen_1_2'].at['D', '11'] == .1
+    assert reporter.report_bg['1_2_antigen_1_2'].at['D', '11'] == .2
+    assert reporter.report_od['1_2_antigen_1_2'].at['D', '11'] == .3
 
 
 def test_write_reports(tmpdir_factory):
@@ -287,6 +296,7 @@ def test_write_reports(tmpdir_factory):
     spots_df = spots_df.append(df_row, ignore_index=True)
     # Create report instance and write a few wells
     reporter = report.ReportWriter()
+    reporter.create_new_reports()
     reporter.assign_well_to_plate('C11', spots_df)
     reporter.assign_well_to_plate('D4', spots_df)
     spots_df.loc[1, 'od_norm'] = 10
@@ -295,9 +305,9 @@ def test_write_reports(tmpdir_factory):
     # Load reports and check values
     od_path = os.path.join(output_dir, 'median_ODs.xlsx')
     report_od = pd.read_excel(od_path, sheet_name=None, index_col=0)
-    assert report_od['0_0_antigen_0_0'].at[11, 'C'] == .75
-    assert report_od['1_2_antigen_1_2'].at[11, 'C'] == .3
-    assert report_od['0_0_antigen_0_0'].at[4, 'D'] == .75
-    assert report_od['1_2_antigen_1_2'].at[4, 'D'] == .3
-    assert report_od['0_0_antigen_0_0'].at[7, 'A'] == .75
-    assert report_od['1_2_antigen_1_2'].at[7, 'A'] == 10.
+    assert report_od['0_0_antigen_0_0'].at['C', '11'] == .75
+    assert report_od['1_2_antigen_1_2'].at['C', '11'] == .3
+    assert report_od['0_0_antigen_0_0'].at['D', '4'] == .75
+    assert report_od['1_2_antigen_1_2'].at['D', '4'] == .3
+    assert report_od['0_0_antigen_0_0'].at['A', '7'] == .75
+    assert report_od['1_2_antigen_1_2'].at['A', '7'] == 10.

@@ -9,15 +9,20 @@ import array_analyzer.extract.constants as constants
 
 
 class ReportWriter:
-
+    """
+    Class for handling plate reports.
+    It pairs antigen names with well grid locations, and creates reports
+    where each sheet correspond to a given antigen at a given grid location.
+    Each sheet is a dataframe corresponding to all wells in a plate.
+    Plates are traditionally represented with numerical columns and
+    alphabetical rows.
+    """
     def __init__(self):
+        """
+        Create dataframe with antigen names and well grid locations.
+        """
         self.logger = logging.getLogger(constants.LOG_NAME)
-        # Dataframe for a whole plate
-        cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
-        rows = list(range(1, 13))
-        plate_df = pd.DataFrame(None, index=rows, columns=cols)
 
-        report_dict = collections.OrderedDict()
         # Dataframe for antigen positions on grid
         self.antigen_df = pd.DataFrame(columns=['antigen', 'grid_row', 'grid_col'])
         for antigen_position, antigen in np.ndenumerate(constants.ANTIGEN_ARRAY):
@@ -30,8 +35,6 @@ class ReportWriter:
                     "Sheet name: {} is too long, truncating".format(sheet_name),
                 )
                 sheet_name = sheet_name[:31]
-            # Add empty plate dataframe to antigen
-            report_dict[sheet_name] = plate_df.copy()
             # Add grid row and column for antigen
             idx_row = {'antigen': sheet_name,
                        'grid_row': antigen_position[0],
@@ -39,9 +42,9 @@ class ReportWriter:
             self.antigen_df = self.antigen_df.append(idx_row, ignore_index=True)
 
         self.antigen_names = list(self.antigen_df['antigen'].values)
-        self.report_int = deepcopy(report_dict)
-        self.report_bg = deepcopy(report_dict)
-        self.report_od = deepcopy(report_dict)
+        self.report_int = None
+        self.report_bg = None
+        self.report_od = None
         # Report paths
         self.od_path = os.path.join(constants.RUN_PATH, 'median_ODs.xlsx')
         self.int_path = os.path.join(constants.RUN_PATH, 'median_intensities.xlsx')
@@ -54,6 +57,24 @@ class ReportWriter:
         :return pd.DataFrame antigen_df: Antigen names and grid rows, cols
         """
         return self.antigen_df
+
+    def create_new_reports(self):
+        """
+        Creates three new reports with sheets corresponding to antigen names.
+        """
+        # Dataframe for a whole plate
+        rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+        cols = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
+        plate_df = pd.DataFrame(None, index=rows, columns=cols)
+
+        report_dict = collections.OrderedDict()
+        for sheet_name in self.antigen_names:
+            # Add empty plate dataframe to antigen
+            report_dict[sheet_name] = plate_df.copy()
+
+        self.report_int = deepcopy(report_dict)
+        self.report_bg = deepcopy(report_dict)
+        self.report_od = deepcopy(report_dict)
 
     def load_existing_reports(self):
         """
@@ -92,8 +113,8 @@ class ReportWriter:
         :param str well_name: Well name (e.g. 'B12')
         :param pd.DataFrame spots_df: Metrics for all spots in a well
         """
-        plate_col = well_name[0]
-        plate_row = int(well_name[1:])
+        plate_row = well_name[0]
+        plate_col = well_name[1:]
         for idx, antigen_row in self.antigen_df.iterrows():
             spots_row = spots_df.loc[
                 (spots_df['grid_row'] == antigen_row['grid_row']) &

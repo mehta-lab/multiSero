@@ -33,6 +33,7 @@ params = {
 # a map between Image Name : well (row, col)
 IMAGE_TO_WELL = dict()
 # If there's a sheet in xlsx call 'rerun_wells', only those well names will be run
+RERUN = False
 RERUN_WELLS = []
 
 # Column names for dataframe that holds all spot properties
