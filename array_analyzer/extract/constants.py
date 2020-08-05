@@ -9,7 +9,7 @@ ANALYZE_OD = None
 INPUT_FOLDER = None
 OUTPUT_FOLDER = None
 WORKFLOW = None
-METADATA_EXTENSION = None
+METADATA_FILE = None
 DEBUG = None
 
 # === constants parsed from metadata ===
@@ -32,6 +32,25 @@ params = {
 
 # a map between Image Name : well (row, col)
 IMAGE_TO_WELL = dict()
+# If there's a sheet in xlsx call 'rerun_wells', only those well names will be run
+RERUN = False
+RERUN_WELLS = []
+
+# Column names for dataframe that holds all spot properties
+SPOT_DF_COLS = ['grid_row',
+                'grid_col',
+                'centroid_row',
+                'centroid_col',
+                'intensity_mean',
+                'intensity_median',
+                'bg_mean',
+                'bg_median',
+                'od_norm',
+                'bbox_row_min',
+                'bbox_row_max',
+                'bbox_col_min',
+                'bbox_col_max'
+                ]
 
 # === array-constants ===
 #   the constants below are all np.ndarrays whose elements are "U100" strings

@@ -9,6 +9,7 @@ import numpy as np
 @pytest.fixture(scope="session")
 def create_good_xml(tmp_path_factory):
     input_dir = tmp_path_factory.mktemp("input_dir")
+    output_dir = tmp_path_factory.mktemp("output_dir")
 
     fiducials = [{'@row': 0,
                   '@col': 0,
@@ -67,12 +68,13 @@ def create_good_xml(tmp_path_factory):
     with open(os.path.join(str(input_dir), 'temp.xml'), 'w', encoding='utf-8') as temp_xml:
         temp_xml.write(xmltodict.unparse(doc))
 
-    return str(input_dir)
+    return input_dir, output_dir
 
 
 @pytest.fixture(scope="session")
 def create_good_xlsx(tmp_path_factory):
     input_dir = tmp_path_factory.mktemp("input_dir")
+    output_dir = tmp_path_factory.mktemp("pysero_output_dir")
 
     # make a dummy worksheet with realistic parameters
     params_worksheet = {'': '',
@@ -115,17 +117,23 @@ def create_good_xlsx(tmp_path_factory):
                 }
     antigens_df = pd.DataFrame(antigens).T
 
+    # Add names of wells to rerun
+    rerun_df = pd.DataFrame(data={'well_name': ['A3', 'B7']})
+
     # writing a two-worksheet excel file
-    writer = pd.ExcelWriter(os.path.join(str(input_dir), 'pysero_output_data_metadata.xlsx'),
-                            index=False,
-                            engine='openpyxl')
+    writer = pd.ExcelWriter(
+        os.path.join(str(input_dir), 'pysero_output_data_metadata.xlsx'),
+        index=False,
+        engine='openpyxl',
+    )
     params_df.to_excel(writer, sheet_name='imaging_and_array_parameters')
     fiducials_df.to_excel(writer, sheet_name='antigen_type')
     antigens_df.to_excel(writer, sheet_name='antigen_array')
+    rerun_df.to_excel(writer, sheet_name='rerun_wells')
     writer.save()
     writer.close()
 
-    return input_dir
+    return input_dir, output_dir
 
 
 @pytest.fixture(scope="session")

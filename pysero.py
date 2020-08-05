@@ -41,32 +41,41 @@ def parse_args():
         '-o', '--output',
         type=str,
         required=True,
-        help="Output directory path",
+        help="Output directory path, where a timestamped subdir will be generated. "
+             "In case of rerun, give path to timestamped run directory",
     )
     parser.add_argument(
         '-wf', '--workflow',
         type=str,
         choices=['well_segmentation', 'well_crop', 'array_interp', 'array_fit'],
         default='array_fit',
-        help="Workflow to automatically identify and extract intensities from experiment.  "
+        help="Workflow to automatically identify and extract intensities from experiment. "
              "'Well' experiments are for standard ELISA.  "
-             "'Array' experiments are for ELISA assays using antigen arrays printed with Scienion Array Printer ",
+             "'Array' experiments are for ELISA assays using antigen arrays printed with Scienion Array Printer "
+             "Default: array_fit",
     )
     parser.add_argument(
         '-d', '--debug',
         dest='debug',
         action='store_true',
-        help="Write debug plots of well and spots",
+        help="Write debug plots of well and spots. Default: False",
     )
     parser.set_defaults(debug=False)
     parser.add_argument(
+        '-r', '--rerun',
+        dest='rerun',
+        action='store_true',
+        help="Rerun wells listed in 'rerun_wells sheets of metadata file. Default: False",
+    )
+    parser.set_defaults(rerun=False)
+    parser.add_argument(
         '-m', '--metadata',
         type=str,
-        choices=['xml', 'xlsx', 'well'],
-        help="specify the file extension for the experiment metadata"
+        default='pysero_output_data_metadata.xlsx',
+        help="specify the file name for the experiment metadata. "
+             "Assumed to be in the same directory as images. "
+             "Default: 'pysero_output_data_metadata.xlsx'"
     )
-    parser.set_defaults(metadata='xlsx')
-
     return parser.parse_args()
 
 
@@ -122,11 +131,14 @@ def run_pysero(args):
 
     os.makedirs(output_dir, exist_ok=True)
 
-    constants.METADATA_EXTENSION = args.metadata
+    constants.METADATA_FILE = args.metadata
     constants.DEBUG = args.debug
+    constants.RERUN = args.rerun
+
     constants.RUN_PATH = io_utils.make_run_dir(
         input_dir=input_dir,
         output_dir=output_dir,
+        rerun=constants.RERUN,
     )
     # Default log level is info, otherwise debug
     log_level = 20

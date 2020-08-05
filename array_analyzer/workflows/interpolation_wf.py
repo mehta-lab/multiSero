@@ -8,23 +8,17 @@ import array_analyzer.extract.image_parser as image_parser
 import array_analyzer.extract.txt_parser as txt_parser
 import array_analyzer.extract.img_processing as img_processing
 import array_analyzer.load.debug_plots as debug_plots
+import array_analyzer.load.report as report
 import array_analyzer.extract.constants as constants
 import array_analyzer.transform.array_generation as array_gen
 import array_analyzer.extract.background_estimator as background_estimator
 import array_analyzer.utils.io_utils as io_utils
-
 from array_analyzer.extract.metadata import MetaData
-import array_analyzer.load.report as report
 
 
 def interp(input_dir, output_dir):
 
     MetaData(input_dir, output_dir)
-
-    # Write an excel file that can be read into jupyter notebook with minimal parsing.
-    xlwriter_od_well = pd.ExcelWriter(
-        os.path.join(constants.RUN_PATH, 'median_ODs_per_well.xlsx'),
-    )
 
     # Initialize background estimator
     bg_estimator = background_estimator.BackgroundEstimator2D(
@@ -32,6 +26,14 @@ def interp(input_dir, output_dir):
         order=2,
         normalize=False,
     )
+    reporter = report.ReportWriter()
+    well_xlsx_path = os.path.join(
+        constants.RUN_PATH,
+        'stats_per_well.xlsx',
+    )
+    well_xlsx_writer = pd.ExcelWriter(well_xlsx_path)
+    antigen_df = reporter.get_antigen_df()
+    antigen_df.to_excel(well_xlsx_writer, sheet_name='antigens')
 
     # ================
     # loop over images => good place for multiproc?  careful with columns in report
@@ -77,24 +79,16 @@ def interp(input_dir, output_dir):
         # convert to float64
         im_crop = im_crop / np.iinfo(im_crop.dtype).max
         background = bg_estimator.get_background(im_crop)
-        spot_props, bg_props = array_gen.get_spot_intensity(
+        spots_df, spot_props = array_gen.get_spot_intensity(
             coords=crop_coords,
             im=im_crop,
             background=background,
-            params=constants.params
+            params=constants.params,
         )
-        od_well, int_well, bg_well = image_parser.compute_od(
-            spot_props,
-            bg_props,
-        )
-
-        pd_OD = pd.DataFrame(od_well)
-        pd_OD.to_excel(xlwriter_od_well, sheet_name=well_name)
-
-        # populate 96-well plate constants with OD, INT, BG arrays
-        report.write_od_to_plate(od_well, well_name, constants.WELL_OD_ARRAY)
-        report.write_od_to_plate(int_well, well_name, constants.WELL_INT_ARRAY)
-        report.write_od_to_plate(bg_well, well_name, constants.WELL_BG_ARRAY)
+        # Write metrics for each spot in grid in current well
+        spots_df.to_excel(well_xlsx_writer, sheet_name=well_name)
+        # Assign well OD, intensity, and background stats to plate
+        reporter.assign_well_to_plate(well_name, spots_df)
 
         stop = time.time()
         print(f"\ttime to process={stop-start}")
@@ -123,14 +117,13 @@ def interp(input_dir, output_dir):
                 im_crop,
                 constants.params,
                 spot_props,
-                bg_props,
                 output_name,
             )
             debug_plots.plot_od(
-                od_well,
-                int_well,
-                bg_well,
-                output_name,
+                spots_df=spots_df,
+                nbr_grid_rows=constants.params['rows'],
+                nbr_grid_cols=constants.params['columns'],
+                output_name=output_name,
             )
             # save a composite of all spots, where spots are from source or from region prop
             debug_plots.save_composite_spots(
@@ -139,32 +132,14 @@ def interp(input_dir, output_dir):
                 image=im_crop,
             )
             debug_plots.save_composite_spots(
-                bg_props,
+                spot_props,
                 output_name,
                 image=im_crop,
                 from_source=True,
             )
-
             stop2 = time.time()
             print(f"\ttime to save debug={stop2-stop}")
 
-    xlwriter_od_well.close()
-
-    # create excel writers to write reports
-    xlwriter_od = pd.ExcelWriter(
-        os.path.join(constants.RUN_PATH, 'python_median_ODs.xlsx')
-    )
-    xlwriter_int = pd.ExcelWriter(
-        os.path.join(constants.RUN_PATH, 'python_median_intensities.xlsx')
-    )
-    xlwriter_bg = pd.ExcelWriter(
-        os.path.join(constants.RUN_PATH, 'python_median_backgrounds.xlsx')
-    )
-
-    report.write_antigen_report(xlwriter_od, constants.WELL_OD_ARRAY, 'od')
-    report.write_antigen_report(xlwriter_int, constants.WELL_INT_ARRAY, 'int')
-    report.write_antigen_report(xlwriter_bg, constants.WELL_BG_ARRAY, 'bg')
-
-    xlwriter_od.close()
-    xlwriter_int.close()
-    xlwriter_bg.close()
+    # After running all wells, write plate reports
+    well_xlsx_writer.close()
+    reporter.write_reports()

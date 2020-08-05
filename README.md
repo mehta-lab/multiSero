@@ -17,7 +17,7 @@ The immediate goal is to enable specific, sensitive, and quantitative serologica
 ### Installation
 
 On a typical Winodws, Mac, or Linux computer:
-* Create a conda environment: `conda create --name pysero`
+* Create a conda environment: `conda create --name pysero python=3.7`
 * Activate conda environment: `conda activate pysero`
 * Once inside the repository folder, install dependencies: `pip install -r requirements.txt`
 
@@ -26,29 +26,40 @@ For installation notes for Jetson Nano, see [these notes](docs/installation.md).
 The command-line utility "pysero.py" enables automated analysis. 
 
 ```buildoutcfg
-python pysero.py [-h] (-e | -a) -i INPUT -o OUTPUT
+usage: pysero.py [-h] (-e | -a) -i INPUT -o OUTPUT
                  [-wf {well_segmentation,well_crop,array_interp,array_fit}]
-                 [-d]
+                 [-d] [-r] [-m METADATA]
+
 optional arguments:
   -h, --help            show this help message and exit
-  -e, --extract_od
-  -a, --analyze_od
+  -e, --extract_od      Segment spots and compute ODs
+  -a, --analyze_od      Interpretation, not yet implemented
   -i INPUT, --input INPUT
                         Input directory path
   -o OUTPUT, --output OUTPUT
-                        Output directory path
+                        Output directory path, where a timestamped subdir will
+                        be generated. In case of rerun, give path to
+                        timestamped run directory
   -wf {well_segmentation,well_crop,array_interp,array_fit}, --workflow {well_segmentation,well_crop,array_interp,array_fit}
                         Workflow to automatically identify and extract
                         intensities from experiment. 'Well' experiments are
                         for standard ELISA. 'Array' experiments are for ELISA
                         assays using antigen arrays printed with Scienion
-                        Array Printer
-  -d, --debug           Write debug plots of well and spots
-
+                        Array Printer Default: array_fit
+  -d, --debug           Write debug plots of well and spots. Default: False
+  -r, --rerun           Rerun wells listed in 'rerun_wells sheets of metadata
+                        file. Default: False
+  -m METADATA, --metadata METADATA
+                        specify the file name for the experiment metadata.
+                        Assumed to be in the same directory as images.
+                        Default: 'pysero_output_data_metadata.xlsx'
 ```
 
 `pysero -e -i input -o output` will take metadata for antigen array and images as input, and output optical densities for each antigen. 
-The optical densities are stored in an excel file at the following path: `output/run_hour_min_sec/OD.xlsx`
+The optical densities are stored in an excel file at the following path: `<output>/pysero_<input>_<year><month><day>_<hour><min>/median_ODs.xlsx`
+
+If rerunning some of the wells, the input metadata file needs to contain a sheet named 'rerun_wells'
+with a column named 'well_names' listing wells that will be rerun.
 
 Collection of jupyter notebooks, [such as this](notebooks_interpretation/20200330_March25_flutasteplate_1/FluPlateInterpretationV4_smg.ipynb), show how to use ODs to evaluate antibody binding. 
 The interpretation pipeline will soon be accessible as command-line tool.
