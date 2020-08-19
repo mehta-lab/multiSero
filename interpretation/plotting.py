@@ -9,8 +9,6 @@ from natsort import natsorted
 from scipy import optimize as optimization
 from sklearn.metrics import roc_curve, roc_auc_score
 
-from interpretation.report_reader import slice_df
-
 
 def fourPL(x, A, B, C, D):
     return ((A-D)/(1.0+((x/C)**(B))) + D)
@@ -62,7 +60,8 @@ def roc_from_df(df):
     s = {}
     y_test = df['serum type']
     y_prob = df['OD']
-    s['False positive rate'], s['True positive rate'], s['threshold'] = roc_curve(y_test, y_prob, pos_label='positive')
+    s['False positive rate'], s['True positive rate'], s['threshold'] = \
+        roc_curve(y_test, y_prob, pos_label='positive', drop_intermediate=False)
     try:
         s['AUC'] = [roc_auc_score(y_test, y_prob)] * len(s['False positive rate'])
     except ValueError as err:
@@ -93,65 +92,6 @@ def get_roc_df(df):
     roc_df = roc_df.apply(pd.Series.explode).astype(float).reset_index()
     roc_df.dropna(inplace=True)
     return roc_df
-
-
-def roc_plot(x, y, **kwargs):
-    df = kwargs.pop('data')
-    y2 = kwargs.pop('y2')
-    ax = plt.gca()
-    df.plot(x=x, y=y, ax=ax)
-    # df.plot(x=x, y=y2, ax=ax)
-    # ax.set_ylabel('rate')
-    ax2 = ax.twinx()
-    color = 'g'
-    df.plot(x=x, y=y2, ax=ax2 , color=color)
-    ax2.set_ylabel(y2, color=color)  # we already handled the x-label with ax1
-    ax2.tick_params(axis='y', labelcolor=color)
-
-
-def roc_plot_grid(roc_df, fig_path, fig_name):
-    # Plot ROC curves
-    hue = "serum dilution"
-    antigens = natsorted(roc_df['antigen'].unique())
-    sns.set_context("notebook")
-    assert not roc_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
-    palette = sns.color_palette(n_colors=len(roc_df[hue].unique()))
-    print('plotting ROC curves...')
-    g = sns.FacetGrid(roc_df, hue=hue, col="antigen", col_order=antigens, col_wrap=3, aspect=1.1,
-                      hue_kws={'linestyle': ['-', '--', '-.', ':']})
-    # g = (g.map(plt.plot, 'False positive rate', 'True positive rate').add_legend())
-    g = (g.map_dataframe(roc_plot, 'False positive rate', 'True positive rate', y2='threshold'))
-    for antigen, ax in zip(antigens, g.axes.flat):
-        sub_df = roc_df[roc_df['antigen'] == antigen]
-        auc = sub_df['AUC'].unique()[0]
-        ax.set_title(antigen)
-        ax.text(0.6, 0.15, 'AUC={:.3f}'.format(auc), fontsize=12)  # add text
-        # ax2 = ax.twinx()
-        # sub_df.plot(x='False positive rate', y='threshold', ax=ax2)
-    plt.savefig(os.path.join(fig_path, fig_name + '.jpg'),
-                             dpi=300, bbox_inches='tight')
-    plt.close()
-
-
-def normalize_od_helper(norm_antigen):
-    def normalize(df):
-        norm_antigen_df = slice_df(df, 'keep', 'antigen', [norm_antigen])
-        norm_factor = norm_antigen_df['OD'].mean()
-        df['OD'] = df['OD'] / norm_factor
-        return df
-    return normalize
-
-#%%
-def normalize_od(df, norm_antigen):
-    """fit model to x, y data in dataframe.
-    Return a dataframe with fit x, y for plotting
-    """
-    norm_antigen_df = slice_df(df, 'keep', 'antigen', [norm_antigen])
-    df.loc[df['antigen'] == norm_antigen, 'OD'] = norm_antigen_df['OD'] / norm_antigen_df['OD'].mean()
-    norm_fn = normalize_od_helper(norm_antigen)
-    df = df.groupby(['plate_id']).apply(norm_fn)
-    df = df.reset_index()
-    return df
 #%%
 
 def scatter_plot(df,
@@ -184,3 +124,66 @@ def scatter_plot(df,
                 dpi=300, bbox_inches='tight')
     plt.close()
 
+
+def roc_plot(x, y, **kwargs):
+    df = kwargs.pop('data')
+    # y2 = kwargs.pop('y2')
+    ax = plt.gca()
+    df.plot(x=x, y=y, ax=ax, legend=False)
+    # ax2 = ax.twinx()
+    # color = 'g'
+    # df.plot(x=x, y=y2, ax=ax2, color=color, style='--', legend=False)
+    # ax2.set_ylabel(y2, color=color)  # we already handled the x-label with ax1
+    # ax2.tick_params(axis='y', labelcolor=color)
+
+
+def roc_plot_grid(roc_df, fig_path, fig_name, ext, col_wrap=3):
+    # Plot ROC curves
+    hue = 'serum dilution'
+    fpr = 0.05
+    antigens = natsorted(roc_df['antigen'].unique())
+    sns.set_context("notebook")
+    assert not roc_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
+    palette = sns.color_palette(n_colors=len(roc_df[hue].unique()))
+    print('plotting ROC curves...')
+    g = sns.FacetGrid(roc_df, hue=hue, col="antigen", col_order=antigens, col_wrap=col_wrap, aspect=1,
+                      xlim=(-0.05, 1), ylim=(0, 1.05))
+                      # hue_kws={'linestyle': ['-', '--', '-.', ':']})
+    g = (g.map_dataframe(roc_plot, 'False positive rate', 'True positive rate', y2='threshold'))
+    for antigen, ax in zip(antigens, g.axes.flat):
+        sub_df = roc_df[roc_df['antigen'] == antigen]
+        tpr = np.interp(fpr, sub_df['False positive rate'], sub_df['True positive rate'])
+        ax.plot([fpr, fpr], [0, tpr], linewidth=1, color='g', linestyle='--', alpha=1)
+        ax.plot([-0.05, fpr], [tpr, tpr], linewidth=1, color='g', linestyle='--', alpha=1)
+        auc = sub_df['AUC'].unique()[0]
+        ax.set_title(antigen)
+        ax.text(0.6, 0.15, 'AUC={:.3f}'.format(auc), fontsize=12)  # add text
+        ax.text(fpr + 0.05, tpr - 0.2, 'sensitivity={:.3f}\nspecificity={:.3f}'.format(tpr, 1-fpr),
+                fontsize=12, color='g')  # add text
+    plt.savefig(os.path.join(fig_path, '.'.join([fig_name, ext])),
+                             dpi=300, bbox_inches='tight')
+    plt.close()
+
+
+def thr_plot_grid(roc_df, fig_path, fig_name, ext, col_wrap=3):
+    # Plot ROC curves
+    hue = 'category'
+    antigens = natsorted(roc_df['antigen'].unique())
+    sns.set_context("notebook")
+    assert not roc_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
+    palette = sns.color_palette(n_colors=len(roc_df[hue].unique()))
+    print('plotting ROC curves...')
+    g = sns.FacetGrid(roc_df, hue=hue, col="antigen", col_order=antigens, col_wrap=col_wrap, aspect=1,
+                      hue_kws={'linestyle': ['-', '--', '-.', ':']})
+    g = (g.map(plt.plot, 'threshold', 'rate').add_legend())
+    # g = (g.map_dataframe(roc_plot, 'False positive rate', 'True positive rate', y2='threshold'))
+    for antigen, ax in zip(antigens, g.axes.flat):
+        sub_df = roc_df[roc_df['antigen'] == antigen]
+        auc = sub_df['AUC'].unique()[0]
+        ax.set_title(antigen)
+        ax.text(1.5, 0.2, 'AUC={:.3f}'.format(auc), fontsize=12)  # add text
+        # ax2 = ax.twinx()
+        # sub_df.plot(x='False positive rate', y='threshold', ax=ax2)
+    plt.savefig(os.path.join(fig_path, '.'.join([fig_name, ext])),
+                             dpi=300, bbox_inches='tight')
+    plt.close()

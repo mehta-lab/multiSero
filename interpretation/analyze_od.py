@@ -1,20 +1,13 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# %% Setup
-
-
 import pandas as pd
-import matplotlib.pyplot as plt
 import numpy as np
 import os
 import matplotlib
 from matplotlib import pyplot as plt
 from natsort import natsorted
 import seaborn as sns
-from interpretation.plotting import fourPL, fit2df, get_roc_df, roc_plot, normalize_od, scatter_plot
+from interpretation.plotting import fourPL, fit2df, get_roc_df, roc_plot_grid, thr_plot_grid
 from interpretation.report_reader import read_plate_info, read_antigen_info, read_pysero_output, read_scn_output, \
-    slice_df
+    slice_df, normalize_od, offset_od
 
 sns.set_context("talk")
 font = {'size': 10, 'weight': 'normal', 'family': 'arial'}
@@ -107,111 +100,113 @@ ntl_slice_actions = [None, 'drop','drop','keep','keep'] +\
 
 
 ntl_well_ids = [None,['B2', 'B6', 'B7', 'B8', 'B9', 'B10', 'B11', 'B12', 'D6', 'D7', 'D8', 'D9', 'D10', 'D11', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'H4', 'H5', 'H6', 'H7', 'H8', 'H9', 'H10', 'H11'],['B1', 'B2', 'B4', 'B12', 'D2', 'D4', 'D5', 'D8', 'F3','H4','B3','B5','D1','D2','D3','D12','F1','F2','F4','F5','F12','H1','H2','H3','H12'],['B12', 'H4'],['B2','D8']] + \
-           [None, ['D4','D7','D8','D9','D10', 'D11', 'F7', 'F8', 'F9','F10', 'F12','H7','H9','H10','H11'],['D8','D9','D10','D11','F8','F9','F10','H7','H9','H10','H11'], ['D4','D7','F7','F12']] + \
+           [None, ['D3', 'D4','D7','D8','D9','D10', 'D11', 'F7', 'F8', 'F9','F10', 'F12','H7','H9','H10','H11'],['D3', 'D8','D9','D10','D11','F8','F9','F10','H7','H9','H10','H11'], ['D4','D7','F7','F12']] + \
             [None, ['B1',' B2', 'B5','B7','B8','b9','b10','B11','D3','D5','D7','D8','D9','D10','D11','F7','F8','F9','F10','F11','H7','H8','H9','H10','H11'], ['B5','D5','D6'],['B5','D2','D6']] + \
             [None, ['B2','B12','D3','D12', 'F4','F12','H1','H2','H3','H6'], ['B2','B12','D3','D12', 'F4','F12','H1','H2','H3','H6','B7','B8','B9','B10','B11','D7','D8','D9','D10','D11','F2','F6','F7','F8','F9','F10','F11','H4','H7','H8','H9','H10','H11','H12'], ['B7','B8','B9','B10','B11','D7','D8','D9','D10','D11','F2','F6','F7','F8','F9', 'F10','F11','H4','H7','H8','H9','H10','H11','H12']] + \
             [None, ['B9','B10','B11','B12','D7','D8','D9','D11','F6','F7','F8','F9','F10','F11','H6','H7','H8','H9', 'H11','H12'], ['B9','B10','B11','D7','D8','D9','D11','F6','F7','F8','F9','F10','F11','H6','H7','H8','H9', 'H11','H12']] + \
             [None,['D1','D5','D12','H2'], ['D1','D5','D12','H2']]
 #%%
-# os.makedirs(fig_path, exist_ok=True)
-# df_list = []
-# scn_df = pd.DataFrame()
-#
-# for scn_scn_dir, plate_id, in zip(scn_scn_dirs, scn_scn_plate_ids):
-#     metadata_path = os.path.join(scn_scn_dir, 'pysero_output_data_metadata.xlsx')
-#     with pd.ExcelFile(metadata_path) as meta_file:
-#         antigen_df = read_antigen_info(meta_file)
-#         plate_info_df = read_plate_info(meta_file)
-#     plate_info_df['plate_id'] = plate_id
-#     scn_fname = [f for f in os.listdir(scn_scn_dir) if '_analysis.xlsx' in f]
-#     scn_path = os.path.join(scn_scn_dir, scn_fname[0])
-#     scn_df_tmp = read_scn_output(scn_path, plate_info_df)
-#     # Join Scienion data with plateInfo
-#     scn_df_tmp = pd.merge(scn_df_tmp,
-#                       antigen_df,
-#                       how='left', on=['antigen_row', 'antigen_col'])
-#     scn_df_tmp = pd.merge(scn_df_tmp,
-#                       plate_info_df,
-#                       how='right', on=['well_id'])
-#     scn_df = scn_df.append(scn_df_tmp, ignore_index=True)
-# scn_df['pipeline'] = 'scienion'
-# scn_df.dropna(subset=['OD'], inplace=True)
-# #%%
-# for data_folder, slice_action, well_id, plate_id in \
-#         zip(scn_psr_dirs, scn_psr_slice_actions, scn_psr_well_ids, scn_psr_plate_ids):
-#     metadata_path = os.path.join(data_folder, 'pysero_output_data_metadata.xlsx')
-#     OD_path = os.path.join(data_folder, 'median_ODs.xlsx')
-#     int_path = os.path.join(data_folder, 'median_intensities.xlsx')
-#     bg_path = os.path.join(data_folder, 'median_backgrounds.xlsx')
-#
-#     with pd.ExcelFile(metadata_path) as meta_file:
-#         antigen_df = read_antigen_info(meta_file)
-#         plate_info_df = read_plate_info(meta_file)
-#     plate_info_df['plate_id'] = plate_id
-#     OD_df = read_pysero_output(OD_path, antigen_df, file_type='od')
-#     int_df = read_pysero_output(int_path, antigen_df, file_type='int')
-#     bg_df = read_pysero_output(bg_path, antigen_df, file_type='bg')
-#     OD_df = pd.merge(OD_df,
-#                      antigen_df[['antigen_row', 'antigen_col', 'antigen type']],
-#                      how='left', on=['antigen_row', 'antigen_col'])
-#     OD_df = pd.merge(OD_df,
-#                      plate_info_df,
-#                      how='right', on=['well_id'])
-#     pysero_df = pd.merge(OD_df,
-#                          int_df,
-#                          how='left', on=['antigen_row', 'antigen_col', 'well_id'])
-#     pysero_df = pd.merge(pysero_df,
-#                          bg_df,
-#                          how='left', on=['antigen_row', 'antigen_col', 'well_id'])
-#     pysero_df['pipeline'] = 'python'
-#     # pysero_df = pysero_df.append(scn_df)
-#     pysero_df.replace([np.inf, -np.inf], np.nan, inplace=True)
-#     pysero_df.dropna(subset=['OD'], inplace=True)
-#     pysero_df = slice_df(pysero_df, slice_action, 'well_id', well_id)
-#     df_list.append(pysero_df)
-# #%%
-# for data_folder, slice_action, well_id, plate_id in \
-#         zip(ntl_dirs, ntl_slice_actions, ntl_well_ids, ntl_plate_ids):
-#     metadata_path = os.path.join(data_folder, 'pysero_output_data_metadata.xlsx')
-#     OD_path = os.path.join(data_folder, 'median_ODs.xlsx')
-#     int_path = os.path.join(data_folder, 'median_intensities.xlsx')
-#     bg_path = os.path.join(data_folder, 'median_backgrounds.xlsx')
-#
-#     with pd.ExcelFile(metadata_path) as meta_file:
-#         antigen_df = read_antigen_info(meta_file)
-#         plate_info_df = read_plate_info(meta_file)
-#     plate_info_df['plate_id'] = plate_id
-#     OD_df = read_pysero_output(OD_path, antigen_df, file_type='od')
-#     int_df = read_pysero_output(int_path, antigen_df, file_type='int')
-#     bg_df = read_pysero_output(bg_path, antigen_df, file_type='bg')
-#     OD_df = pd.merge(OD_df,
-#                      antigen_df[['antigen_row', 'antigen_col', 'antigen type']],
-#                      how='left', on=['antigen_row', 'antigen_col'])
-#     OD_df = pd.merge(OD_df,
-#                      plate_info_df,
-#                      how='right', on=['well_id'])
-#     pysero_df = pd.merge(OD_df,
-#                          int_df,
-#                          how='left', on=['antigen_row', 'antigen_col', 'well_id'])
-#     pysero_df = pd.merge(pysero_df,
-#                          bg_df,
-#                          how='left', on=['antigen_row', 'antigen_col', 'well_id'])
-#     pysero_df['pipeline'] = 'nautilus'
-#     pysero_df.replace([np.inf, -np.inf], np.nan, inplace=True)
-#     pysero_df.dropna(subset=['OD'], inplace=True)
-#     pysero_df = slice_df(pysero_df, slice_action, 'well_id', well_id)
-#     df_list.append(pysero_df)
-# df_list.append(scn_df)
-# #%% Concatenate dataframes
-# stitched_pysero_df = pd.concat(df_list)
-# stitched_pysero_df.reset_index(drop=True, inplace=True)
-# # remove empty xkappa-biotin spots, round off dilution
-# stitched_pysero_df = stitched_pysero_df[(stitched_pysero_df['antigen'] != 'xkappa-biotin') |
-#                         (stitched_pysero_df['antigen type'] == 'Fiducial')]
-# stitched_pysero_df['serum dilution'] = stitched_pysero_df['serum dilution'].round(7)
-# stitched_pysero_df.to_csv(os.path.join(output_dir, 'master_report.csv'))
-#%%
-stitched_pysero_df = pd.read_csv(os.path.join(output_dir, 'master_report.csv'), index_col=0, low_memory=False)
+os.makedirs(fig_path, exist_ok=True)
+load_master_report = True
+if not load_master_report:
+    df_list = []
+    scn_df = pd.DataFrame()
+
+    for scn_scn_dir, plate_id, in zip(scn_scn_dirs, scn_scn_plate_ids):
+        metadata_path = os.path.join(scn_scn_dir, 'pysero_output_data_metadata.xlsx')
+        with pd.ExcelFile(metadata_path) as meta_file:
+            antigen_df = read_antigen_info(meta_file)
+            plate_info_df = read_plate_info(meta_file)
+        plate_info_df['plate_id'] = plate_id
+        scn_fname = [f for f in os.listdir(scn_scn_dir) if '_analysis.xlsx' in f]
+        scn_path = os.path.join(scn_scn_dir, scn_fname[0])
+        scn_df_tmp = read_scn_output(scn_path, plate_info_df)
+        # Join Scienion data with plateInfo
+        scn_df_tmp = pd.merge(scn_df_tmp,
+                          antigen_df,
+                          how='left', on=['antigen_row', 'antigen_col'])
+        scn_df_tmp = pd.merge(scn_df_tmp,
+                          plate_info_df,
+                          how='right', on=['well_id'])
+        scn_df = scn_df.append(scn_df_tmp, ignore_index=True)
+    scn_df['pipeline'] = 'scienion'
+    scn_df.dropna(subset=['OD'], inplace=True)
+
+    for data_folder, slice_action, well_id, plate_id in \
+            zip(scn_psr_dirs, scn_psr_slice_actions, scn_psr_well_ids, scn_psr_plate_ids):
+        metadata_path = os.path.join(data_folder, 'pysero_output_data_metadata.xlsx')
+        OD_path = os.path.join(data_folder, 'median_ODs.xlsx')
+        int_path = os.path.join(data_folder, 'median_intensities.xlsx')
+        bg_path = os.path.join(data_folder, 'median_backgrounds.xlsx')
+
+        with pd.ExcelFile(metadata_path) as meta_file:
+            antigen_df = read_antigen_info(meta_file)
+            plate_info_df = read_plate_info(meta_file)
+        plate_info_df['plate_id'] = plate_id
+        OD_df = read_pysero_output(OD_path, antigen_df, file_type='od')
+        int_df = read_pysero_output(int_path, antigen_df, file_type='int')
+        bg_df = read_pysero_output(bg_path, antigen_df, file_type='bg')
+        OD_df = pd.merge(OD_df,
+                         antigen_df[['antigen_row', 'antigen_col', 'antigen type']],
+                         how='left', on=['antigen_row', 'antigen_col'])
+        OD_df = pd.merge(OD_df,
+                         plate_info_df,
+                         how='right', on=['well_id'])
+        pysero_df = pd.merge(OD_df,
+                             int_df,
+                             how='left', on=['antigen_row', 'antigen_col', 'well_id'])
+        pysero_df = pd.merge(pysero_df,
+                             bg_df,
+                             how='left', on=['antigen_row', 'antigen_col', 'well_id'])
+        pysero_df['pipeline'] = 'python'
+        # pysero_df = pysero_df.append(scn_df)
+        pysero_df.replace([np.inf, -np.inf], np.nan, inplace=True)
+        pysero_df.dropna(subset=['OD'], inplace=True)
+        pysero_df = slice_df(pysero_df, slice_action, 'well_id', well_id)
+        df_list.append(pysero_df)
+    #%
+    for data_folder, slice_action, well_id, plate_id in \
+            zip(ntl_dirs, ntl_slice_actions, ntl_well_ids, ntl_plate_ids):
+        metadata_path = os.path.join(data_folder, 'pysero_output_data_metadata.xlsx')
+        OD_path = os.path.join(data_folder, 'median_ODs.xlsx')
+        int_path = os.path.join(data_folder, 'median_intensities.xlsx')
+        bg_path = os.path.join(data_folder, 'median_backgrounds.xlsx')
+
+        with pd.ExcelFile(metadata_path) as meta_file:
+            antigen_df = read_antigen_info(meta_file)
+            plate_info_df = read_plate_info(meta_file)
+        plate_info_df['plate_id'] = plate_id
+        OD_df = read_pysero_output(OD_path, antigen_df, file_type='od')
+        int_df = read_pysero_output(int_path, antigen_df, file_type='int')
+        bg_df = read_pysero_output(bg_path, antigen_df, file_type='bg')
+        OD_df = pd.merge(OD_df,
+                         antigen_df[['antigen_row', 'antigen_col', 'antigen type']],
+                         how='left', on=['antigen_row', 'antigen_col'])
+        OD_df = pd.merge(OD_df,
+                         plate_info_df,
+                         how='right', on=['well_id'])
+        pysero_df = pd.merge(OD_df,
+                             int_df,
+                             how='left', on=['antigen_row', 'antigen_col', 'well_id'])
+        pysero_df = pd.merge(pysero_df,
+                             bg_df,
+                             how='left', on=['antigen_row', 'antigen_col', 'well_id'])
+        pysero_df['pipeline'] = 'nautilus'
+        pysero_df.replace([np.inf, -np.inf], np.nan, inplace=True)
+        pysero_df.dropna(subset=['OD'], inplace=True)
+        pysero_df = slice_df(pysero_df, slice_action, 'well_id', well_id)
+        df_list.append(pysero_df)
+    df_list.append(scn_df)
+    #% Concatenate dataframes
+    stitched_pysero_df = pd.concat(df_list)
+    stitched_pysero_df.reset_index(drop=True, inplace=True)
+    # remove empty xkappa-biotin spots, round off dilution
+    stitched_pysero_df = stitched_pysero_df[(stitched_pysero_df['antigen'] != 'xkappa-biotin') |
+                            (stitched_pysero_df['antigen type'] == 'Fiducial')]
+    stitched_pysero_df['serum dilution'] = stitched_pysero_df['serum dilution'].round(7)
+    stitched_pysero_df.to_csv(os.path.join(output_dir, 'master_report.csv'))
+else:
+    stitched_pysero_df = pd.read_csv(os.path.join(output_dir, 'master_report.csv'), index_col=0, low_memory=False)
 #%% 4PL fit
 slice_cols = ['pipeline', 'serum ID']
 slice_keys = [['python'], sera_fit_list]
@@ -223,94 +218,57 @@ for col, action, key in zip(slice_cols, scn_psr_slice_actions, slice_keys):
     serum_df_fit = slice_df(serum_df_fit, action, col, key)
 serum_df_fit = fit2df(serum_df_fit, fourPL, 'python')
 
-#%%
-def roc_plot(x, y, **kwargs):
-    df = kwargs.pop('data')
-    # y2 = kwargs.pop('y2')
-    ax = plt.gca()
-    df.plot(x=x, y=y, ax=ax, legend=False)
-    # ax2 = ax.twinx()
-    # color = 'g'
-    # df.plot(x=x, y=y2, ax=ax2, color=color, style='--', legend=False)
-    # ax2.set_ylabel(y2, color=color)  # we already handled the x-label with ax1
-    # ax2.tick_params(axis='y', labelcolor=color)
 
-def roc_plot_grid(roc_df, fig_path, fig_name, ext):
-    # Plot ROC curves
-    hue = 'serum dilution'
-    fpr = 0.01
-    antigens = natsorted(roc_df['antigen'].unique())
-    sns.set_context("notebook")
-    assert not roc_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
-    palette = sns.color_palette(n_colors=len(roc_df[hue].unique()))
-    print('plotting ROC curves...')
-    g = sns.FacetGrid(roc_df, hue=hue, col="antigen", col_order=antigens, col_wrap=3, aspect=1,
-                      xlim=(-0.05, 1), ylim=(0, 1.05))
-                      # hue_kws={'linestyle': ['-', '--', '-.', ':']})
-    # g = (g.map(plt.plot, 'False positive rate', 'True positive rate').add_legend())
-    g = (g.map_dataframe(roc_plot, 'False positive rate', 'True positive rate', y2='threshold'))
-    for antigen, ax in zip(antigens, g.axes.flat):
-        sub_df = roc_df[roc_df['antigen'] == antigen]
-        tpr = np.interp(fpr, sub_df['False positive rate'], sub_df['True positive rate'])
-        ax.plot([fpr, fpr], [0, tpr], linewidth=1, color='k', linestyle='--', alpha=1)
-        ax.plot([-0.05, fpr], [tpr, tpr], linewidth=1, color='k', linestyle='--', alpha=1)
-        auc = sub_df['AUC'].unique()[0]
-        ax.set_title(antigen)
-        ax.text(0.6, 0.15, 'AUC={:.3f}'.format(auc), fontsize=12)  # add text
-        ax.text(fpr + 0.05, tpr - 0.1, 'sensitivity={:.3f}'.format(tpr), fontsize=12)  # add text
-    plt.savefig(os.path.join(fig_path, '.'.join([fig_name, ext])),
-                             dpi=300, bbox_inches='tight')
-    plt.close()
-
-def thr_plot_grid(roc_df, fig_path, fig_name, ext):
-    # Plot ROC curves
-    hue = 'category'
-    antigens = natsorted(roc_df['antigen'].unique())
-    sns.set_context("notebook")
-    assert not roc_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
-    palette = sns.color_palette(n_colors=len(roc_df[hue].unique()))
-    print('plotting ROC curves...')
-    g = sns.FacetGrid(roc_df, hue=hue, col="antigen", col_order=antigens, col_wrap=3, aspect=1,
-                      hue_kws={'linestyle': ['-', '--', '-.', ':']})
-    g = (g.map(plt.plot, 'threshold', 'rate').add_legend())
-    # g = (g.map_dataframe(roc_plot, 'False positive rate', 'True positive rate', y2='threshold'))
-    for antigen, ax in zip(antigens, g.axes.flat):
-        sub_df = roc_df[roc_df['antigen'] == antigen]
-        auc = sub_df['AUC'].unique()[0]
-        ax.set_title(antigen)
-        ax.text(1.5, 0.2, 'AUC={:.3f}'.format(auc), fontsize=12)  # add text
-        # ax2 = ax.twinx()
-        # sub_df.plot(x='False positive rate', y='threshold', ax=ax2)
-    plt.savefig(os.path.join(fig_path, '.'.join([fig_name, ext])),
-                             dpi=300, bbox_inches='tight')
-    plt.close()
 #%% functions to compute ROC curves and AUC
 # for plate_id in stitched_pysero_df['plate_id'].unique():
 # for plate_id in ['plate_8']:
 #     slice_cols = ['pipeline', 'serum ID', 'plate_id']
 #     slice_keys = [['python'], sera_roc_list, [plate_id]]
 #     scn_psr_slice_actions = ['keep', 'drop', 'keep']
-df_norm = stitched_pysero_df.copy()
+
 norm_antigen = 'xIgG Fc'
 # norm_antigen = 'xkappa-biotin'
-df_norm = normalize_od(df_norm, norm_antigen)
-suffix = '_'.join([norm_antigen, 'norm_per_plate'])
-# norm_antigen = ''
-# suffix = ''
+norm_group = 'plate'
+aggregate = 'mean'
+# aggregate = None
+# offset_antigen = 'GFP foldon'
+offset_antigen = None
+# norm_group = 'well'
+offset_group = 'well'
 antigen_list = ['SARS CoV2 N 50', 'SARS CoV2 RBD 250', 'SARS CoV2 spike 62.5']
-for pipeline in df_norm['pipeline'].unique():
-    slice_cols = ['pipeline', 'serum ID', 'antigen type', 'antigen']
-    slice_keys = [[pipeline], sera_roc_list, ['Diagnostic'], antigen_list]
-    scn_psr_slice_actions = ['keep', 'drop', 'keep', 'keep']
+
+
+for pipeline in stitched_pysero_df['pipeline'].unique():
+# for pipeline in ['nautilus']:
+    df_norm = stitched_pysero_df.copy()
+    df_norm = slice_df(df_norm, 'keep', 'pipeline', [pipeline])
+    df_norm = normalize_od(df_norm, norm_antigen, group=norm_group)
+    df_norm = offset_od(df_norm, offset_antigen, offset_group)
+    suffix = pipeline
+    if norm_antigen is not None:
+        suffix = '_'.join([suffix, norm_antigen, 'norm_per', norm_group])
+
+    # slice_cols = ['serum ID', 'antigen type', 'antigen']
+    # slice_keys = [sera_roc_list, ['Diagnostic'], antigen_list]
+    # scn_psr_slice_actions = ['drop', 'keep', 'keep']
+    slice_cols = ['serum ID', 'antigen type']
+    slice_keys = [sera_roc_list, ['Diagnostic']]
+    slice_actions = ['drop', 'keep']
+    for col, action, key in zip(slice_cols, slice_actions, slice_keys):
+        df_norm = slice_df(df_norm, action, col, key)
     roc_df = df_norm.copy()
-    for col, action, key in zip(slice_cols, scn_psr_slice_actions, slice_keys):
-        roc_df = slice_df(roc_df, action, col, key)
+    if aggregate is not None:
+        roc_df = roc_df.groupby(['antigen', 'serum ID', 'well_id', 'plate_id',
+                                 'serum type', 'serum dilution', 'pipeline', 'secondary ID',
+                                 'secondary dilution'])['OD'].mean()
+        roc_df = roc_df.reset_index()
+        suffix = '_'.join([suffix, aggregate])
     roc_df = get_roc_df(roc_df)
     # roc_df_split = roc_df.copy()
     # roc_df_split[['antigen', 'antigen conc']] = roc_df['antigen'].str.rsplit(n=1, expand=True)
     # roc_plot_grid(roc_df, fig_path, 'ROC')
     # roc_plot_grid(roc_df, fig_path, 'ROC_' + plate_id)
-    roc_plot_grid(roc_df, fig_path, '_'.join(['ROC_low_c', pipeline, suffix]), 'pdf')
+    roc_plot_grid(roc_df, fig_path, '_'.join(['ROC', suffix]), 'png')
     roc_df = roc_df.melt(id_vars=['antigen',
                                  'secondary ID',
                                  'secondary dilution',
@@ -323,7 +281,7 @@ for pipeline in df_norm['pipeline'].unique():
                          )
     # thr_plot_grid(roc_df, fig_path, 'ROC_thr')
     # thr_plot_grid(roc_df, fig_path, 'ROC_thr_' + plate_id)
-    thr_plot_grid(roc_df, fig_path, '_'.join(['ROC_thr_low_c', pipeline, suffix]), 'pdf')
+    thr_plot_grid(roc_df, fig_path, '_'.join(['ROC_thr', suffix]), 'png')
 #%% Plot categorical scatter plot for episurvey
 for plate_id in stitched_pysero_df['plate_id'].unique():
 # for plate_id in ['plate_4']:
@@ -344,32 +302,6 @@ for plate_id in stitched_pysero_df['plate_id'].unique():
     plt.savefig(os.path.join(fig_path, 'catplot_zoom_{}.jpg'.format(plate_id)),
                                   dpi=300, bbox_inches='tight')
     plt.close('all')
-#%% pivot the dataframe for xy scatter plot
-df_norm = stitched_pysero_df.copy()
-norm_antigen = 'xIgG Fc'
-# norm_antigen = 'xkappa-biotin'
-df_norm = normalize_od(df_norm, norm_antigen)
-suffix = '_'.join([norm_antigen, 'norm_per_plate'])
-# norm_antigen = ''
-# suffix = ''
-pysero_df_pivot = pd.pivot_table(df_norm, values='OD',
-                             index=['well_id', 'antigen_row', 'antigen_col', 'serum ID', 'secondary ID', 'secondary dilution',
-       'serum type', 'serum dilution', 'antigen', 'antigen type', 'pipeline'],
-                             columns=['plate_id'])
-pysero_df_pivot.reset_index(inplace=True)
-#%%
-limit = [0, 2.0]
-neg_limit = [0, 0.1]
-x_cols = ['plate_3', 'plate_7', 'plate_4']
-y_cols = ['plate_9', 'plate_8', 'plate_10']
-
-
-antigen_OD_df = slice_df(pysero_df_pivot, 'keep', 'antigen type', ['Diagnostic'])
-biotin_OD_df = slice_df(pysero_df_pivot, 'keep', 'antigen', ['xkappa-biotin'])
-# biotin_OD_df = slice_df(biotin_OD_df, 'keep', 'antigen type', ['Fiducial'])
-igg_OD_df = slice_df(pysero_df_pivot, 'keep', 'antigen', ['xIgG Fc'])
-antigen_pos_df = slice_df(antigen_OD_df, 'keep', 'serum type', ['positive'])
-antigen_neg_df = slice_df(antigen_OD_df, 'keep', 'serum type', ['negative'])
 #%%
 def joint_plot(df_ori,
             x_col,
@@ -414,37 +346,54 @@ def joint_plot(df_ori,
     plt.savefig(os.path.join(output_path, ''.join([output_fname, '.jpg'])),
                 dpi=300, bbox_inches='tight')
 
+#%% pivot the dataframe for xy scatter plot
+norm_antigen = 'xIgG Fc'
+# norm_antigen = None
+norm_group = 'plate'
+# norm_group = 'well'
+# norm_antigen = 'xkappa-biotin'
+limit = [0, 2.0]
+neg_limit = [0, 0.1]
+x_cols = ['plate_3', 'plate_7', 'plate_4']
+y_cols = ['plate_9', 'plate_8', 'plate_10']
+# for pipeline in stitched_pysero_df['pipeline'].unique():
+for pipeline in ['nautilus']:
+    df_norm = stitched_pysero_df.copy()
+    df_norm = slice_df(df_norm, 'keep', 'pipeline', [pipeline])
+    df_norm = normalize_od(df_norm, norm_antigen, group=norm_group)
+    suffix = pipeline
+    if norm_antigen is not None:
+        suffix = '_'.join([pipeline, norm_antigen, 'norm_per', norm_group])
 
-for x_col, y_col in zip(x_cols, y_cols):
-    # scatter_plot(pysero_df_pivot, x_col, y_col, fig_path, '_'.join(['OD_scatter', x_col, y_col, suffix]), xlim=limit, ylim=limit)
-    # scatter_plot(antigen_OD_df, x_col, y_col, 'antigen', fig_path,
-    #              '_'.join(['antigen_OD_scatter', x_col, y_col, suffix]), xlim=limit, ylim=limit)
-    # scatter_plot(biotin_OD_df, x_col, y_col, 'biotin', fig_path,
-    #              '_'.join(['biotin_OD_scatter', x_col, y_col, suffix]), xlim=limit, ylim=limit)
-    # scatter_plot(igg_OD_df, x_col, y_col, 'igg', fig_path,
-    #              '_'.join(['igg_OD_scatter', x_col, y_col, suffix]), xlim=limit, ylim=limit)
-    joint_plot(antigen_OD_df, x_col, y_col, 'antigen type', 'antigen', fig_path,
-               '_'.join(['antigen_OD_joint', x_col, y_col, suffix]), bw='scott', n_levels=60, xlim=limit, ylim=limit)
-    joint_plot(antigen_pos_df, x_col, y_col, 'antigen type', 'antigen', fig_path,
-               '_'.join(['antigen_pos_joint', x_col, y_col, suffix]), bw='scott', n_levels=60, xlim=limit, ylim=limit)
-    joint_plot(antigen_neg_df, x_col, y_col, 'antigen type', 'antigen', fig_path,
-               '_'.join(['antigen_neg_joint', x_col, y_col, suffix]), bw='scott', n_levels=60, xlim=neg_limit, ylim=neg_limit)
-plt.close('all')
-#%% functions to compute ROC curves and AUC
-slice_cols = ['pipeline', 'serum ID']
-slice_keys = [['python'], sera_roc_list]
-scn_psr_slice_actions = ['keep', 'drop']
-roc_df = df_norm.copy()
-for col, action, key in zip(slice_cols, scn_psr_slice_actions, slice_keys):
-    roc_df = slice_df(roc_df, action, col, key)
-roc_df = get_roc_df(roc_df)
-roc_plot_grid(roc_df, fig_path, '_'.join(['ROC', suffix]))
-#%%
-serum_df = serum_df[(serum_df['antigen'] == 'SARS CoV2 RBD 500')]
-neg_max = serum_df[(serum_df['serum type'] == 'negative')]['OD'].max()
-overlap_df = serum_df[(serum_df['serum type'] == 'positive') & (serum_df['OD'] <= neg_max)]
-#%%
-serum_id = stitched_pysero_df['serum ID'].unique()
+    pysero_df_pivot = pd.pivot_table(df_norm, values='OD',
+                                 index=['well_id', 'antigen_row', 'antigen_col', 'serum ID', 'secondary ID', 'secondary dilution',
+           'serum type', 'serum dilution', 'antigen', 'antigen type', 'pipeline'],
+                                 columns=['plate_id'])
+    pysero_df_pivot.reset_index(inplace=True)
+
+    antigen_OD_df = slice_df(pysero_df_pivot, 'keep', 'antigen type', ['Diagnostic'])
+    biotin_OD_df = slice_df(pysero_df_pivot, 'keep', 'antigen', ['xkappa-biotin'])
+    # biotin_OD_df = slice_df(biotin_OD_df, 'keep', 'antigen type', ['Fiducial'])
+    igg_OD_df = slice_df(pysero_df_pivot, 'keep', 'antigen', ['xIgG Fc'])
+    antigen_pos_df = slice_df(antigen_OD_df, 'keep', 'serum type', ['positive'])
+    antigen_neg_df = slice_df(antigen_OD_df, 'keep', 'serum type', ['negative'])
+
+    for x_col, y_col in zip(x_cols, y_cols):
+        # scatter_plot(pysero_df_pivot, x_col, y_col, fig_path, '_'.join(['OD_scatter', x_col, y_col, suffix]), xlim=limit, ylim=limit)
+        # scatter_plot(antigen_OD_df, x_col, y_col, 'antigen', fig_path,
+        #              '_'.join(['antigen_OD_scatter', x_col, y_col, suffix]), xlim=limit, ylim=limit)
+        # scatter_plot(biotin_OD_df, x_col, y_col, 'biotin', fig_path,
+        #              '_'.join(['biotin_OD_scatter', x_col, y_col, suffix]), xlim=limit, ylim=limit)
+        # scatter_plot(igg_OD_df, x_col, y_col, 'igg', fig_path,
+        #              '_'.join(['igg_OD_scatter', x_col, y_col, suffix]), xlim=limit, ylim=limit)
+        joint_plot(antigen_OD_df, x_col, y_col, 'antigen type', 'antigen', fig_path,
+                   '_'.join(['antigen_OD_joint', x_col, y_col, suffix]), bw='scott', n_levels=60, xlim=limit, ylim=limit)
+        joint_plot(antigen_pos_df, x_col, y_col, 'antigen type', 'antigen', fig_path,
+                   '_'.join(['antigen_pos_joint', x_col, y_col, suffix]), bw='scott', n_levels=60, xlim=limit, ylim=limit)
+        joint_plot(antigen_neg_df, x_col, y_col, 'antigen type', 'antigen', fig_path,
+                   '_'.join(['antigen_neg_joint', x_col, y_col, suffix]), bw='scott', n_levels=60, xlim=neg_limit, ylim=neg_limit)
+    plt.close('all')
+
 #%% plot the ODs and fits
 sera_4pl_list = [' '.join([x, 'fit']) for x in sera_fit_list]
 markers = 'o'
@@ -511,8 +460,5 @@ plt.savefig(os.path.join(fig_path, '{}_fit_zoom.jpg'.format(sera_fit_list)),dpi=
 #         plt.close()
 #
 #
-
-
-
 
 

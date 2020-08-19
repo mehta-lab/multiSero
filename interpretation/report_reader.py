@@ -125,3 +125,59 @@ def slice_df(df, slice_action, column, keys):
     else:
         raise ValueError('slice action has to be "keep" or "drop", not "{}"'.format(slice_action))
     return df
+
+
+def normalize_od_helper(norm_antigen):
+    def normalize(df):
+        norm_antigen_df = slice_df(df, 'keep', 'antigen', [norm_antigen])
+        norm_factor = norm_antigen_df['OD'].mean()
+        df['OD'] = df['OD'] / norm_factor
+        return df
+    return normalize
+
+
+def normalize_od(df, norm_antigen=None, group='plate'):
+    """fit model to x, y data in dataframe.
+    Return a dataframe with fit x, y for plotting
+    """
+    if norm_antigen is None:
+        return df
+    if group == 'plate':
+        groupby_cols = ['plate_id']
+    elif group == 'well':
+        groupby_cols = ['plate_id', 'well_id']
+    else:
+        ValueError('normalization group has to be plate or well, not {}'.format(group))
+    norm_antigen_df = slice_df(df, 'keep', 'antigen', [norm_antigen])
+    df.loc[df['antigen'] == norm_antigen, 'OD'] = norm_antigen_df['OD'] / norm_antigen_df['OD'].mean()
+    norm_fn = normalize_od_helper(norm_antigen)
+    df = df.groupby(groupby_cols).apply(norm_fn)
+    # df = df.reset_index()
+    return df
+
+
+def offset_od_helper(norm_antigen):
+    def offset(df):
+        norm_antigen_df = slice_df(df, 'keep', 'antigen', [norm_antigen])
+        norm_factor = norm_antigen_df['OD'].mean()
+        df['OD'] = df['OD'] - norm_factor
+        df.loc[df['OD'] < 0, 'OD'] = 0
+        return df
+    return offset
+
+
+def offset_od(df, norm_antigen=None, group='plate'):
+    """fit model to x, y data in dataframe.
+    Return a dataframe with fit x, y for plotting
+    """
+    if norm_antigen is None:
+        return df
+    if group == 'plate':
+        groupby_cols = ['plate_id']
+    elif group == 'well':
+        groupby_cols = ['plate_id', 'well_id']
+    else:
+        ValueError('normalization group has to be plate or well, not {}'.format(group))
+    norm_fn = offset_od_helper(norm_antigen)
+    df = df.groupby(groupby_cols).apply(norm_fn)
+    return df
