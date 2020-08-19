@@ -33,6 +33,8 @@ scn_psr_dirs = [r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion
                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-29-42-COVID_June24_OJassay_plate10_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200701_1047',
                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-29-42-COVID_June24_OJassay_plate10_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200701_1110',
                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-29-42-COVID_June24_OJassay_plate10_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200701_1141',
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-08-14-18-24-59-COVID_August14_OJassay_images/Stitched data from multiple outputs/pysero_biotin_fiducial_20200818_1526',
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-08-14-18-24-59-COVID_August14_OJassay_images/Stitched data from multiple outputs/pysero_IgG fiducial_20200818_1547'
                 ]
 
 scn_scn_dirs = [r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/',
@@ -41,25 +43,28 @@ scn_scn_dirs = [r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion
                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-44-32-COVID_June5_OJassay_plate8_images/',
                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-21-32-COVID_June24_OJassay_plate4_images/',
                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-29-42-COVID_June24_OJassay_plate10_images/',
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-08-14-18-24-59-COVID_August14_OJassay_images'
                 ]
 
-output_dir = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/OJ_plate3_9_7_8_4_10'
+output_dir = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/OJ_plate3_9_7_8_4_10_11'
 fig_path = os.path.join(output_dir, 'pysero_plots')
-scn_psr_plate_ids = ['plate_3'] * 4 + ['plate_9'] * 3 + ['plate_7'] * 3 + ['plate_8'] * 4 + ['plate_4'] * 3 + ['plate_10'] * 3
-scn_scn_plate_ids = ['plate_3', 'plate_9', 'plate_7', 'plate_8', 'plate_4', 'plate_10']
+scn_psr_plate_ids = ['plate_3'] * 4 + ['plate_9'] * 3 + ['plate_7'] * 3 + ['plate_8'] * 4 + ['plate_4'] * 3 + ['plate_10'] * 3 + ['plate_11'] * 2
+scn_scn_plate_ids = ['plate_3', 'plate_9', 'plate_7', 'plate_8', 'plate_4', 'plate_10', 'plate_11']
 scn_psr_slice_actions = ['keep', 'drop', 'keep', 'drop'] + \
                         [None, 'drop', 'keep'] + \
                         [None, 'drop', 'keep'] + \
                         [None, 'keep', 'drop', 'keep'] + \
                         [None, 'drop', 'keep'] + \
-                        [None, 'drop', 'keep']
+                        [None, 'drop', 'keep'] + \
+                        [None,None]
 scn_psr_well_ids = [['E3', 'E4'], ['E3', 'E4'], ['F2'], ['F2']] + \
                    [None, ['B7', 'B8', 'B10','B11','D3','D8','D9','D10','D11','F8','F9','F11','H2','H7','H8','H9','H10','H11'],
                 ['B7', 'B8', 'B10','B11','D3','D8','D9','D10','D11','F8','F9','F11','H2','H7','H8','H9','H10','H11']] + \
                    [None, ['B4','F2'], ['B4','F2']] + \
                    [None, ['B1','D4','D6','F5'], ['B1', 'B12','D4','D6','F5','H11'], ['B12','H11']] + \
                    [None, ['B3','B5','D1','D2','D5','F5'], ['B3','B5','D1','D2','D5','F5']] + \
-                   [None, ['B12','D2','D3','D1','D5','H2','H5'], ['B12','D1','D5','D2','D3','H2']]
+                   [None, ['B12','D2','D3','D1','D5','H2','H5'], ['B12','D1','D5','D2','D3','H2']] + \
+                    [None,None]
 sera_fit_list = ['Pool', 'mab', 'CR3022']
 sera_cat_list = ['Pool', 'mab', 'Blank', 'CR3022']
 sera_roc_list = sera_cat_list
