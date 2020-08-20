@@ -1,12 +1,15 @@
 # bchhun, {2020-03-22}
-
-import numpy as np
 import csv
+import natsort
+import numpy as np
+import os
 import xmltodict
 from xml.parsers.expat import ExpatError
 import xml.etree.ElementTree as ET
 import pandas as pd
 import math
+
+import array_analyzer.extract.constants as constants
 
 """
 functions like "create_<extension>_dict" parse files of <extension> and return:
@@ -349,3 +352,31 @@ def populate_array_antigen(arr, csv_antigens_):
         arr[r, c] = v
 
     return arr
+
+
+def rerun_xl_od(well_names, well_xlsx_path, rerun_names, xlsx_writer):
+    """
+    Load stats_per_well excel file and copy over existing well sheets
+    before rerunning some of the wells.
+
+    :param list well_names: Well names (e.g. ['B12', 'C2'])
+    :param str well_xlsx_path: Full path to well stats xlsx sheet
+    :param list rerun_names: Names of wells to be rerun
+    :param pd.ExcelWriter xlsx_writer: Pandas excel writer
+    """
+    rerun_set = set(rerun_names)
+    assert rerun_set.issubset(well_names), \
+        "All rerun wells can't be found in input directory"
+    assert os.path.isfile(well_xlsx_path),\
+        "Can't find stats_per_well excel: {}".format(well_xlsx_path)
+    ordered_dict = pd.read_excel(well_xlsx_path, sheet_name=None)
+    written_wells = list(ordered_dict.keys())
+    written_wells.remove('antigens')
+    # Find the difference between the sets
+    existing_wells = natsort.natsorted(
+        list(set(written_wells) - rerun_set),
+    )
+    # Write existing wells to well stats
+    for well_name in existing_wells:
+        well_df = pd.DataFrame(ordered_dict[well_name])
+        well_df.to_excel(xlsx_writer, sheet_name=well_name)

@@ -1,10 +1,6 @@
-from copy import copy
-
 import cv2 as cv
 import numpy as np
 
-from scipy.signal import find_peaks
-from scipy.ndimage.filters import gaussian_filter1d
 from skimage.measure import label
 from skimage import util as u
 from skimage.morphology import disk, ball, binary_opening, binary_erosion
@@ -122,90 +118,26 @@ def create_multiotsu_mask(input_image, n_class, fg_class, str_elem_size=3):
     return mask
 
 
-def find_profile_peaks(profile, margin, prominence):
-    # invert because black spots
-    profile = profile.max() - profile
-    max_pos = int(np.where(profile == profile.max())[0][0])
-    # Make sure max is not due to leaving the center
-    add_margin = 0
-    half_margin = int(margin / 2)
-    if max_pos > len(profile) - half_margin:
-        profile = profile[:-half_margin]
-    elif max_pos < half_margin:
-        profile = profile[half_margin:]
-        add_margin = half_margin
-    profile = gaussian_filter1d(profile, 3)
-    min_prom = profile.max() * prominence
-    peaks, _ = find_peaks(profile, prominence=min_prom, distance=50)
-    if len(peaks) >= 4:
-        spot_dists = peaks[1:] - peaks[:-1]
-    else:
-        spot_dists = None
-    mean_pos = peaks[0] + (peaks[-1] - peaks[0]) / 2 + add_margin
-    return mean_pos, spot_dists
-
-
-def grid_estimation(im,
-                    spot_coords,
-                    margin=50,
-                    prominence=.15):
-    """
-    Based on images intensities and detected spots, make an estimation
-    of grid location so that ICP algorithm is initialized close enough for convergence.
-    TODO: This assumes that you always detect the first peaks
-    this may be unstable so think of other ways to initialize...
-    :param np.array im: Grayscale image
-    :param np.array spot_coords: Spot x,y coordinates (nbr spots x 2)
-    :param int margin: Margin for cropping outside all detected spots
-    :param float prominence: Fraction of max intensity to filter out insignificant peaks
-    :return tuple start_point: Min x, y coordinates for initial grid estimate
-    :return float spot_dist: Estimated distance between spots
-    """
-    im_shape = im.shape
-    x_min = int(max(margin, np.min(spot_coords[:, 0]) - margin))
-    x_max = int(min(im_shape[1] - margin, np.max(spot_coords[:, 0]) + margin))
-    y_min = int(max(margin, np.min(spot_coords[:, 1]) - margin))
-    y_max = int(min(im_shape[0] - margin, np.max(spot_coords[:, 1]) + margin))
-    im_roi = im[y_min:y_max, x_min:x_max]
-    # Create intensity profiles along x and y and find peaks
-    profile_x = np.mean(im_roi, axis=0)
-    mean_x, dists_x = find_profile_peaks(profile_x, margin, prominence)
-    profile_y = np.mean(im_roi, axis=1)
-    mean_y, dists_y = find_profile_peaks(profile_y, margin, prominence)
-
-    mean_point = (x_min + mean_x, y_min + mean_y)
-    spot_dist = np.hstack([dists_x, dists_y])
-    # Remove invalid distances
-    spot_dist = spot_dist[np.where(spot_dist != None)]
-    if spot_dist.size == 0:
-        # Failed at estimating spot dist. Return default or error out?
-        spot_dist = None
-    else:
-        spot_dist = np.median(spot_dist)
-
-    return mean_point, spot_dist
-
-
-def crop_image_from_coords(im, grid_coords, margin=200):
+def crop_image_from_coords(im, coords, margin=200):
     """
     Given image coordinates, crop image around them with a margin.
 
     :param np.array im: 2D image
-    :param np.array grid_coords: Fitted grid coordinates which should be contained
+    :param np.array coords: Grid coordinates which should be contained
         in the cropped image (nbr points x 2)
     :param int margin: How much margin around the coordinates
     :return np.array im_roi: Cropped image
-    :return np.array grid_coords: Grid coordinates with new origin (rows, cols)
+    :return np.array crop_coords: Grid coordinates with new origin (rows, cols)
     """
     im_shape = im.shape
-    row_min = int(max(0, np.min(grid_coords[:, 0]) - margin))
-    row_max = int(min(im_shape[0], np.max(grid_coords[:, 0]) + margin))
-    col_min = int(max(0, np.min(grid_coords[:, 1]) - margin))
-    col_max = int(min(im_shape[1], np.max(grid_coords[:, 1]) + margin))
+    row_min = int(max(0, np.min(coords[:, 0]) - margin))
+    row_max = int(min(im_shape[0], np.max(coords[:, 0]) + margin))
+    col_min = int(max(0, np.min(coords[:, 1]) - margin))
+    col_max = int(min(im_shape[1], np.max(coords[:, 1]) + margin))
     im_crop = im[row_min:row_max, col_min:col_max]
 
     # Update coordinates with new origin
-    crop_coords = grid_coords.copy()
+    crop_coords = coords.copy()
     crop_coords[:, 0] = crop_coords[:, 0] - row_min + 1
     crop_coords[:, 1] = crop_coords[:, 1] - col_min + 1
     return im_crop, crop_coords

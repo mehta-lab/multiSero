@@ -1,6 +1,7 @@
-# bchhun, {2020-04-06}
-
+import itertools
 import numpy as np
+import pandas as pd
+
 import array_analyzer.extract.constants as constants
 import array_analyzer.extract.img_processing as img_processing
 import array_analyzer.extract.txt_parser as txt_parser
@@ -58,13 +59,13 @@ def build_centroid_binary_blocks(cent_list, image_, params_, return_type='region
         return target
 
 
-def get_spot_intensity(coords, im, background, params, search_range=2):
+def get_spot_intensity(coords, im, background, search_range=2):
     """
     Extract signal and background intensity at each spot given the spot coordinate
     with the following steps:
     1. crop image around each grid point
     2. Segment 1 single spot from each image
-    3. Get median intensity within the spot mask
+    3. Get median intensity, background and OD within the spot mask
     4. If segmentation in 2. returns no mask, use a circular mask with average spot size as the spot mask and do 3.
 
     :param coords: list or tuple
@@ -73,46 +74,31 @@ def get_spot_intensity(coords, im, background, params, search_range=2):
         intensity image of the spots (signals)
     :param background: ndarray
         background image without spots
-    :param params: dict
-        parameters parsed from the metadata
     :param float search_range: Factor of bounding box size in which to search for
         spots. E.g. 2 searches 2 * 2 * bbox width * bbox height
-    :return: dict
-        dictionary with format (row index, column index): prop
+    :return pd.DataFrame spots_df: Dataframe containing metrics for
+        all spots in the grid
+    :return np.array spot_props: A SpotRegionprop object with ROIs for
+        each spot in the grid
     """
     # values in mm
-    spot_width = params['spot_width']
-    pix_size = params['pixel_size']
-    n_rows = params['rows']
-    n_cols = params['columns']
+    spot_width = constants.params['spot_width']
+    pix_size = constants.params['pixel_size']
+    n_rows = constants.params['rows']
+    n_cols = constants.params['columns']
     # make spot size always odd
     spot_size = 2 * int(0.3 * spot_width / pix_size) + 1
     bbox_width = bbox_height = spot_size
+    # Strel disk size for spot segmentation
+    disk_size = int(np.rint(spot_size / 2.5))
 
-    row_min = np.min(coords[:, 0])
-    row_max = np.max(coords[:, 0])
-    col_min = np.min(coords[:, 1])
-    col_max = np.max(coords[:, 1])
-
-    spot_props = txt_parser.create_array(
-        constants.params['rows'],
-        constants.params['columns'],
-        dtype=object,
-    )
-    bg_props = txt_parser.create_array(
-        constants.params['rows'],
-        constants.params['columns'],
-        dtype=object,
-    )
-
-    # scaled max-col, max-row
-    row_range = row_max - row_min
-    col_range = col_max - col_min
-    for count, coord in enumerate(coords):
-        # convert the centroid position to an integer that maps to array indices
-        grid_row_idx = int(round((n_rows - 1) * ((coord[0] - row_min) / row_range)))
-        grid_col_idx = int(round((n_cols - 1) * ((coord[1] - col_min) / col_range)))
-        grid_id = (grid_row_idx, grid_col_idx)
+    # Array of SpotRegionprop objects to hold ROIs
+    spot_props = txt_parser.create_array(n_rows, n_cols, dtype=object)
+    # Dataframe to hold spot metrics for the well
+    spots_df = pd.DataFrame(columns=constants.SPOT_DF_COLS)
+    row_col_iter = itertools.product(np.arange(n_rows), np.arange(n_cols))
+    for count, (row_idx, col_idx) in enumerate(row_col_iter):
+        coord = coords[count, :]
         # make bounding boxes larger to account for interpolation errors
         spot_height = int(np.round(search_range * bbox_height))
         spot_width = int(np.round(search_range * bbox_width))
@@ -126,16 +112,17 @@ def get_spot_intensity(coords, im, background, params, search_range=2):
         mask_spot = img_processing.thresh_and_binarize(
             image=im_spot_lg,
             method='bright_spots',
+            disk_size=disk_size,
             thr_percent=75,
             get_lcc=True,
         )
         # Create spot and background instance
         spot_prop = regionprop.SpotRegionprop(
+            row_idx=row_idx,
+            col_idx=col_idx,
             label=count,
         )
-        bg_prop = regionprop.SpotRegionprop(
-            label=count,
-        )
+
         # Mask spot should cover a certain percentage of ROI
         if np.mean(mask_spot) > constants.SPOT_MIN_PERCENT_AREA:
             # Mask detected
@@ -147,11 +134,7 @@ def get_spot_intensity(coords, im, background, params, search_range=2):
             )
             spot_prop.generate_props_from_mask(
                 image=im_spot_lg,
-                mask=mask_spot,
-                bbox=bbox_lg,
-            )
-            bg_prop.generate_props_from_mask(
-                image=bg_spot_lg,
+                background=bg_spot_lg,
                 mask=mask_spot,
                 bbox=bbox_lg,
             )
@@ -169,22 +152,13 @@ def get_spot_intensity(coords, im, background, params, search_range=2):
                 bbox_height,
                 bbox_width,
             )
-            # Create disk mask
-            mask_spot = spot_prop.make_mask(im_spot.shape[0])
             spot_prop.generate_props_from_disk(
                 image=im_spot,
-                mask=mask_spot,
+                background=bg_spot,
                 bbox=bbox,
                 centroid=coord,
             )
-            bg_prop.generate_props_from_disk(
-                image=bg_spot,
-                mask=mask_spot,
-                bbox=bbox,
-                centroid=coord,
-            )
+        spots_df = spots_df.append(spot_prop.spot_dict, ignore_index=True)
+        spot_props[row_idx, col_idx] = spot_prop
 
-        spot_props[grid_id] = spot_prop
-        bg_props[grid_id] = bg_prop
-
-    return spot_props, bg_props
+    return spots_df, spot_props

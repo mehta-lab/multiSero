@@ -1,3 +1,5 @@
+import argparse
+import os
 import pytest
 from unittest.mock import patch
 
@@ -40,3 +42,25 @@ def test_parse_args_mutially_exclusive():
                 '--output', 'output_dir_name']):
         with pytest.raises(BaseException):
             pysero.parse_args()
+
+
+def test_run_pysero_analyze(tmpdir_factory):
+    input_dir = tmpdir_factory.mktemp("input_dir")
+    output_dir = tmpdir_factory.mktemp("output_dir")
+
+    args = argparse.Namespace()
+    args.input = input_dir
+    args.output = output_dir
+    args.metadata = 'xlsx'
+    args.debug = True
+    args.extract_od = False
+    args.analyze_od = True
+    args.rerun = False
+    with pytest.raises(NotImplementedError):
+        pysero.run_pysero(args)
+    # Check that run path is created and log file is written
+    output_subdir = os.listdir(output_dir)
+    assert len(output_subdir) == 1
+    output_subdir = os.path.join(output_dir, output_subdir[0])
+    log_file = os.listdir(output_subdir)
+    assert log_file[0] == 'pysero.log'

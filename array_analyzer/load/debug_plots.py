@@ -1,8 +1,6 @@
 # bchhun, {2020-03-26}
 
 import cv2 as cv
-import skimage as si
-import skimage.io
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -19,11 +17,10 @@ def save_all_wells(region_props_array, spot_ids_, output_folder, well_name):
 
             prop = region_props_array[row][col]
             if prop is not None:
-                si.io.imsave(output_folder + os.sep + well_name + f"_{cell}.png",
-                             (255 * prop.intensity_image).astype('uint8'))
-            else:
-                si.io.imsave(output_folder + os.sep + well_name + f"_{cell}.png",
-                             (255 * np.ones((32, 32)).astype('uint8')))
+                cv.imwrite(
+                    output_folder + os.sep + well_name + f"_{cell}.png",
+                    (255 * prop.intensity_image).astype('uint8'),
+                )
 
 
 def save_composite_spots(spot_props,
@@ -52,8 +49,12 @@ def save_composite_spots(spot_props,
         for col in range(spot_props.shape[1]):
             # Get properties for individual spot
             spot_prop = spot_props[row, col]
+            spot_dict = spot_prop.spot_dict
             if spot_prop is not None:
-                min_row, min_col, max_row, max_col = spot_prop.bbox
+                min_row = spot_dict['bbox_row_min']
+                min_col = spot_dict['bbox_col_min']
+                max_row = spot_dict['bbox_row_max']
+                max_col = spot_dict['bbox_col_max']
                 if not from_source:
                     # Plot only intensities inside mask
                     bbox_mask = bbox_image[min_row:max_row, min_col:max_col]
@@ -71,8 +72,7 @@ def save_composite_spots(spot_props,
 
 def plot_centroid_overlay(im_crop,
                           params,
-                          props_by_loc,
-                          bgprops_by_loc,
+                          spots_df,
                           output_name):
 
     plt.imshow(im_crop, cmap='gray')
@@ -80,18 +80,17 @@ def plot_centroid_overlay(im_crop,
     im_name = os.path.basename(output_name)
     for r in np.arange(params['rows']):
         for c in np.arange(params['columns']):
-            try:
-                ceny, cenx = props_by_loc[(r, c)].centroid
-            except:
-                spot_text = '(' + str(r) + ',' + str(c) + ')'
-                print(spot_text + 'not found')
-            else:
-                cenybg, cenxbg = bgprops_by_loc[(r, c)].centroid
-                plt.plot(cenx, ceny, 'm+', ms=10)
-                plt.plot(cenxbg, cenybg, 'gx', ms=10)
-                spot_text = '(' + str(r) + ',' + str(c) + ')'
-                plt.text(cenx, ceny - 5, spot_text, va='bottom', ha='center', color='w')
-                plt.text(0, 0, im_name + ',spot count=' + str(len(props_by_loc)))
+            df_row = spots_df[(spots_df['grid_row'] == r) & (spots_df['grid_col'] == c)]
+            plt.plot(df_row['centroid_row'], df_row['centroid_col'], 'm+', ms=10)
+            spot_text = '(' + str(r) + ',' + str(c) + ')'
+            plt.text(
+                df_row['centroid_row'],
+                df_row['centroid_col'] - 5,
+                spot_text, va='bottom',
+                ha='center',
+                color='w',
+            )
+            plt.text(0, 0, im_name + ',spot count=' + str(spots_df.shape[0]))
 
     figcentroid = plt.gcf()
     centroids_debug = output_name + '_overlay_centroids.png'
@@ -99,14 +98,33 @@ def plot_centroid_overlay(im_crop,
     plt.close(figcentroid)
 
 
-def plot_od(od_well,
-            i_well,
-            bg_well,
+def plot_od(spots_df,
+            nbr_grid_rows,
+            nbr_grid_cols,
             output_name):
+    """
+    Collect OD, intensity and background values for each spot and place
+    values in grid shaped arrays and plot them side by side.
+
+    :param pd.DataFrame spots_df: Stats for each spot in grid
+    :param int nbr_grid_rows: Number of grid rows
+    :param int nbr_grid_cols: Number of grid columns
+    :param str output_name: Path to image to be written minus exension
+    """
+    intensity_well = np.empty((nbr_grid_rows, nbr_grid_cols))
+    bg_well = intensity_well.copy()
+    od_well = intensity_well.copy()
+
+    for r in np.arange(nbr_grid_rows):
+        for c in np.arange(nbr_grid_cols):
+            df_row = spots_df[(spots_df['grid_row'] == r) & (spots_df['grid_col'] == c)]
+            intensity_well[r, c] = df_row['intensity_median']
+            bg_well[r, c] = df_row['bg_median']
+            od_well[r, c] = df_row['od_norm']
 
     plt.figure(figsize=(6, 1.5))
     plt.subplot(131)
-    plt.imshow(i_well, cmap='gray')
+    plt.imshow(intensity_well, cmap='gray')
     plt.colorbar()
     plt.title('intensity')
 
@@ -126,16 +144,16 @@ def plot_od(od_well,
     plt.close(figOD)
 
 
-def plot_background_overlay(im, im_background, output_name):
+def plot_background_overlay(im, background, output_name):
     """
     Writes color image with background overlaid.
 
     :param np.array im: 2D grayscale image
-    :param np.array im_background: 2D grayscale image
+    :param np.array background: 2D grayscale background corresponding to image
     :param str output_name: Path and image name minus extension
     """
-    im_stack = np.stack([im_background, im, im_background], axis=2)
-    skimage.io.imsave(
+    im_stack = np.stack([background, im, background], axis=2)
+    cv.imwrite(
         output_name + "_crop_bg_overlay.png",
         (255 * im_stack).astype('uint8'),
     )
