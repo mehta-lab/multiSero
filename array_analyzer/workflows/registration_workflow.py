@@ -72,6 +72,10 @@ def point_registration(input_dir, output_dir):
         )
         reporter.load_existing_reports()
         well_names = constants.RERUN_WELLS
+        # remove debug images from old runs
+        for f in os.listdir(constants.RUN_PATH):
+            if f.split('_')[0] in well_names:
+                os.remove(os.path.join(constants.RUN_PATH, f))
     else:
         reporter.create_new_reports()
 
