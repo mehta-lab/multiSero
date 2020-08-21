@@ -33,8 +33,8 @@ scn_psr_dirs = [r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion
                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-29-42-COVID_June24_OJassay_plate10_images/Stitched data from multiple pysero outputs/pysero_biotin_fiducial_20200701_1047',
                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-29-42-COVID_June24_OJassay_plate10_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200701_1110',
                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-29-42-COVID_June24_OJassay_plate10_images/Stitched data from multiple pysero outputs/pysero_igg_fiducial_20200701_1141',
-                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-08-14-18-24-59-COVID_August14_OJassay_images/Stitched data from multiple outputs/pysero_biotin_fiducial_20200818_1526',
-                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-08-14-18-24-59-COVID_August14_OJassay_images/Stitched data from multiple outputs/pysero_IgG fiducial_20200818_1547'
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-08-14-18-24-59-COVID_August14_OJassay_plate11_images/Stitched data from multiple outputs/pysero_biotin_fiducial_20200818_1526',
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-08-14-18-24-59-COVID_August14_OJassay_plate11_images/Stitched data from multiple outputs/pysero_IgG fiducial_20200818_1547'
                 ]
 
 scn_scn_dirs = [r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-18-08-COVID_June24_OJassay_plate3_images/',
@@ -43,7 +43,7 @@ scn_scn_dirs = [r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion
                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-05-15-44-32-COVID_June5_OJassay_plate8_images/',
                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-21-32-COVID_June24_OJassay_plate4_images/',
                 r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-06-24-17-29-42-COVID_June24_OJassay_plate10_images/',
-                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-08-14-18-24-59-COVID_August14_OJassay_images'
+                r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/2020-08-14-18-24-59-COVID_August14_OJassay_plate11_images',
                 ]
 
 output_dir = r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_scienion/OJ_plate3_9_7_8_4_10_11'
@@ -92,24 +92,26 @@ ntl_dirs = [r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/202
             r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-08-COVID_June5_OJassay_plate8_images_2020-06-08 20-38-40.554230/0 renamed/igg_fiducial/pysero_igg_fiducial_20200728_1108',
             r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-24-COVID_June24_OJAssay_Plate4_images_655_2020-06-24 18-13-40.894052/0 renamed/biotin_fiducial/pysero_biotin_fiducial_20200728_0921',
             r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-24-COVID_June24_OJAssay_Plate4_images_655_2020-06-24 18-13-40.894052/0 renamed/igg_fiducial/pysero_igg_fiducial_20200709_1411',
-            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-24-COVID_June24_OJAssay_Plate4_images_655_2020-06-24 18-13-40.894052/0 renamed/igg_fiducial/pysero_igg_fiducial_20200728_0956',]
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-06-24-COVID_June24_OJAssay_Plate4_images_655_2020-06-24 18-13-40.894052/0 renamed/igg_fiducial/pysero_igg_fiducial_20200728_0956',
+            r'/Volumes/GoogleDrive/My Drive/ELISAarrayReader/images_nautilus/2020-08-14-COVID_Aug14_OJ_Plate11_2020-08-14 19-29-59.049679/pysero_0_renamed_16bit_20200819_1557']
 
-ntl_plate_ids = ['plate_10'] * 5 + ['plate_3'] * 4 + ['plate_9'] * 4 + ['plate_7'] * 4 + ['plate_8'] * 3 + ['plate_4'] * 3
+ntl_plate_ids = ['plate_10'] * 5 + ['plate_3'] * 4 + ['plate_9'] * 4 + ['plate_7'] * 4 + ['plate_8'] * 3 + ['plate_4'] * 3 + ['plate_11']
 
 ntl_slice_actions = [None, 'drop','drop','keep','keep'] +\
                   [None,'drop','keep','keep'] +\
                   [None, 'drop','drop','keep'] +\
                   [None, 'keep', 'drop', 'keep'] +\
                   [None,'drop','keep'] +\
-                   [None,'drop','keep']
-
+                   [None,'drop','keep'] +\
+                    [None]
 
 ntl_well_ids = [None,['B2', 'B6', 'B7', 'B8', 'B9', 'B10', 'B11', 'B12', 'D6', 'D7', 'D8', 'D9', 'D10', 'D11', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'H4', 'H5', 'H6', 'H7', 'H8', 'H9', 'H10', 'H11'],['B1', 'B2', 'B4', 'B12', 'D2', 'D4', 'D5', 'D8', 'F3','H4','B3','B5','D1','D2','D3','D12','F1','F2','F4','F5','F12','H1','H2','H3','H12'],['B12', 'H4'],['B2','D8']] + \
            [None, ['D3', 'D4','D7','D8','D9','D10', 'D11', 'F7', 'F8', 'F9','F10', 'F12','H7','H9','H10','H11'],['D3', 'D8','D9','D10','D11','F8','F9','F10','H7','H9','H10','H11'], ['D4','D7','F7','F12']] + \
             [None, ['B1',' B2', 'B5','B7','B8','b9','b10','B11','D3','D5','D7','D8','D9','D10','D11','F7','F8','F9','F10','F11','H7','H8','H9','H10','H11'], ['B5','D5','D6'],['B5','D2','D6']] + \
             [None, ['B2','B12','D3','D12', 'F4','F12','H1','H2','H3','H6'], ['B2','B12','D3','D12', 'F4','F12','H1','H2','H3','H6','B7','B8','B9','B10','B11','D7','D8','D9','D10','D11','F2','F6','F7','F8','F9','F10','F11','H4','H7','H8','H9','H10','H11','H12'], ['B7','B8','B9','B10','B11','D7','D8','D9','D10','D11','F2','F6','F7','F8','F9', 'F10','F11','H4','H7','H8','H9','H10','H11','H12']] + \
             [None, ['B9','B10','B11','B12','D7','D8','D9','D11','F6','F7','F8','F9','F10','F11','H6','H7','H8','H9', 'H11','H12'], ['B9','B10','B11','D7','D8','D9','D11','F6','F7','F8','F9','F10','F11','H6','H7','H8','H9', 'H11','H12']] + \
-            [None,['D1','D5','D12','H2'], ['D1','D5','D12','H2']]
+            [None,['D1','D5','D12','H2'], ['D1','D5','D12','H2']] + \
+            [None]
 #%%
 os.makedirs(fig_path, exist_ok=True)
 load_master_report = True
@@ -139,6 +141,7 @@ if not load_master_report:
 
     for data_folder, slice_action, well_id, plate_id in \
             zip(scn_psr_dirs, scn_psr_slice_actions, scn_psr_well_ids, scn_psr_plate_ids):
+        print('Load {}...'.format(data_folder))
         metadata_path = os.path.join(data_folder, 'pysero_output_data_metadata.xlsx')
         OD_path = os.path.join(data_folder, 'median_ODs.xlsx')
         int_path = os.path.join(data_folder, 'median_intensities.xlsx')
@@ -172,6 +175,7 @@ if not load_master_report:
     #%
     for data_folder, slice_action, well_id, plate_id in \
             zip(ntl_dirs, ntl_slice_actions, ntl_well_ids, ntl_plate_ids):
+        print('Load {}...'.format(data_folder))
         metadata_path = os.path.join(data_folder, 'pysero_output_data_metadata.xlsx')
         OD_path = os.path.join(data_folder, 'median_ODs.xlsx')
         int_path = os.path.join(data_folder, 'median_intensities.xlsx')
@@ -241,24 +245,23 @@ offset_antigen = None
 # norm_group = 'well'
 offset_group = 'well'
 antigen_list = ['SARS CoV2 N 50', 'SARS CoV2 RBD 250', 'SARS CoV2 spike 62.5']
-
-
+# sample_type = 'Orasure'
+sample_type = 'Serum'
+# slice_cols = ['serum ID', 'antigen type', 'antigen']
+# slice_keys = [sera_roc_list, ['Diagnostic'], antigen_list]
+# scn_psr_slice_actions = ['drop', 'keep', 'keep']
+slice_cols = ['serum ID', 'antigen type', 'sample type']
+slice_keys = [sera_roc_list, ['Diagnostic'], [sample_type]]
+slice_actions = ['drop', 'keep', 'keep']
 for pipeline in stitched_pysero_df['pipeline'].unique():
 # for pipeline in ['nautilus']:
     df_norm = stitched_pysero_df.copy()
     df_norm = slice_df(df_norm, 'keep', 'pipeline', [pipeline])
     df_norm = normalize_od(df_norm, norm_antigen, group=norm_group)
     df_norm = offset_od(df_norm, offset_antigen, offset_group)
-    suffix = pipeline
+    suffix = '_'.join([pipeline, sample_type])
     if norm_antigen is not None:
         suffix = '_'.join([suffix, norm_antigen, 'norm_per', norm_group])
-
-    # slice_cols = ['serum ID', 'antigen type', 'antigen']
-    # slice_keys = [sera_roc_list, ['Diagnostic'], antigen_list]
-    # scn_psr_slice_actions = ['drop', 'keep', 'keep']
-    slice_cols = ['serum ID', 'antigen type']
-    slice_keys = [sera_roc_list, ['Diagnostic']]
-    slice_actions = ['drop', 'keep']
     for col, action, key in zip(slice_cols, slice_actions, slice_keys):
         df_norm = slice_df(df_norm, action, col, key)
     roc_df = df_norm.copy()

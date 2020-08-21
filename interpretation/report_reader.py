@@ -42,7 +42,8 @@ def read_plate_info(metadata_xlsx):
                    'serum dilution',
                    'serum type',
                    'secondary ID',
-                   'secondary dilution']
+                   'secondary dilution',
+                   'sample type']
     plate_info_df = pd.DataFrame()
     # get sheet names that are available in metadata
     sheet_names = list(set(metadata_xlsx.sheet_names).intersection(sheet_names))
@@ -66,6 +67,8 @@ def read_plate_info(metadata_xlsx):
         # convert dilution to concentration
         plate_info_df['serum dilution'] = 1 / plate_info_df['serum dilution']
     plate_info_df.drop(['row_id', 'col_id'], axis=1, inplace=True)
+    if 'sample type' not in sheet_names:
+        plate_info_df['sample type'] = 'Serum'
     return plate_info_df
 
 
@@ -83,8 +86,12 @@ def read_pysero_output(file_path, antigen_df, file_type='od'):
     data_df = pd.DataFrame()
 
     with pd.ExcelFile(file_path) as file:
+        sheet_names = file.sheet_names
         for _, row in antigen_df.iterrows():
-            sheet_name = '{}_{}_{}_{}'.format(file_type, row['antigen_row'], row['antigen_col'], row['antigen'])
+            if sheet_names[0][0].isnumeric(): # new format
+                sheet_name = '{}_{}_{}'.format(row['antigen_row'], row['antigen_col'], row['antigen'])
+            else:
+                sheet_name = '{}_{}_{}_{}'.format(file_type, row['antigen_row'], row['antigen_col'], row['antigen'])
             data_1_antiten_df = well2D_to_df1D(xlsx_path=file, sheet=sheet_name, data_col=data_col[file_type])
             data_1_antiten_df['antigen_row'] = row['antigen_row']
             data_1_antiten_df['antigen_col'] = row['antigen_col']

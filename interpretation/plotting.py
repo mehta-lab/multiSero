@@ -140,7 +140,7 @@ def roc_plot(x, y, **kwargs):
 def roc_plot_grid(roc_df, fig_path, fig_name, ext, col_wrap=3):
     # Plot ROC curves
     hue = 'serum dilution'
-    fpr = 0.05
+    fpr = 0.01
     antigens = natsorted(roc_df['antigen'].unique())
     sns.set_context("notebook")
     assert not roc_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
