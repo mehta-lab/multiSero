@@ -79,6 +79,9 @@ SPOT_DIST_UM = int()
 STDS = [100, 100, 2, .01]  # x, y, angle, scale
 NBR_PARTICLES = 4000
 REG_DIST_THRESH = 100
+MEAN_POINT = (0, 0)
+SCALE_MEAN = 1.
+ANGLE_MEAN = 0.
 
 # Requirement of minimum number of detected spots
 MIN_NBR_SPOTS = 5
