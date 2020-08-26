@@ -105,6 +105,11 @@ def get_image_paths(input_dir):
             if re.match(r'[A-P][0-9]{1,2}',well_name):
                 well_images[well_name] = im_name
 
+    # Check that wells are found, refer to docs if not
+    assert len(well_images) > 0,\
+        "No wells found, check documentation for naming conventions"\
+        "And conversion scripts 12to16bit.py and rename_only.py"
+
     return well_images
 
 

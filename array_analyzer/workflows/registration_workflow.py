@@ -112,54 +112,21 @@ def point_registration(input_dir, output_dir):
             logging.warning("Not enough spots detected in {},"
                             "continuing.".format(well_name))
             continue
-
-        # Initial estimate of spot center
-        center_point = tuple((im_well.shape[0] / 2, im_well.shape[1] / 2))
-        grid_coords = registration.create_reference_grid(
-            center_point=center_point,
-            nbr_grid_rows=nbr_grid_rows,
-            nbr_grid_cols=nbr_grid_cols,
-            spot_dist=constants.SPOT_DIST_PIX,
-        )
-        fiducial_coords = grid_coords[fiducials_idx, :]
-
-        # Use particle filter to register fiducials to detected spots
-        registration_ok = True
-        particles = registration.create_gaussian_particles(
-            stds=np.array(constants.STDS),
-            nbr_particles=constants.NBR_PARTICLES,
-        )
-        t_matrix, registered_dist = registration.particle_filter(
-            fiducial_coords=fiducial_coords,
+        # Create particle filter registration instance
+        register_inst = registration.ParticleFilter(
             spot_coords=spot_coords,
-            particles=particles,
-            stds=np.array(constants.STDS),
-            logger=logger,
+            im_shape=im_well.shape,
+            fiducials_idx=fiducials_idx,
         )
-        if registered_dist > constants.REG_DIST_THRESH:
+        register_inst.particle_filter()
+        if not register_inst.registration_ok:
             logger.warning("Registration failed for {}, "
                            "repeat with outlier removal".format(well_name))
-            t_matrix, registered_dist = registration.particle_filter(
-                fiducial_coords=fiducial_coords,
-                spot_coords=spot_coords,
-                particles=particles,
-                stds=np.array(constants.STDS),
-                logger=logger,
-                nbr_outliers=nbr_outliers,
-            )
-            # Warn if fit is still bad
-            if registered_dist > constants.REG_DIST_THRESH:
-                registration_ok = False
-        logger.info("Particle filter min dist: {}".format(registered_dist))
-
+            register_inst.particle_filter(nbr_outliers=nbr_outliers)
         # Transform grid coordinates
-        reg_coords = np.squeeze(cv.transform(np.array([grid_coords]), t_matrix))
+        registered_coords = register_inst.compute_registered_coords()
         # Check that registered coordinates are inside well
-        registration_ok = registration.check_reg_coords(
-            reg_coords=reg_coords,
-            im_shape=im_well.shape,
-            registration_ok=registration_ok,
-        )
+        registration_ok = register_inst.check_reg_coords()
         if not registration_ok:
             logger.warning("Final registration failed,"
                            "will not write OD for {}".format(well_name))
@@ -167,8 +134,8 @@ def point_registration(input_dir, output_dir):
                 debug_plots.plot_registration(
                     im_well,
                     spot_coords,
-                    fiducial_coords,
-                    reg_coords,
+                    register_inst.fiducial_coords,
+                    registered_coords,
                     os.path.join(constants.RUN_PATH, well_name + '_failed'),
                     max_intensity=max_intensity,
                 )
@@ -177,7 +144,7 @@ def point_registration(input_dir, output_dir):
         # Crop image
         im_crop, crop_coords = img_processing.crop_image_from_coords(
             im=im_well,
-            coords=reg_coords,
+            coords=registered_coords,
         )
         im_crop = im_crop / max_intensity
         # Estimate background
@@ -187,7 +154,6 @@ def point_registration(input_dir, output_dir):
             coords=crop_coords,
             im=im_crop,
             background=background,
-            params=constants.params,
         )
         # Write metrics for each spot in grid in current well
         spots_df.to_excel(well_xlsx_writer, sheet_name=well_name)
@@ -227,8 +193,8 @@ def point_registration(input_dir, output_dir):
             debug_plots.plot_registration(
                 image=im_well,
                 spot_coords=spot_coords,
-                grid_coords=fiducial_coords,
-                reg_coords=reg_coords,
+                grid_coords=register_inst.fiducial_coords,
+                reg_coords=registered_coords,
                 output_name=output_name,
                 max_intensity=max_intensity,
             )
