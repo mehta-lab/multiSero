@@ -11,7 +11,7 @@ def antigen2D_to_df1D(xlsx_path, sheet, data_col):
     :return:
     """
     df = pd.read_excel(xlsx_path, sheet_name=sheet, index_col=0)
-    df = df.unstack().reset_index(name=data_col)  # unpivot (linearize) the table
+    df = df.unstack().reset_index(name=data_col)  # linearize the table
     df.rename(columns={'level_1': 'antigen_row', 'level_0': 'antigen_col'}, inplace=True)
     df[['antigen_row', 'antigen_col']] = df[['antigen_row', 'antigen_col']].applymap(int)
     df = df[['antigen_row', 'antigen_col', data_col]]

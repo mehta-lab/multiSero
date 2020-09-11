@@ -216,18 +216,8 @@ if not load_master_report:
     stitched_pysero_df.to_csv(os.path.join(output_dir, 'master_report.csv'))
 else:
     stitched_pysero_df = pd.read_csv(os.path.join(output_dir, 'master_report.csv'), index_col=0, low_memory=False)
-#%% 4PL fit
-slice_cols = ['pipeline', 'serum ID']
-slice_keys = [['python'], sera_fit_list]
-scn_psr_slice_actions = ['keep', 'keep']
-serum_df = stitched_pysero_df.copy()
-serum_df_fit = stitched_pysero_df.copy()
-for col, action, key in zip(slice_cols, scn_psr_slice_actions, slice_keys):
-    serum_df = slice_df(serum_df, action, col, key)
-    serum_df_fit = slice_df(serum_df_fit, action, col, key)
-serum_df_fit = fit2df(serum_df_fit, fourPL, 'python')
 
-
+stitched_pysero_df.loc[stitched_pysero_df['antigen']=='xIgG Fc', 'antigen type'] = 'Positive'
 #%% functions to compute ROC curves and AUC
 # for plate_id in stitched_pysero_df['plate_id'].unique():
 # for plate_id in ['plate_8']:
@@ -237,6 +227,7 @@ serum_df_fit = fit2df(serum_df_fit, fourPL, 'python')
 
 norm_antigen = 'xIgG Fc'
 # norm_antigen = 'xkappa-biotin'
+# norm_antigen = None
 norm_group = 'plate'
 aggregate = 'mean'
 # aggregate = None
@@ -250,46 +241,49 @@ sample_type = 'Serum'
 # slice_cols = ['serum ID', 'antigen type', 'antigen']
 # slice_keys = [sera_roc_list, ['Diagnostic'], antigen_list]
 # scn_psr_slice_actions = ['drop', 'keep', 'keep']
-slice_cols = ['serum ID', 'antigen type', 'sample type']
-slice_keys = [sera_roc_list, ['Diagnostic'], [sample_type]]
+slice_cols = ['serum ID', 'antigen type']
+slice_keys = [sera_roc_list, ['Diagnostic']]
 slice_actions = ['drop', 'keep', 'keep']
+fpr = 0.05
+# ci = 95
+ci = None
+hue = 'pipeline'
 for pipeline in stitched_pysero_df['pipeline'].unique():
 # for pipeline in ['nautilus']:
     df_norm = stitched_pysero_df.copy()
     df_norm = slice_df(df_norm, 'keep', 'pipeline', [pipeline])
+    df_norm = slice_df(df_norm, 'keep', 'sample type', [sample_type])
     df_norm = normalize_od(df_norm, norm_antigen, group=norm_group)
     df_norm = offset_od(df_norm, offset_antigen, offset_group)
     suffix = '_'.join([pipeline, sample_type])
+    if ci is not None:
+        suffix = '_'.join([suffix, 'ci'])
     if norm_antigen is not None:
         suffix = '_'.join([suffix, norm_antigen, 'norm_per', norm_group])
     for col, action, key in zip(slice_cols, slice_actions, slice_keys):
         df_norm = slice_df(df_norm, action, col, key)
     roc_df = df_norm.copy()
     if aggregate is not None:
-        roc_df = roc_df.groupby(['antigen', 'serum ID', 'well_id', 'plate_id',
+        roc_df = roc_df.groupby(['antigen', 'serum ID', 'well_id', 'plate_id', 'sample type',
                                  'serum type', 'serum dilution', 'pipeline', 'secondary ID',
                                  'secondary dilution'])['OD'].mean()
         roc_df = roc_df.reset_index()
         suffix = '_'.join([suffix, aggregate])
-    roc_df = get_roc_df(roc_df)
     # roc_df_split = roc_df.copy()
     # roc_df_split[['antigen', 'antigen conc']] = roc_df['antigen'].str.rsplit(n=1, expand=True)
     # roc_plot_grid(roc_df, fig_path, 'ROC')
     # roc_plot_grid(roc_df, fig_path, 'ROC_' + plate_id)
-    roc_plot_grid(roc_df, fig_path, '_'.join(['ROC', suffix]), 'png')
-    roc_df = roc_df.melt(id_vars=['antigen',
-                                 'secondary ID',
-                                 'secondary dilution',
-                                 'serum dilution',
-                                 'pipeline',
-                                'threshold',
-                                'AUC'],
-                         var_name='category',
-                         value_name='rate'
-                         )
-    # thr_plot_grid(roc_df, fig_path, 'ROC_thr')
-    # thr_plot_grid(roc_df, fig_path, 'ROC_thr_' + plate_id)
-    thr_plot_grid(roc_df, fig_path, '_'.join(['ROC_thr', suffix]), 'png')
+    roc_plot_grid(roc_df, fig_path, '_'.join(['ROC', suffix]), 'png', ci=ci, fpr=fpr, hue=hue)
+    id_vars = [x for x in roc_df.columns if x not in ['False positive rate', 'True positive rate']]
+    # roc_df = roc_df.melt(id_vars=id_vars,
+    #                      var_name='category',
+    #                      value_name='rate',
+    #                      )
+    # thr_plot_grid(roc_df, fig_path, '_'.join(['ROC_thr', suffix]), 'png')
+#%%
+df_serum = df_norm[['serum ID', 'serum type']].drop_duplicates()
+print(len(df_serum))
+print((df_serum['serum type']=='negative').sum())
 #%% Plot categorical scatter plot for episurvey
 for plate_id in stitched_pysero_df['plate_id'].unique():
 # for plate_id in ['plate_4']:
@@ -402,6 +396,17 @@ for pipeline in ['nautilus']:
                    '_'.join(['antigen_neg_joint', x_col, y_col, suffix]), bw='scott', n_levels=60, xlim=neg_limit, ylim=neg_limit)
     plt.close('all')
 
+#%% 4PL fit
+slice_cols = ['pipeline', 'serum ID']
+slice_keys = [['python'], sera_fit_list]
+scn_psr_slice_actions = ['keep', 'keep']
+serum_df = stitched_pysero_df.copy()
+serum_df_fit = stitched_pysero_df.copy()
+for col, action, key in zip(slice_cols, scn_psr_slice_actions, slice_keys):
+    serum_df = slice_df(serum_df, action, col, key)
+    serum_df_fit = slice_df(serum_df_fit, action, col, key)
+serum_df_fit = fit2df(serum_df_fit, fourPL, 'python')
+
 #%% plot the ODs and fits
 sera_4pl_list = [' '.join([x, 'fit']) for x in sera_fit_list]
 markers = 'o'
@@ -468,5 +473,4 @@ plt.savefig(os.path.join(fig_path, '{}_fit_zoom.jpg'.format(sera_fit_list)),dpi=
 #         plt.close()
 #
 #
-
 
