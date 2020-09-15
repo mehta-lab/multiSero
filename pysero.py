@@ -7,6 +7,7 @@ import array_analyzer.utils.io_utils as io_utils
 import array_analyzer.workflows.registration_workflow as registration_wf
 import array_analyzer.workflows.interpolation_wf as interpolation_wf
 import array_analyzer.workflows.well_wf as well_wf
+import interpretation.od_analyzer as od_analyzer
 
 
 def parse_args():
@@ -67,7 +68,7 @@ def parse_args():
         action='store_true',
         help="Rerun wells listed in 'rerun_wells sheets of metadata file. Default: False",
     )
-    parser.set_defaults(rerun=False)
+
     parser.add_argument(
         '-m', '--metadata',
         type=str,
@@ -75,6 +76,15 @@ def parse_args():
         help="specify the file name for the experiment metadata. "
              "Assumed to be in the same directory as images. "
              "Default: 'pysero_output_data_metadata.xlsx'"
+    )
+    parser.set_defaults(load_report=False)
+    parser.add_argument(
+        '-l', '--load_report',
+        dest='load_report',
+        action='store_true',
+        help="Load the saved master report in the output directory "
+             "rather than the original OD reports in the config file"
+             " which is slower. Default: False",
     )
     return parser.parse_args()
 
@@ -134,6 +144,7 @@ def run_pysero(args):
     constants.METADATA_FILE = args.metadata
     constants.DEBUG = args.debug
     constants.RERUN = args.rerun
+    constants.LOAD_REPORT = args.load_report
 
     constants.RUN_PATH = io_utils.make_run_dir(
         input_dir=input_dir,
@@ -161,10 +172,9 @@ def run_pysero(args):
             workflow=args.workflow,
         )
     elif args.analyze_od:
-        logging.error("Analyze OD not implemented")
-        raise NotImplementedError(
-            'Automated interpretation is coming. '
-            'See the interpretation folder for examples of interpretation scripts.',
+        od_analyzer.analyze_od(
+            input_dir=input_dir,
+            output_dir=output_dir,
         )
 
 

@@ -11,6 +11,7 @@ OUTPUT_FOLDER = None
 WORKFLOW = None
 METADATA_FILE = None
 DEBUG = None
+LOAD_REPORT = None
 
 # === constants parsed from metadata ===
 #   the constants below are all dictionaries
