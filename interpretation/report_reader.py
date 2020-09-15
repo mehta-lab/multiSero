@@ -123,7 +123,7 @@ def read_scn_output(file_path, plate_info_df):
 
 
 def slice_df(df, slice_action, column, keys):
-    if slice_action is None:
+    if slice_action in [None, np.nan]:
         return df
     elif slice_action == 'keep':
         df = df[df[column].isin(keys)]
@@ -144,22 +144,32 @@ def normalize_od_helper(norm_antigen):
 
 
 def normalize_od(df, norm_antigen=None, group='plate'):
-    """fit model to x, y data in dataframe.
-    Return a dataframe with fit x, y for plotting
+    """
+
+    :param df:
+    :param norm_antigen:
+    :param group:
+    :return:
     """
     if norm_antigen is None:
         return df
     if group == 'plate':
-        groupby_cols = ['plate_id']
+        groupby_cols = ['plate_id', 'pipeline', 'sample type']
     elif group == 'well':
-        groupby_cols = ['plate_id', 'well_id']
+        groupby_cols = ['plate_id', 'well_id', 'pipeline', 'sample type']
     else:
         ValueError('normalization group has to be plate or well, not {}'.format(group))
-    norm_antigen_df = slice_df(df, 'keep', 'antigen', [norm_antigen])
-    df.loc[df['antigen'] == norm_antigen, 'OD'] = norm_antigen_df['OD'] / norm_antigen_df['OD'].mean()
+    for pipeline in df['pipeline'].unique():
+        for sample_type in df['sample type'].unique():
+            norm_antigen_df = slice_df(df, 'keep', 'pipeline', [pipeline])
+            norm_antigen_df = slice_df(norm_antigen_df, 'keep', 'sample type', [sample_type])
+            norm_antigen_df = slice_df(norm_antigen_df, 'keep', 'antigen', [norm_antigen])
+            df.loc[(df['antigen'] == norm_antigen) &
+                   (df['pipeline'] == pipeline) &
+                   (df['sample type'] == sample_type), 'OD'] = \
+                norm_antigen_df['OD'] / norm_antigen_df['OD'].mean()
     norm_fn = normalize_od_helper(norm_antigen)
     df = df.groupby(groupby_cols).apply(norm_fn)
-    # df = df.reset_index()
     return df
 
 

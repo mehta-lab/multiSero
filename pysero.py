@@ -175,6 +175,7 @@ def run_pysero(args):
         od_analyzer.analyze_od(
             input_dir=input_dir,
             output_dir=output_dir,
+            load_report=args.load_report,
         )
 
 
