@@ -180,7 +180,6 @@ def roc_plot(x, y, **kwargs):
 
 def roc_plot_grid(roc_df, fig_path, fig_name, ext, hue=None,
                   col_wrap=3, ci=95, tpr=None, fpr=None):
-    #TODO: call get_roc_df within this function
     assert tpr is None or fpr is None, \
         'Specify either true positive rate or false positive rate, not both.'
     # Plot ROC curves

@@ -28,14 +28,18 @@ def read_config(input_dir):
         if 'ROC plot' in config_file.sheet_names:
             roc_param_df = pd.read_excel(config_file, sheet_name='ROC plot',
                                          index_col=0, squeeze=True)
+            # replace NaN with None
+            roc_param_df.where(roc_param_df.notnull(), None, inplace=True)
             roc_param_df['serum ID'] = re.split(r'\s*,\s*', roc_param_df['serum ID'])
         if 'categorical plot' in config_file.sheet_names:
             cat_param_df = pd.read_excel(config_file, sheet_name='categorical plot',
                                          index_col=0, squeeze=True)
+            cat_param_df.where(cat_param_df.notnull(), None, inplace=True)
             cat_param_df['serum ID'] = re.split(r'\s*,\s*', cat_param_df['serum ID'])
         if 'standard curves' in config_file.sheet_names:
             fit_param_df = pd.read_excel(config_file, sheet_name='standard curves',
                                          index_col=0, squeeze=True)
+            fit_param_df.where(fit_param_df.notnull(), None, inplace=True)
             fit_param_df['serum ID'] = re.split(r'\s*,\s*', fit_param_df['serum ID'])
         if not constants.LOAD_REPORT:
             assert ('pysero output dirs' in config_file.sheet_names) or \
@@ -49,15 +53,7 @@ def read_config(input_dir):
                 scn_scn_df = pd.read_excel(config_file, sheet_name='scienion output dirs')
     return ntl_dirs_df, scn_scn_df, plot_setting_df, roc_param_df, cat_param_df, fit_param_df
 
-def analyze_od(input_dir, output_dir, load_report):
-    os.makedirs(output_dir, exist_ok=True)
-    sns.set_context("talk")
-    font = {'size': 10, 'weight': 'normal', 'family': 'arial'}
-    matplotlib.rc('font', **font)
-    scn_scn_dirs = scn_scn_plate_ids = ntl_dirs = \
-        ntl_slice_actions = ntl_well_ids = ntl_plate_ids = None
-    ntl_dirs_df, scn_scn_df, plot_setting_df, roc_param_df, cat_param_df, fit_param_df =\
-        read_config(input_dir)
+def read_od_batch(output_dir, ntl_dirs_df, scn_scn_df, load_report):
     if not load_report:
         df_list = []
         scn_df = pd.DataFrame()
@@ -127,9 +123,17 @@ def analyze_od(input_dir, output_dir, load_report):
         stitched_pysero_df.to_csv(os.path.join(output_dir, 'master_report.csv'))
     else:
         stitched_pysero_df = pd.read_csv(os.path.join(output_dir, 'master_report.csv'), index_col=0, low_memory=False)
+    return stitched_pysero_df
 
+def analyze_od(input_dir, output_dir, load_report):
+    os.makedirs(output_dir, exist_ok=True)
+    scn_scn_dirs = scn_scn_plate_ids = ntl_dirs = \
+        ntl_slice_actions = ntl_well_ids = ntl_plate_ids = None
+    ntl_dirs_df, scn_scn_df, plot_setting_df, roc_param_df, cat_param_df, fit_param_df =\
+        read_config(input_dir)
+    stitched_pysero_df = read_od_batch(output_dir, ntl_dirs_df, scn_scn_df, load_report)
     # fix metadata error
-    stitched_pysero_df.loc[stitched_pysero_df['antigen']=='xIgG Fc', 'antigen type'] = 'Positive'
+    stitched_pysero_df.loc[stitched_pysero_df['antigen'] == 'xIgG Fc', 'antigen type'] = 'Positive'
     if plot_setting_df['antigens to plot'] == 'all':
         plot_setting_df['antigens to plot'] = stitched_pysero_df['antigen'].unique()
 #%%
@@ -171,6 +175,8 @@ def analyze_od(input_dir, output_dir, load_report):
             # df_norm = offset_od(df_norm, offset_antigen, offset_group)
             if ci is not None:
                 roc_suffix = '_'.join([suffix, 'ci'])
+            else:
+                roc_suffix = suffix
             #%%
             print('{} unique positive sera'.format(len(roc_df.loc[roc_df['serum type']=='positive', 'serum ID'].unique())))
             print('{} unique negative sera'.format(len(roc_df.loc[roc_df['serum type'] == 'negative', 'serum ID'].unique())))
@@ -183,8 +189,9 @@ def analyze_od(input_dir, output_dir, load_report):
             # plot specific slicing
             cat_df = slice_df(df_norm_sub, slice_action, 'serum ID', sera_cat_list)
             assert not cat_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
+            sns.set_context("talk")
             g = sns.catplot(x="serum type", y="OD", hue=hue, col="antigen", kind="swarm",
-                            palette=["r", "c", "y"], data=cat_df, col_wrap=5)
+                            palette=["r", "c", "y"], data=cat_df, col_wrap=3)
             plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_{}.png'.format(suffix)),
                                           dpi=300, bbox_inches='tight')
             if fit_param_df['zoom']:
@@ -210,7 +217,7 @@ def analyze_od(input_dir, output_dir, load_report):
             print('plotting standard curves...')
             g = sns.lmplot(x="serum dilution", y="OD",
                             hue=hue, hue_order=sera_fit_list, col="antigen", ci='sd', palette=palette, markers=markers,
-                             data=dilution_df, col_wrap=5, fit_reg=False, x_estimator=np.mean)
+                             data=dilution_df, col_wrap=3, fit_reg=False, x_estimator=np.mean)
             palette = sns.color_palette(n_colors=len(dilution_df_fit[hue].unique()))
             for antigen, ax in zip(antigens, g.axes.flat):
                 df_fit = dilution_df_fit[(dilution_df_fit['antigen'] == antigen)]
