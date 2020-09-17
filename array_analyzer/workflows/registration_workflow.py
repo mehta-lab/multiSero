@@ -126,9 +126,7 @@ def point_registration(input_dir, output_dir):
         if not register_inst.registration_ok:
             logger.warning("Registration failed for {}, "
                            "repeat with outlier removal".format(well_name))
-            register_inst.particle_filter(
-                nbr_outliers=nbr_outliers,
-            )
+            register_inst.particle_filter(nbr_outliers=nbr_outliers)
         # Transform grid coordinates
         registered_coords = register_inst.compute_registered_coords()
         # Check that registered coordinates are inside well

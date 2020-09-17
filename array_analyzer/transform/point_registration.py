@@ -93,8 +93,11 @@ class ParticleFilter:
         self.registered_dist = None
         self.standard_devs = np.array(constants.STDS)
         self.nbr_particles = constants.NBR_PARTICLES
-        self.particles = self.create_gaussian_particles()
         self.t_matrix = None
+        self.mean_point = constants.MEAN_POINT
+        self.scale_mean = constants.SCALE_MEAN
+        self.angle_mean = constants.ANGLE_MEAN
+        self.particles = self.create_gaussian_particles()
 
     def create_reference_grid(self):
         """
@@ -127,10 +130,7 @@ class ParticleFilter:
         grid_coords = np.vstack([grid_rows.T, grid_cols.T]).T
         return grid_coords
 
-    def create_gaussian_particles(self,
-                                  mean_point=(0, 0),
-                                  scale_mean=1.,
-                                  angle_mean=0.):
+    def create_gaussian_particles(self):
         """
         Create particles from parameters x, y, scale and angle given mean and std.
         A particle is considered one set of parameters for a 2D translation matrix.
@@ -144,13 +144,13 @@ class ParticleFilter:
         :return np.array particles: Set of particle coordinates (nbr particles x 4)
         """
         particles = np.empty((self.nbr_particles, 4))
-        particles[:, 0] = mean_point[0] +\
+        particles[:, 0] = self.mean_point[0] +\
                           (np.random.randn(self.nbr_particles) * self.standard_devs[0])
-        particles[:, 1] = mean_point[1] +\
+        particles[:, 1] = self.mean_point[1] +\
                           (np.random.randn(self.nbr_particles) * self.standard_devs[1])
-        particles[:, 2] = angle_mean +\
+        particles[:, 2] = self.angle_mean +\
                           (np.random.randn(self.nbr_particles) * self.standard_devs[2])
-        particles[:, 3] = scale_mean +\
+        particles[:, 3] = self.scale_mean +\
                           (np.random.randn(self.nbr_particles) * self.standard_devs[3])
         return particles
 

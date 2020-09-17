@@ -8,14 +8,16 @@ import array_analyzer.transform.point_registration as registration
 @pytest.fixture
 def register_inst():
     im_shape = (50, 100)
-    spot_coords = np.zeros((10, 2), dtype=np.float32)
+    spot_coords = np.array(
+        [[18, 51], [10, 10], [16, 20], [22, 20], [29, 41], [31, 59]],
+        ).astype(np.float32)
     fiducials_idx = [1, 3, 5]
     constants.params = {
         'rows': 2,
         'columns': 3,
     }
     constants.SPOT_DIST_PIX = 10
-    constants.NBR_PARTICLES = 10
+    constants.NBR_PARTICLES = 100
     constants.STDS = [1, 1, 1, 1]
 
     register_inst = registration.ParticleFilter(
@@ -24,7 +26,6 @@ def register_inst():
         fiducials_idx=fiducials_idx,
         random_seed=42,
     )
-    register_inst.registered_coords = np.ones((5, 2), dtype=np.float32)
     return register_inst
 
 
@@ -41,17 +42,13 @@ def test_create_reference_grid(register_inst):
 
 
 def test_create_gaussian_particles(register_inst):
-    particles = register_inst.create_gaussian_particles(
-        mean_point=(2, 3),
-        scale_mean=4.,
-        angle_mean=0.5,
-    )
-    assert particles.shape == (10, 4)
+    particles = register_inst.create_gaussian_particles()
+    assert particles.shape == (100, 4)
     particle_means = np.mean(particles, 0)
-    assert 1.5 < particle_means[0] < 2.5
-    assert 2.5 < particle_means[1] < 3.5
-    assert .4 < particle_means[2] < .5
-    assert 3.5 < particle_means[3] < 4.5
+    assert -.5 < particle_means[0] < .5
+    assert -.5 < particle_means[1] < .5
+    assert -.5 < particle_means[2] < .5
+    assert .5 < particle_means[3] < 1.5
 
 
 def test_get_translation_matrix(register_inst):
@@ -68,14 +65,14 @@ def test_get_translation_matrix(register_inst):
 
 def test_particle_filter(register_inst):
     register_inst.particle_filter(max_iter=5)
-    assert 3 < register_inst.registered_dist < 3.1
+    assert 3.5 < register_inst.registered_dist < 4
     assert register_inst.registration_ok
 
 
 def test_particle_filter_many_outliers(register_inst):
-    register_inst.particle_filter(max_iter=5, nbr_outliers=4)
-    # Number will be smaller due to outlier
-    assert 2.5 < register_inst.registered_dist < 3
+    register_inst.particle_filter(max_iter=10, nbr_outliers=5)
+    # More iterations and 1 outlier leads to better registration
+    assert 0 < register_inst.registered_dist < .5
     assert register_inst.registration_ok
 
 
