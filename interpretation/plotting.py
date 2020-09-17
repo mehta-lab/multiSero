@@ -303,3 +303,35 @@ def joint_plot(df_ori,
     plt.legend(hue_vals, loc='upper left')
     plt.savefig(os.path.join(output_path, ''.join([output_fname, '.jpg'])),
                 dpi=300, bbox_inches='tight')
+
+
+def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
+                        zoom=False, col_wrap=3):
+    dilution_df_fit = dilution_df.copy()
+    dilution_df_fit = fit2df(dilution_df_fit, fourPL)
+    sera_fit_list = dilution_df['serum ID'].unique()
+    #%% plot standard curves
+    sera_4pl_list = [' '.join([x, 'fit']) for x in sera_fit_list]
+    antigens = dilution_df['antigen'].unique()
+    markers = 'o'
+    style = 'serum type'
+    assert not dilution_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
+    palette = sns.color_palette(n_colors=len(dilution_df[hue].unique()))
+    print('plotting standard curves...')
+    g = sns.lmplot(x="serum dilution", y="OD",
+                    hue=hue, hue_order=sera_fit_list, col="antigen", ci='sd', palette=palette, markers=markers,
+                     data=dilution_df, col_wrap=col_wrap, fit_reg=False, x_estimator=np.mean)
+    palette = sns.color_palette(n_colors=len(dilution_df_fit[hue].unique()))
+    for antigen, ax in zip(antigens, g.axes.flat):
+        df_fit = dilution_df_fit[(dilution_df_fit['antigen'] == antigen)]
+        sns.lineplot(x="serum dilution", y="OD", hue=hue, hue_order=sera_4pl_list, data=df_fit,
+                     style=style, palette=palette,
+                     ax=ax, legend=False)
+        ax.set(xscale="log")
+    plt.savefig(os.path.join(fig_path, '.'.join([fig_name, ext])), dpi=300, bbox_inches='tight')
+
+    if zoom:
+        for antigen, ax in zip(antigens, g.axes.flat):
+            ax.set(ylim=[-0.05, 1.5])
+        fig_name += '_zoom'
+        plt.savefig(os.path.join(fig_path, '.'.join([fig_name, ext])), dpi=300, bbox_inches='tight')

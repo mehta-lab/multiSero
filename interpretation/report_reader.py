@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import pandas as pd
 
@@ -198,3 +200,90 @@ def offset_od(df, norm_antigen=None, group='plate'):
     norm_fn = offset_od_helper(norm_antigen)
     df = df.groupby(groupby_cols).apply(norm_fn)
     return df
+
+
+def read_scn_output_batch(scn_dirs_df):
+    scn_df = pd.DataFrame()
+    for scn_dir, plate_id, in zip(scn_dirs_df['directory'], scn_dirs_df['plate ID']):
+        metadata_path = os.path.join(scn_dir, 'pysero_output_data_metadata.xlsx')
+        with pd.ExcelFile(metadata_path) as meta_file:
+            antigen_df = read_antigen_info(meta_file)
+            plate_info_df = read_plate_info(meta_file)
+        plate_info_df['plate_id'] = plate_id
+        scn_fname = [f for f in os.listdir(scn_dir) if '_analysis.xlsx' in f]
+        scn_path = os.path.join(scn_dir, scn_fname[0])
+        scn_df_tmp = read_scn_output(scn_path, plate_info_df)
+        # Join Scienion data with plateInfo
+        scn_df_tmp = pd.merge(scn_df_tmp,
+                          antigen_df,
+                          how='left', on=['antigen_row', 'antigen_col'])
+        scn_df_tmp = pd.merge(scn_df_tmp,
+                          plate_info_df,
+                          how='right', on=['well_id'])
+        scn_df = scn_df.append(scn_df_tmp, ignore_index=True)
+    scn_df['pipeline'] = 'scienion'
+    scn_df.dropna(subset=['OD'], inplace=True)
+    return scn_df
+
+
+def read_pysero_output_batch(ntl_dirs_df):
+    pysero_df = pd.DataFrame()
+    for data_folder, slice_action, well_id, plate_id in \
+            zip(ntl_dirs_df['directory'], ntl_dirs_df['well action'],
+                ntl_dirs_df['well ID'], ntl_dirs_df['plate ID']):
+        print('Load {}...'.format(data_folder))
+        metadata_path = os.path.join(data_folder, 'pysero_output_data_metadata.xlsx')
+        OD_path = os.path.join(data_folder, 'median_ODs.xlsx')
+        int_path = os.path.join(data_folder, 'median_intensities.xlsx')
+        bg_path = os.path.join(data_folder, 'median_backgrounds.xlsx')
+
+        with pd.ExcelFile(metadata_path) as meta_file:
+            antigen_df = read_antigen_info(meta_file)
+            plate_info_df = read_plate_info(meta_file)
+        plate_info_df['plate_id'] = plate_id
+        OD_df = read_pysero_output(OD_path, antigen_df, file_type='od')
+        int_df = read_pysero_output(int_path, antigen_df, file_type='int')
+        bg_df = read_pysero_output(bg_path, antigen_df, file_type='bg')
+        OD_df = pd.merge(OD_df,
+                         antigen_df[['antigen_row', 'antigen_col', 'antigen type']],
+                         how='left', on=['antigen_row', 'antigen_col'])
+        OD_df = pd.merge(OD_df,
+                         plate_info_df,
+                         how='right', on=['well_id'])
+        pysero_df_tmp = pd.merge(OD_df,
+                                 int_df,
+                                 how='left', on=['antigen_row', 'antigen_col', 'well_id'])
+        pysero_df_tmp = pd.merge(pysero_df_tmp,
+                                 bg_df,
+                                 how='left', on=['antigen_row', 'antigen_col', 'well_id'])
+        pysero_df_tmp['pipeline'] = 'nautilus'
+        pysero_df_tmp.replace([np.inf, -np.inf], np.nan, inplace=True)
+        pysero_df_tmp.dropna(subset=['OD'], inplace=True)
+        pysero_df_tmp = slice_df(pysero_df_tmp, slice_action, 'well_id', well_id)
+        pysero_df = pysero_df.append(pysero_df_tmp, ignore_index=True)
+    return pysero_df
+
+
+def read_output_batch(output_dir, ntl_dirs_df, scn_dirs_df, load_report):
+    if not load_report:
+        df_list = []
+        scn_df = pd.DataFrame()
+        if not scn_dirs_df.empty:
+            scn_df = read_scn_output_batch(scn_dirs_df)
+
+        if not ntl_dirs_df.empty:
+           pysero_df = read_pysero_output_batch(ntl_dirs_df)
+
+        df_list.append(pysero_df)
+        df_list.append(scn_df)
+        #% Concatenate dataframes
+        stitched_pysero_df = pd.concat(df_list)
+        stitched_pysero_df.reset_index(drop=True, inplace=True)
+        # remove empty xkappa-biotin spots, round off dilution
+        stitched_pysero_df = stitched_pysero_df[(stitched_pysero_df['antigen'] != 'xkappa-biotin') |
+                                (stitched_pysero_df['antigen type'] == 'Fiducial')]
+        stitched_pysero_df['serum dilution'] = stitched_pysero_df['serum dilution'].round(7)
+        stitched_pysero_df.to_csv(os.path.join(output_dir, 'master_report.csv'))
+    else:
+        stitched_pysero_df = pd.read_csv(os.path.join(output_dir, 'master_report.csv'), index_col=0, low_memory=False)
+    return stitched_pysero_df
