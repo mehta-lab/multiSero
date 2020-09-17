@@ -15,7 +15,7 @@ def fourPL(x, A, B, C, D):
     return ((A-D)/(1.0+((x/C)**(B))) + D)
 
 
-def fit2df(df, model, pipeline):
+def fit2df(df, model):
     """fit model to x, y data in dataframe.
     Return a dataframe with fit x, y for plotting
     """
@@ -26,11 +26,10 @@ def fit2df(df, model, pipeline):
     keys = itertools.product(sera, antigens, secondaries)
     df_fit = pd.DataFrame(columns=df.columns)
     for serum, antigen, secondary in keys:
-        print(serum, antigen)
-        sec_dilu_df = df[(df['serum ID']==serum) &
-                    (df['antigen']==antigen) &
-                    (df['secondary ID'] == secondary) &
-                    (df['pipeline']==pipeline)]
+        print('Fitting {}, {}...'.format(serum, antigen))
+        sec_dilu_df = df[(df['serum ID']== serum) &
+                    (df['antigen'] == antigen) &
+                    (df['secondary ID'] == secondary)]
         sec_dilutions = sec_dilu_df['secondary dilution'].unique()
         for sec_dilution in sec_dilutions:
             sub_df = sec_dilu_df[(sec_dilu_df['secondary dilution'] == sec_dilution)].reset_index(drop=True)
@@ -103,7 +102,6 @@ def roc_ci(df, ci):
     return pd.Series([tpr_mean] + cis, ['True positive rate', 'ci_low', 'ci_high'])
 
 def roc_from_df(df, ci=None):
-    itp_rate_list = [] # interpolated rates
     aucs = []
     n_btstp = 1000
     s = {}
