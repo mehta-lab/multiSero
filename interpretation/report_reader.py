@@ -1,5 +1,4 @@
 import os
-
 import numpy as np
 import pandas as pd
 
@@ -7,10 +6,10 @@ import pandas as pd
 def antigen2D_to_df1D(xlsx_path, sheet, data_col):
     """
     Convert old 2D output format (per antigen) to 1D dataframe
-    :param xlsx_path:
-    :param sheet:
-    :param data_col:
-    :return:
+    :param str xlsx_path: path to the xlsx file
+    :param str sheet: sheet name to load
+    :param str data_col: new column name of the linearized values
+    :return dataframe df: linearized dataframe
     """
     df = pd.read_excel(xlsx_path, sheet_name=sheet, index_col=0)
     df = df.unstack().reset_index(name=data_col)  # linearize the table
@@ -24,10 +23,10 @@ def antigen2D_to_df1D(xlsx_path, sheet, data_col):
 def well2D_to_df1D(xlsx_path, sheet, data_col):
     """
     Convert new 2D output format (per well) to 1D dataframe
-    :param xlsx_path:
-    :param sheet:
-    :param data_col:
-    :return:
+    :param str xlsx_path: path to the xlsx file
+    :param str sheet: sheet name to load
+    :param str data_col: new column name of the linearized values
+    :return dataframe df: linearized dataframe
     """
     df = pd.read_excel(xlsx_path, sheet_name=sheet, index_col=0)
     df = df.unstack().reset_index(name=data_col)  # unpivot (linearize) the table
@@ -38,6 +37,7 @@ def well2D_to_df1D(xlsx_path, sheet, data_col):
 
 
 def read_plate_info(metadata_xlsx):
+    """read plate info from the metadata"""
     print('Reading the plate info...')
 
     sheet_names = ['serum ID',
@@ -75,6 +75,7 @@ def read_plate_info(metadata_xlsx):
 
 
 def read_antigen_info(metadata_path):
+    """read antigen info from the metadata"""
     print('Reading antigen information...')
     antigen_df = antigen2D_to_df1D(xlsx_path=metadata_path, sheet='antigen_array', data_col='antigen')
     antigen_type_df = antigen2D_to_df1D(xlsx_path=metadata_path, sheet='antigen_type', data_col='antigen type')
@@ -83,6 +84,13 @@ def read_antigen_info(metadata_path):
 
 
 def read_pysero_output(file_path, antigen_df, file_type='od'):
+    """
+    read and re-format pysero spot fitting output
+    :param str file_path: path to the pysero output xlsx file
+    :param dataframe antigen_df:
+    :param str file_type: output file type. 'od', 'int', or 'bg'
+    :return: linearized dataframe
+    """
     print('Reading {}...'.format(file_type))
     data_col = {'od': 'OD', 'int': 'intensity', 'bg': 'background'}
     data_df = pd.DataFrame()
@@ -103,6 +111,12 @@ def read_pysero_output(file_path, antigen_df, file_type='od'):
 
 
 def read_scn_output(file_path, plate_info_df):
+    """
+    Read scienion intensity output and convert it to OD
+    :param str file_path: path to the scienion output xlsx file
+    :param dataframe plate_info_df: plate info dataframe
+    :return dataframe: scienion OD dataframe
+    """
     # Read analysis output from Scienion
     scienion_df = pd.DataFrame()
     with pd.ExcelFile(file_path) as scienion_xlsx:
@@ -125,6 +139,14 @@ def read_scn_output(file_path, plate_info_df):
 
 
 def slice_df(df, slice_action, column, keys):
+    """
+    Return sliced dataframe given the colume and keys
+    :param df: dataframe to slice
+    :param slice_action: 'keep' or 'drop'
+    :param column: column to slice based on
+    :param keys: key values to keep or drop
+    :return:
+    """
     if slice_action in [None, np.nan]:
         return df
     elif slice_action == 'keep':
@@ -147,11 +169,11 @@ def normalize_od_helper(norm_antigen):
 
 def normalize_od(df, norm_antigen=None, group='plate'):
     """
-
-    :param df:
-    :param norm_antigen:
-    :param group:
-    :return:
+    Normalize OD by OD of the reference antigen
+    :param dataframe df: dataframe containing serum OD info
+    :param str norm_antigen: reference antigen to normalize by
+    :param str group: unit to normalize. 'plate' or 'well'
+    :return dataframe df: dataframe with normalized serum OD info
     """
     if norm_antigen is None:
         return df
@@ -186,8 +208,7 @@ def offset_od_helper(norm_antigen):
 
 
 def offset_od(df, norm_antigen=None, group='plate'):
-    """fit model to x, y data in dataframe.
-    Return a dataframe with fit x, y for plotting
+    """offset OD by OD of the reference antigen
     """
     if norm_antigen is None:
         return df
@@ -203,6 +224,13 @@ def offset_od(df, norm_antigen=None, group='plate'):
 
 
 def read_scn_output_batch(scn_dirs_df):
+    """
+    batch read scienion outputs
+    :param dataframe scn_dirs_df: dataframe loaded from the analysis config
+    containing directories of scienion output xlsx file, assuming the file name always
+    ends with '_analysis.xlsx'
+    :return dataframe scn_df: combined scienion OD dataframe from multiple outputs
+    """
     scn_df = pd.DataFrame()
     for scn_dir, plate_id, in zip(scn_dirs_df['directory'], scn_dirs_df['plate ID']):
         metadata_path = os.path.join(scn_dir, 'pysero_output_data_metadata.xlsx')
@@ -227,6 +255,12 @@ def read_scn_output_batch(scn_dirs_df):
 
 
 def read_pysero_output_batch(ntl_dirs_df):
+    """
+    batch read pysero outputs
+    :param dataframe ntl_dirs_df: dataframe loaded from the analysis config
+    containing directories of pysero output xlsx file
+    :return dataframe scn_df: combined pysero OD dataframe from multiple outputs
+    """
     pysero_df = pd.DataFrame()
     for data_folder, slice_action, well_id, plate_id in \
             zip(ntl_dirs_df['directory'], ntl_dirs_df['well action'],
@@ -265,6 +299,16 @@ def read_pysero_output_batch(ntl_dirs_df):
 
 
 def read_output_batch(output_dir, ntl_dirs_df, scn_dirs_df, load_report):
+    """
+    batch read pysero and scienion outputs
+    :param output_dir: directory to save the master report
+    :param dataframe ntl_dirs_df: dataframe loaded from the analysis config
+    containing directories of pysero output xlsx file
+    :param dataframe scn_dirs_df: dataframe loaded from the analysis config
+    containing directories of scienion output xlsx file, assuming the file name always
+    ends with '_analysis.xlsx'
+    :return dataframe stitched_pysero_df: combined pysero and scienion OD dataframe from multiple outputs
+    """
     if not load_report:
         df_list = []
         scn_df = pd.DataFrame()

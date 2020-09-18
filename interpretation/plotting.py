@@ -12,6 +12,7 @@ from sklearn.utils import resample
 
 
 def fourPL(x, A, B, C, D):
+    """4 parameter logistic function"""
     return ((A-D)/(1.0+((x/C)**(B))) + D)
 
 
@@ -55,53 +56,22 @@ def fit2df(df, model):
     print('4PL fitting finished')
     return df_fit
 
-
-def roc_from_df2(df, ci=None, tpr=None, fpr=None):
-    assert tpr is None or fpr is None, \
-        'Specify either true positive rate or false positive rate, not both.'
-    itp_rate_list = [] # interpolated rates
-    auc_list = []
-    n_btstp = 100
-    s = {}
-    y_test = df['serum type']
-    y_prob = df['OD']
-    s['False positive rate'], s['True positive rate'], s['threshold'] = \
-        roc_curve(y_test, y_prob, pos_label='positive', drop_intermediate=False)
-    try:
-        s['AUC'] = [roc_auc_score(y_test, y_prob)] * len(s['False positive rate'])
-    except ValueError as err:
-        print('pipeline {}, antigen {} only has {} serum type. {}'.
-              format(df['pipeline'].unique()[0], df['antigen'].unique()[0], y_test.unique()[0], err))
-        s['AUC'] = [np.nan] * len(s['False positive rate'])
-    if ci is not None:
-        for i in range(n_btstp):
-            df_rsmpl = resample(df, n_samples=len(df), stratify=df['serum type'])
-            y_test = df_rsmpl['serum type']
-            y_prob = df_rsmpl['OD']
-            fprs, tprs, _ = \
-                roc_curve(y_test, y_prob, pos_label='positive', drop_intermediate=False)
-            if tpr is None:
-                itp_rate_list.append(np.interp(fpr, fprs, tprs))
-            elif fpr is None:
-                itp_rate_list.append(np.interp(tpr, tprs, fprs))
-            else:
-                pass
-            try:
-                auc_list.append(roc_auc_score(y_test, y_prob))
-            except ValueError as err:
-                auc_list.append(np.nan)
-        s['auc_ci_low'] = [np.percentile(auc_list, 100 - ci)] * len(s['False positive rate'])
-        s['auc_ci_high'] = [np.percentile(auc_list, ci)] * len(s['False positive rate'])
-        s['rate_ci_low'] = [np.percentile(itp_rate_list, 100 - ci)] * len(s['False positive rate'])
-        s['rate_ci_high'] = [np.percentile(itp_rate_list, ci)] * len(s['False positive rate'])
-    return pd.Series(s)
-
 def roc_ci(df, ci):
+    """Helper function to compute mean and confidence intervals
+    from the bootstrapped distribution"""
     tpr_mean = df['tpr'].mean()
     cis = sns.utils.ci(df['tpr'], ci).tolist()
     return pd.Series([tpr_mean] + cis, ['True positive rate', 'ci_low', 'ci_high'])
 
 def roc_from_df(df, ci=None):
+    """
+    Helper function to compute ROC curves using pandas.groupby(). Confidence intervals
+    are computed using bootstrapping with stratified resampling
+    :param dataframe df: dataframe containing serum OD info
+    :param int or None ci: Confidence interval of the ROC curves in the unit of percent
+    (95 would be 95%). If None, confidence intervals are not computed.
+    :return dataframe rate_df: dataframe contains ROC curves for each condition
+    """
     aucs = []
     n_btstp = 1000
     s = {}
@@ -145,8 +115,12 @@ def roc_from_df(df, ci=None):
         return rate_df
 
 def get_roc_df(df, ci=None):
-    """fit model to x, y data in dataframe.
-    Return a dataframe with fit x, y for plotting
+    """
+    Generate ROC curves for serum samples
+    :param dataframe df: dataframe containing serum OD info
+    :param int or None ci: Confidence interval of the ROC curves in the unit of percent
+    (95 would be 95%). If None, confidence intervals are not computed.
+    :return dataframe roc_df: dataframe contains ROC curves for each condition
     """
     df = df[df['serum type'].isin(['positive', 'negative'])]
     roc_df = df[['antigen',
@@ -165,6 +139,10 @@ def get_roc_df(df, ci=None):
     return roc_df
 
 def roc_plot(x, y, **kwargs):
+    """ helper function for making ROC plots with
+    seaborn FacetGrid
+    """
+
     df = kwargs.pop('data')
     ci = kwargs.pop('ci')
     ax = plt.gca()
@@ -178,17 +156,31 @@ def roc_plot(x, y, **kwargs):
         auc = df['AUC'].unique()[0]
         ax.text(0.6, 0.15, 'AUC={:.3f}'.format(auc), fontsize=12)
 
-def roc_plot_grid(roc_df, fig_path, fig_name, ext, hue=None,
+def roc_plot_grid(df, fig_path, fig_name, ext='png', hue=None,
                   col_wrap=3, ci=95, tpr=None, fpr=None):
+    """
+    Generate ROC plots for each antigen
+    :param dataframe df: dataframe containing serum OD info
+    :param str fig_path: dir to save the plots
+    :param str fig_name: name of the figure file
+    :param str ext: figure file extension
+    :param str hue: attribute to be plotted with different colors
+    :param int col_wrap: number of columns in the facetgrid
+    :param int ci: Confidence interval of the ROC curves in the unit of percent
+    (95 would be 95%). If None, confidence intervals are not computed.
+    :param float tpr: True positive rate at which the false positive rate is shown on the curve
+    :param float fpr: False positive rate at which the true positive rate is shown on the curve
+    :return:
+    """
     assert tpr is None or fpr is None, \
         'Specify either true positive rate or false positive rate, not both.'
     # Plot ROC curves
-    antigens = natsorted(roc_df['antigen'].unique())
+    antigens = natsorted(df['antigen'].unique())
     sns.set_context("notebook")
-    assert not roc_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
-    palette = sns.color_palette(n_colors=len(roc_df[hue].unique()))
+    assert not df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
+    palette = sns.color_palette(n_colors=len(df[hue].unique()))
     print('Computing ROC curves...')
-    roc_df = get_roc_df(roc_df, ci=ci)
+    roc_df = get_roc_df(df, ci=ci)
     g = sns.FacetGrid(roc_df, hue=hue, col="antigen", col_order=antigens, col_wrap=col_wrap, aspect=1,
                       xlim=(-0.05, 1), ylim=(0, 1.05))
                       # hue_kws={'linestyle': ['-', '--', '-.', ':']})
@@ -207,6 +199,15 @@ def roc_plot_grid(roc_df, fig_path, fig_name, ext, hue=None,
     return roc_df
 
 def thr_plot_grid(roc_df, fig_path, fig_name, ext, col_wrap=3):
+    """
+    Generate ROC plots with thresholds for each antigen
+    :param roc_df:
+    :param fig_path:
+    :param fig_name:
+    :param ext:
+    :param col_wrap:
+    :return:
+    """
     # Plot ROC curves
     hue = 'category'
     antigens = natsorted(roc_df['antigen'].unique())
@@ -239,6 +240,7 @@ def scatter_plot(df,
                  xlim=None,
                  ylim=None,
                  alpha=1):
+    """x, y scatter_plot"""
     diff_df = df[y_col] - df[x_col]
     me = diff_df.mean()
     mae = diff_df.abs().mean()
@@ -273,6 +275,7 @@ def joint_plot(df_ori,
             xlim=None,
             ylim=None,
             ):
+    """ Join distribution plot"""
 
     # g = sns.JointGrid(x=x_col, y=y_col, data=df)
     #                   # xlim=(0, 50), ylim=(0, 8))
@@ -307,6 +310,16 @@ def joint_plot(df_ori,
 
 def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
                         zoom=False, col_wrap=3):
+    """
+    Plot standard curves for ELISA
+    :param dataframe dilution_df: dataframe containing serum OD with serial diluition
+    :param str fig_path: dir to save the plots
+    :param str fig_name: name of the figure file
+    :param str ext: figure file extension
+    :param str hue: attribute to be plotted with different colors
+    :param int col_wrap: number of columns in the facetgrid
+    :param bool zoom: If true, output zoom-in of the low OD region
+    """
     dilution_df_fit = dilution_df.copy()
     dilution_df_fit = fit2df(dilution_df_fit, fourPL)
     sera_fit_list = dilution_df['serum ID'].unique()

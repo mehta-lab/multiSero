@@ -11,7 +11,8 @@ def read_config(input_dir):
     """
     Load analysis config from the input directory.
     :param str input_dir: input directory
-    :return dataframe :
+    :return dataframe ntl_dirs_df, scn_scn_df, plot_setting_df, roc_param_df, cat_param_df, fit_param_df:
+    dataframes for corresponding tabs in the xlsx file
     """
     config_path = os.path.join(input_dir, constants.METADATA_FILE)
     if constants.METADATA_FILE not in os.listdir(input_dir):
@@ -50,6 +51,14 @@ def read_config(input_dir):
     return ntl_dirs_df, scn_scn_df, plot_setting_df, roc_param_df, cat_param_df, fit_param_df
 
 def analyze_od(input_dir, output_dir, load_report):
+    """
+    Perform analysis on pysero or scienion OD outputs specified in the config files.
+    Save the combined table as 'master report' in the output directory.
+    :param str input_dir: Input directory
+    :param str output_dir: Output directory
+    :param bool load_report: If True, load the saved 'master report' in the output directory
+    from the previous run. Load from the master report is much faster.
+    """
     os.makedirs(output_dir, exist_ok=True)
     ntl_dirs_df, scn_scn_df, plot_setting_df, roc_param_df, cat_param_df, fit_param_df =\
         read_config(input_dir)
