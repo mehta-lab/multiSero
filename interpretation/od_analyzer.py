@@ -67,7 +67,6 @@ def analyze_od(input_dir, output_dir, load_report):
     stitched_pysero_df.loc[stitched_pysero_df['antigen'] == 'xIgG Fc', 'antigen type'] = 'Positive'
     if plot_setting_df['antigens to plot'] == 'all':
         plot_setting_df['antigens to plot'] = stitched_pysero_df['antigen'].unique()
-#%%
     split_cols = plot_setting_df['split plots by']
     norm_antigen = plot_setting_df['normalize OD by']
     norm_group = 'plate'
