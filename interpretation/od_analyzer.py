@@ -21,21 +21,21 @@ def read_config(input_dir):
     ntl_dirs_df = scn_scn_df = roc_param_df = cat_param_df = fit_param_df = pd.DataFrame()
     with pd.ExcelFile(config_path) as config_file:
         plot_setting_df = pd.read_excel(config_file, sheet_name='general plotting settings',
-                                        index_col=0, squeeze=True)
+                                        index_col=0, squeeze=True, usecols='A,B')
         if 'ROC plot' in config_file.sheet_names:
             roc_param_df = pd.read_excel(config_file, sheet_name='ROC plot',
-                                         index_col=0, squeeze=True)
+                                         index_col=0, squeeze=True, usecols='A,B')
             # replace NaN with None
             roc_param_df.where(roc_param_df.notnull(), None, inplace=True)
             roc_param_df['serum ID'] = re.split(r'\s*,\s*', roc_param_df['serum ID'])
         if 'categorical plot' in config_file.sheet_names:
             cat_param_df = pd.read_excel(config_file, sheet_name='categorical plot',
-                                         index_col=0, squeeze=True)
+                                         index_col=0, squeeze=True, usecols='A,B')
             cat_param_df.where(cat_param_df.notnull(), None, inplace=True)
             cat_param_df['serum ID'] = re.split(r'\s*,\s*', cat_param_df['serum ID'])
         if 'standard curves' in config_file.sheet_names:
             fit_param_df = pd.read_excel(config_file, sheet_name='standard curves',
-                                         index_col=0, squeeze=True)
+                                         index_col=0, squeeze=True, usecols='A,B')
             fit_param_df.where(fit_param_df.notnull(), None, inplace=True)
             fit_param_df['serum ID'] = re.split(r'\s*,\s*', fit_param_df['serum ID'])
         if not constants.LOAD_REPORT:
@@ -44,10 +44,10 @@ def read_config(input_dir):
             "sheet by name 'pysero output dirs' or 'scienion output dirs' are required " \
             "in analysis config file when load_report is False, aborting"
             if 'pysero output dirs' in config_file.sheet_names:
-                ntl_dirs_df = pd.read_excel(config_file, sheet_name='pysero output dirs')
+                ntl_dirs_df = pd.read_excel(config_file, sheet_name='pysero output dirs', comment='#')
                 ntl_dirs_df['well ID'] = ntl_dirs_df['well ID'].str.split(pat=r'\s*,\s*')
             if 'scienion output dirs' in config_file.sheet_names:
-                scn_scn_df = pd.read_excel(config_file, sheet_name='scienion output dirs')
+                scn_scn_df = pd.read_excel(config_file, sheet_name='scienion output dirs', comment='#')
     return ntl_dirs_df, scn_scn_df, plot_setting_df, roc_param_df, cat_param_df, fit_param_df
 
 def analyze_od(input_dir, output_dir, load_report):
