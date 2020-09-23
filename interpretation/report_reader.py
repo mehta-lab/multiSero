@@ -147,7 +147,7 @@ def slice_df(df, slice_action, column, keys):
     :param keys: key values to keep or drop
     :return:
     """
-    if slice_action in [None, np.nan]:
+    if any([s in [None, np.nan] for s in [slice_action, column]]):
         return df
     elif slice_action == 'keep':
         df = df[df[column].isin(keys)]
@@ -178,9 +178,9 @@ def normalize_od(df, norm_antigen=None, group='plate'):
     if norm_antigen is None:
         return df
     if group == 'plate':
-        groupby_cols = ['plate_id', 'pipeline', 'sample type']
+        groupby_cols = ['plate ID', 'pipeline', 'sample type']
     elif group == 'well':
-        groupby_cols = ['plate_id', 'well_id', 'pipeline', 'sample type']
+        groupby_cols = ['plate ID', 'well_id', 'pipeline', 'sample type']
     else:
         ValueError('normalization group has to be plate or well, not {}'.format(group))
     for pipeline in df['pipeline'].unique():
@@ -213,9 +213,9 @@ def offset_od(df, norm_antigen=None, group='plate'):
     if norm_antigen is None:
         return df
     if group == 'plate':
-        groupby_cols = ['plate_id']
+        groupby_cols = ['plate ID']
     elif group == 'well':
-        groupby_cols = ['plate_id', 'well_id']
+        groupby_cols = ['plate ID', 'well_id']
     else:
         ValueError('normalization group has to be plate or well, not {}'.format(group))
     norm_fn = offset_od_helper(norm_antigen)
@@ -237,7 +237,7 @@ def read_scn_output_batch(scn_dirs_df):
         with pd.ExcelFile(metadata_path) as meta_file:
             antigen_df = read_antigen_info(meta_file)
             plate_info_df = read_plate_info(meta_file)
-        plate_info_df['plate_id'] = plate_id
+        plate_info_df['plate ID'] = plate_id
         scn_fname = [f for f in os.listdir(scn_dir) if '_analysis.xlsx' in f]
         scn_path = os.path.join(scn_dir, scn_fname[0])
         scn_df_tmp = read_scn_output(scn_path, plate_info_df)
@@ -274,7 +274,7 @@ def read_pysero_output_batch(ntl_dirs_df):
         with pd.ExcelFile(metadata_path) as meta_file:
             antigen_df = read_antigen_info(meta_file)
             plate_info_df = read_plate_info(meta_file)
-        plate_info_df['plate_id'] = plate_id
+        plate_info_df['plate ID'] = plate_id
         OD_df = read_pysero_output(OD_path, antigen_df, file_type='od')
         int_df = read_pysero_output(int_path, antigen_df, file_type='int')
         bg_df = read_pysero_output(bg_path, antigen_df, file_type='bg')

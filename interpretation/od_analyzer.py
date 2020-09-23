@@ -22,6 +22,7 @@ def read_config(input_dir):
     with pd.ExcelFile(config_path) as config_file:
         plot_setting_df = pd.read_excel(config_file, sheet_name='general plotting settings',
                                         index_col=0, squeeze=True, usecols='A,B')
+        plot_setting_df.where(plot_setting_df.notnull(), None, inplace=True)
         if 'ROC plot' in config_file.sheet_names:
             roc_param_df = pd.read_excel(config_file, sheet_name='ROC plot',
                                          index_col=0, squeeze=True, usecols='A,B')
@@ -68,6 +69,9 @@ def analyze_od(input_dir, output_dir, load_report):
     if plot_setting_df['antigens to plot'] == 'all':
         plot_setting_df['antigens to plot'] = stitched_pysero_df['antigen'].unique()
     split_cols = plot_setting_df['split plots by']
+    split_vals = [None]
+    if split_cols is not None:
+        split_vals = stitched_pysero_df[split_cols].unique()
     norm_antigen = plot_setting_df['normalize OD by']
     norm_group = 'plate'
     aggregate = 'mean'
@@ -79,13 +83,15 @@ def analyze_od(input_dir, output_dir, load_report):
         suffix = '_'.join([suffix, norm_antigen, 'norm_per', norm_group])
 
     if aggregate is not None:
-        df_norm = df_norm.groupby(['antigen', 'antigen type', 'serum ID', 'well_id', 'plate_id', 'sample type',
+        df_norm = df_norm.groupby(['antigen', 'antigen type', 'serum ID', 'well_id', 'plate ID', 'sample type',
                                  'serum type', 'serum dilution', 'pipeline', 'secondary ID',
                                  'secondary dilution'])['OD'].mean().reset_index()
         suffix = '_'.join([suffix, aggregate])
 
-    for split_val in stitched_pysero_df[split_cols].unique():
-        suffix = '_'.join([suffix, split_val])
+    for split_val in split_vals:
+        roc_suffix = suffix
+        if split_val is not None:
+            roc_suffix = '_'.join([suffix, split_val])
         df_norm_sub = slice_df(df_norm, 'keep', split_cols, [split_val])
         slice_cols = [split_cols, 'antigen type', 'antigen']
         slice_keys = [[split_val], ['Diagnostic'], antigen_list]
@@ -104,9 +110,7 @@ def analyze_od(input_dir, output_dir, load_report):
             hue = roc_param_df['hue']
             # df_norm = offset_od(df_norm, offset_antigen, offset_group)
             if ci is not None:
-                roc_suffix = '_'.join([suffix, 'ci'])
-            else:
-                roc_suffix = suffix
+                roc_suffix = '_'.join([roc_suffix, 'ci'])
             #%%
             print('{} unique positive sera'.format(len(roc_df.loc[roc_df['serum type']=='positive', 'serum ID'].unique())))
             print('{} unique negative sera'.format(len(roc_df.loc[roc_df['serum type'] == 'negative', 'serum ID'].unique())))
