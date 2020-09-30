@@ -56,7 +56,8 @@ def test_run_pysero_analyze(tmpdir_factory):
     args.extract_od = False
     args.analyze_od = True
     args.rerun = False
-    with pytest.raises(NotImplementedError):
+    args.load_report = True
+    with pytest.raises(OSError):
         pysero.run_pysero(args)
     # Check that run path is created and log file is written
     output_subdir = os.listdir(output_dir)
