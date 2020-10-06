@@ -7,13 +7,19 @@ from interpretation.plotting import roc_plot_grid, standard_curve_plot
 from interpretation.report_reader import slice_df, normalize_od, read_output_batch
 import array_analyzer.extract.constants as constants
 
+
 def read_config(input_dir):
     """
     Load analysis config from the input directory.
     :param str input_dir: input directory
-    :return dataframe ntl_dirs_df, scn_scn_df, plot_setting_df, roc_param_df, cat_param_df, fit_param_df:
-    dataframes for corresponding tabs in the xlsx file
+    :return dataframe ntl_dirs_df: 'pysero output dirs' tab in the config file.
+    :return dataframe scn_scn_df: 'scienion output dirs' tab in the config file.
+    :return dataframe plot_setting_df: 'general plotting settings' tab in the config file.
+    :return dataframe roc_param_df: 'ROC plot' tab in the config file.
+    :return dataframe cat_param_df: 'categorical plot' tab in the config file.
+    :return dataframe fit_param_df: 'standard curves' tab in the config file.
     """
+    config = dict()
     config_path = os.path.join(input_dir, constants.METADATA_FILE)
     if constants.METADATA_FILE not in os.listdir(input_dir):
         raise IOError("analysis config file not found, aborting")
@@ -65,7 +71,9 @@ def analyze_od(input_dir, output_dir, load_report):
         read_config(input_dir)
     stitched_pysero_df = read_output_batch(output_dir, ntl_dirs_df, scn_scn_df, load_report)
     # fix metadata error
-    stitched_pysero_df.loc[stitched_pysero_df['antigen'] == 'xIgG Fc', 'antigen type'] = 'Positive'
+    # stitched_pysero_df.loc[stitched_pysero_df['antigen'] == 'xIgG Fc', 'antigen type'] = 'Positive'
+    test_df = stitched_pysero_df.loc[(stitched_pysero_df['antigen'] == 'xIgG Fc') &
+                                     (stitched_pysero_df['antigen type'] == 'Diagnostic')]
     if plot_setting_df['antigens to plot'] == 'all':
         plot_setting_df['antigens to plot'] = stitched_pysero_df['antigen'].unique()
     split_cols = plot_setting_df['split plots by']

@@ -8,7 +8,8 @@ import array_analyzer.workflows.registration_workflow as registration_wf
 import array_analyzer.workflows.interpolation_wf as interpolation_wf
 import array_analyzer.workflows.well_wf as well_wf
 import interpretation.od_analyzer as od_analyzer
-
+import matplotlib
+matplotlib.use('Agg')
 
 def parse_args():
     """
