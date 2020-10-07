@@ -77,10 +77,10 @@ def roc_from_df(df, ci=None):
     fprs = []
     tprs = []
     thrs = []
-    y_test = df['serum type']
+    y_test = df['serum type'] == 'positive'
     y_prob = df['OD']
     s['False positive rate'], s['True positive rate'], s['threshold'] = \
-        roc_curve(y_test, y_prob, pos_label='positive', drop_intermediate=False)
+        roc_curve(y_test, y_prob, pos_label=1, drop_intermediate=False)
     try:
         s['AUC'] = [roc_auc_score(y_test, y_prob)] * len(s['False positive rate'])
     except ValueError as err:
@@ -92,10 +92,10 @@ def roc_from_df(df, ci=None):
     else:
         for i in range(n_btstp):
             df_rsmpl = resample(df, n_samples=len(df), stratify=df['serum type'])
-            y_test = df_rsmpl['serum type']
+            y_test = df_rsmpl['serum type'] == 'positive'
             y_prob = df_rsmpl['OD']
             fpr_tmp, tpr_tmp, thr_tmp = \
-                roc_curve(y_test, y_prob, pos_label='positive', drop_intermediate=False)
+                roc_curve(y_test, y_prob, pos_label=1, drop_intermediate=False)
             fprs += fpr_tmp.tolist()
             tprs += tpr_tmp.tolist()
             thrs += thr_tmp.tolist()
