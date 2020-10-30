@@ -144,16 +144,28 @@ def roc_plot(x, y, **kwargs):
 
     df = kwargs.pop('data')
     ci = kwargs.pop('ci')
+    fpr = kwargs.pop('fpr')
     ax = plt.gca()
     df.plot(x=x, y=y, ax=ax, legend=False)
+    tpr = np.interp(fpr, df['False positive rate'], df['True positive rate'])
+    ax.plot([fpr, fpr], [0, tpr], linewidth=1, color='g', linestyle='--', alpha=1)
+    ax.plot([-0.05, fpr], [tpr, tpr], linewidth=1, color='g', linestyle='--', alpha=1)
+
     if ci is not None:
         ax.fill_between(df[x], df['ci_low'], df['ci_high'], alpha=0.2)
         auc_low = df['auc_ci_low'].unique()[0]
         auc_high = df['auc_ci_high'].unique()[0]
+        tpr_low = np.interp(fpr, df['False positive rate'], df['ci_low'])
+        tpr_high = np.interp(fpr, df['False positive rate'], df['ci_high'])
         ax.text(0.4, 0.15, 'AUC={:.3f}-{:.3f}'.format(auc_low, auc_high), fontsize=12)
+        ax.text(fpr + 0.05, tpr - 0.2, 'sensitivity={:.3f}-{:.3f}\nspecificity={:.3f}'.
+                format(tpr_low, tpr_high, 1 - fpr),
+                fontsize=12, color='g')  # add text
     else:
         auc = df['AUC'].unique()[0]
         ax.text(0.6, 0.15, 'AUC={:.3f}'.format(auc), fontsize=12)
+        ax.text(fpr + 0.05, tpr - 0.2, 'sensitivity={:.3f}\nspecificity={:.3f}'.format(tpr, 1 - fpr),
+                fontsize=12, color='g')  # add text
 
 def roc_plot_grid(df, fig_path, fig_name, ext='png', hue=None,
                   col_wrap=3, ci=95, tpr=None, fpr=None):
@@ -183,15 +195,7 @@ def roc_plot_grid(df, fig_path, fig_name, ext='png', hue=None,
     g = sns.FacetGrid(roc_df, hue=hue, col="antigen", col_order=antigens, col_wrap=col_wrap, aspect=1,
                       xlim=(-0.05, 1), ylim=(0, 1.05))
                       # hue_kws={'linestyle': ['-', '--', '-.', ':']})
-    g = (g.map_dataframe(roc_plot, 'False positive rate', 'True positive rate', ci=ci))
-    for antigen, ax in zip(antigens, g.axes.flat):
-        sub_df = roc_df[roc_df['antigen'] == antigen]
-        tpr = np.interp(fpr, sub_df['False positive rate'], sub_df['True positive rate'])
-        ax.plot([fpr, fpr], [0, tpr], linewidth=1, color='g', linestyle='--', alpha=1)
-        ax.plot([-0.05, fpr], [tpr, tpr], linewidth=1, color='g', linestyle='--', alpha=1)
-        ax.set_title(antigen)
-        ax.text(fpr + 0.05, tpr - 0.2, 'sensitivity={:.3f}\nspecificity={:.3f}'.format(tpr, 1-fpr),
-                fontsize=12, color='g')  # add text
+    g = (g.map_dataframe(roc_plot, 'False positive rate', 'True positive rate', ci=ci, fpr=fpr))
     plt.savefig(os.path.join(fig_path, '.'.join([fig_name, ext])),
                              dpi=300, bbox_inches='tight')
     plt.close()
