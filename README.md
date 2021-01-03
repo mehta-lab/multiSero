@@ -9,14 +9,9 @@ The project automates estimation of antibody titers from data collected with ELI
 
 The immediate goal is to enable specific, sensitive, and quantitative serological surveys for COVID-19. 
 
-## Brief description
+## Installation
 
-
-## How to analyze the data?
-
-### Installation
-
-On a typical Winodws, Mac, or Linux computer:
+On a typical Windows, Mac, or Linux computer:
 * Create a conda environment: `conda create --name pysero python=3.7`
 * Activate conda environment: `conda activate pysero`
 * Once inside the repository folder, install dependencies: `pip install -r requirements.txt`
@@ -25,6 +20,7 @@ For installation notes for Jetson Nano, see [these notes](docs/installation.md).
 
 The command-line utility "pysero.py" enables automated analysis. 
 
+## Usage
 ```buildoutcfg
 usage: pysero.py [-h] (-e | -a) -i INPUT -o OUTPUT
                  [-wf {well_segmentation,well_crop,array_interp,array_fit}]
@@ -33,7 +29,7 @@ usage: pysero.py [-h] (-e | -a) -i INPUT -o OUTPUT
 optional arguments:
   -h, --help            show this help message and exit
   -e, --extract_od      Segment spots and compute ODs
-  -a, --analyze_od      Interpretation, not yet implemented
+  -a, --analyze_od      Generate OD analysis plots
   -i INPUT, --input INPUT
                         Input directory path
   -o OUTPUT, --output OUTPUT
@@ -54,17 +50,25 @@ optional arguments:
                         Assumed to be in the same directory as images.
                         Default: 'pysero_output_data_metadata.xlsx'
 ```
-
-`pysero -e -i input -o output` will take metadata for antigen array and images as input, and output optical densities for each antigen. 
+### Extract OD from antigen array images
+`python pysero.py -e -i <input> -o <output> -m <METADATA>` will take metadata for antigen array and images as input, and output optical densities for each antigen. 
 The optical densities are stored in an excel file at the following path: `<output>/pysero_<input>_<year><month><day>_<hour><min>/median_ODs.xlsx`
 
 If rerunning some of the wells, the input metadata file needs to contain a sheet named 'rerun_wells'
 with a column named 'well_names' listing wells that will be rerun.
 
-Collection of jupyter notebooks, [such as this](notebooks_interpretation/20200330_March25_flutasteplate_1/FluPlateInterpretationV4_smg.ipynb), show how to use ODs to evaluate antibody binding. 
-The interpretation pipeline will soon be accessible as command-line tool.
-
 This [workflow](docs/workflow.md) describes the steps in the extraction of optical density.
+
+### Generate OD analysis plots
+`python pysero.py -a -i <input> -o <output> -m <METADATA>` will read pysero or scienion spot fitting outputs and generates analysis plots for each single antigen. 3 types of plots are supported for now (ROC, categorical, standard curves).
+The example xlsx config file can be found in \example folder in the repo. 
+
+An '-l' flag can be added to load the saved report from previous run to speed up loading.
+
+### Train a classifier using information from multiple antigens
+One could train a machine learning classifier using ODs from multiple antigens to potentially improve the classification accuracy for sero-positive or sero-negative. 
+The following script demonstrates how to do this with xgboost tree classifiers. 
+`python -m interpretation.train_classifier` 
 
 <img src="docs/Workflow%20Schematic.png" width="600">
 

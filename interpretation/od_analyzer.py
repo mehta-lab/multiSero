@@ -70,10 +70,6 @@ def analyze_od(input_dir, output_dir, load_report):
     ntl_dirs_df, scn_scn_df, plot_setting_df, roc_param_df, cat_param_df, fit_param_df =\
         read_config(input_dir)
     stitched_pysero_df = read_output_batch(output_dir, ntl_dirs_df, scn_scn_df, load_report)
-    # fix metadata error
-    # stitched_pysero_df.loc[stitched_pysero_df['antigen'] == 'xIgG Fc', 'antigen type'] = 'Positive'
-    test_df = stitched_pysero_df.loc[(stitched_pysero_df['antigen'] == 'xIgG Fc') &
-                                     (stitched_pysero_df['antigen type'] == 'Diagnostic')]
     if plot_setting_df['antigens to plot'] == 'all':
         plot_setting_df['antigens to plot'] = stitched_pysero_df['antigen'].unique()
     split_cols = plot_setting_df['split plots by']
