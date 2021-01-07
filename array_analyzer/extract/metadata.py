@@ -27,7 +27,6 @@ class MetaData:
         constants.OUTPUT_FOLDER = output_folder_
         metadata_split = constants.METADATA_FILE.split('.')
         # In case of a 'well' run
-        print(metadata_split)
         if len(metadata_split) == 1:
             assert metadata_split[0] == 'well',\
                 "Only metadata without extension allowed is 'well,"\
@@ -39,7 +38,7 @@ class MetaData:
             raise IOError("Metadata file must be of type"
                           "file_name.extension or 'well'"
                           "not {}".format(constants.METADATA_FILE))
-        print(self.metadata_extension)
+
         # parse fiducials, spot types, antigens, and hardware parameters from metadata
         if self.metadata_extension == 'xml':
             # check that .xml exists
@@ -70,7 +69,6 @@ class MetaData:
                 raise IOError("xlsx file not found, aborting")
 
             # check that the xlsx file contains necessary worksheets
-            print(self.xlsx_path)
             sheets = pd.read_excel(self.xlsx_path, sheet_name=None)
             if 'imaging_and_array_parameters' not in sheets.keys():
                 raise IOError("sheet by name 'imaging_and_array_parameters' not present in excel file, aborting")
