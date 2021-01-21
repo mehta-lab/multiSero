@@ -5,7 +5,7 @@ natsort
 numpy
 opencv-python==3.4.2.17
 openpyxl
-pandas>=1.0.2
+pandas>=0.25.0
 pyparsing
 scikit-image
 scipy
