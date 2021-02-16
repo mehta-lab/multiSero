@@ -57,9 +57,15 @@ def test_xlsx(create_good_xlsx):
     constants.METADATA_FILE = 'pysero_output_data_metadata.xlsx'
     constants.RUN_PATH = output_dir
     MetaData(input_dir, output_dir)
+    assert constants.params['rows'] == 6
+    assert constants.params['columns'] == 6
+    assert constants.params['v_pitch'] == 0.4
+    assert constants.params['h_pitch'] == 0.45
+    assert constants.params['spot_width'] == 0.2
+    assert constants.params['pixel_size'] == 0.0049
 
 
-def test_nonetype_well_array(create_good_xlsx):
+def test_xlsx_rerun(create_good_xlsx):
     input_dir, output_dir = create_good_xlsx
     constants.METADATA_FILE = 'pysero_output_data_metadata.xlsx'
     constants.RUN_PATH = output_dir
