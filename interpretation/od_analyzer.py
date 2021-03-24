@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import os
 import re
 from matplotlib import pyplot as plt
@@ -34,17 +35,20 @@ def read_config(input_dir):
                                          index_col=0, squeeze=True, usecols='A,B')
             # replace NaN with None
             roc_param_df.where(roc_param_df.notnull(), None, inplace=True)
-            roc_param_df['serum ID'] = re.split(r'\s*,\s*', roc_param_df['serum ID'])
+            if roc_param_df['serum ID'] is not None:
+                roc_param_df['serum ID'] = re.split(r'\s*,\s*', roc_param_df['serum ID'])
         if 'categorical plot' in config_file.sheet_names:
             cat_param_df = pd.read_excel(config_file, sheet_name='categorical plot',
                                          index_col=0, squeeze=True, usecols='A,B')
             cat_param_df.where(cat_param_df.notnull(), None, inplace=True)
-            cat_param_df['serum ID'] = re.split(r'\s*,\s*', cat_param_df['serum ID'])
+            if cat_param_df['serum ID'] is not None:
+                cat_param_df['serum ID'] = re.split(r'\s*,\s*', cat_param_df['serum ID'])
         if 'standard curves' in config_file.sheet_names:
             fit_param_df = pd.read_excel(config_file, sheet_name='standard curves',
                                          index_col=0, squeeze=True, usecols='A,B')
             fit_param_df.where(fit_param_df.notnull(), None, inplace=True)
-            fit_param_df['serum ID'] = re.split(r'\s*,\s*', fit_param_df['serum ID'])
+            if fit_param_df['serum ID'] is not None:
+                fit_param_df['serum ID'] = re.split(r'\s*,\s*', fit_param_df['serum ID'])
         if not constants.LOAD_REPORT:
             assert ('pysero output dirs' in config_file.sheet_names) or \
             ('scienion output dirs' in config_file.sheet_names), \
@@ -52,7 +56,8 @@ def read_config(input_dir):
             "in analysis config file when load_report is False, aborting"
             if 'pysero output dirs' in config_file.sheet_names:
                 ntl_dirs_df = pd.read_excel(config_file, sheet_name='pysero output dirs', comment='#')
-                ntl_dirs_df['well ID'] = ntl_dirs_df['well ID'].str.split(pat=r'\s*,\s*')
+                if not ntl_dirs_df.isna().loc[0, 'well ID']:
+                    ntl_dirs_df['well ID'] = ntl_dirs_df['well ID'].str.split(pat=r'\s*,\s*')
             if 'scienion output dirs' in config_file.sheet_names:
                 scn_scn_df = pd.read_excel(config_file, sheet_name='scienion output dirs', comment='#')
     return ntl_dirs_df, scn_scn_df, plot_setting_df, roc_param_df, cat_param_df, fit_param_df
@@ -100,7 +105,7 @@ def analyze_od(input_dir, output_dir, load_report):
         roc_suffix = suffix
         if split_val is not None:
             roc_suffix = '_'.join([suffix, split_val])
-        df_norm_sub = slice_df(df_norm, 'keep', split_cols, [split_val])
+        df_norm_sub = slice_df(df_norm, 'keep', split_cols, split_val)
         slice_cols = [split_cols, 'antigen type', 'antigen']
         slice_keys = [[split_val], ['Diagnostic'], antigen_list]
         slice_actions = ['keep', 'keep', 'keep']

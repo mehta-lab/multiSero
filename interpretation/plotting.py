@@ -40,6 +40,8 @@ def fit2df(df, model):
             guess = [0, 1, 5e-4, 1]
             xdata = sub_df['serum dilution'].to_numpy()
             ydata = sub_df['OD'].to_numpy()
+            ydata = ydata[xdata > 0]
+            xdata = xdata[xdata > 0]  # concentration has to be positive
             params, params_covariance = optimization.curve_fit(model, xdata, ydata, guess, bounds=(0, np.inf), maxfev=1e5)
             x_input = np.logspace(np.log10(np.min(xdata)), np.log10(np.max(xdata)), 50)
             y_fit = fourPL(x_input, *params)
@@ -464,9 +466,10 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
     g = sns.lmplot(x="serum dilution", y="OD",
                     hue=hue, hue_order=sera_fit_list, col="antigen", ci='sd', palette=palette, markers=markers,
                      data=dilution_df, col_wrap=col_wrap, fit_reg=False, x_estimator=np.mean)
-    palette = sns.color_palette(n_colors=len(dilution_df_fit[hue].unique()))
+
     for antigen, ax in zip(antigens, g.axes.flat):
         df_fit = dilution_df_fit[(dilution_df_fit['antigen'] == antigen)]
+        palette = sns.color_palette(n_colors=len(df_fit[hue].unique()))
         sns.lineplot(x="serum dilution", y="OD", hue=hue, hue_order=sera_4pl_list, data=df_fit,
                      style=style, palette=palette,
                      ax=ax, legend=False)

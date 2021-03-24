@@ -147,7 +147,13 @@ def slice_df(df, slice_action, column, keys):
     :param keys: key values to keep or drop
     :return:
     """
-    if any([s in [None, np.nan] for s in [slice_action, column]]):
+    if column is None or column != column:
+        return df
+    if not isinstance(keys, (list, np.ndarray)):
+        if keys != keys or keys is None: # nan
+            return df
+        keys = [keys]
+    if slice_action is None or slice_action != slice_action:
         return df
     elif slice_action == 'keep':
         df = df[df[column].isin(keys)]
