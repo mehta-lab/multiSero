@@ -43,6 +43,7 @@ def read_plate_info(metadata_xlsx):
     sheet_names = ['serum ID',
                    'serum dilution',
                    'serum type',
+                   'serum cat',
                    'secondary ID',
                    'secondary dilution',
                    'sample type']

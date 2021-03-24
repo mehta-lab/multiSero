@@ -18,11 +18,11 @@ def fourPL(x, A, B, C, D):
     return ((A-D)/(1.0+((x/C)**(B))) + D)
 
 
-def fit2df(df, model):
+def fit2df(df, model, serum_group='serum ID'):
     """fit model to x, y data in dataframe.
     Return a dataframe with fit x, y for plotting
     """
-    sera = df['serum ID'].unique()
+    sera = df[serum_group].unique()
     antigens = df['antigen'].unique()
     secondaries = df['secondary ID'].unique()
 
@@ -30,7 +30,7 @@ def fit2df(df, model):
     df_fit = pd.DataFrame(columns=df.columns)
     for serum, antigen, secondary in keys:
         print('Fitting {}, {}...'.format(serum, antigen))
-        sec_dilu_df = df[(df['serum ID']== serum) &
+        sec_dilu_df = df[(df[serum_group]== serum) &
                     (df['antigen'] == antigen) &
                     (df['secondary ID'] == secondary)]
         sec_dilutions = sec_dilu_df['secondary dilution'].unique()
@@ -48,7 +48,7 @@ def fit2df(df, model):
 
             df_fit_temp['serum dilution'] = x_input
             df_fit_temp['OD'] = y_fit
-            df_fit_temp['serum ID'] = ' '.join([serum, 'fit'])
+            df_fit_temp[serum_group] = ' '.join([serum, 'fit'])
             sub_df_expand = pd.concat(
                 [sub_df.loc[[0], ['antigen',
                              'serum type',
@@ -453,10 +453,10 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
     :param bool zoom: If true, output zoom-in of the low OD region
     """
     dilution_df_fit = dilution_df.copy()
-    dilution_df_fit = fit2df(dilution_df_fit, fourPL)
-    sera_fit_list = dilution_df['serum ID'].unique()
+    dilution_df_fit = fit2df(dilution_df_fit, fourPL, serum_group=hue)
+    hue_list = dilution_df[hue].unique()
     #%% plot standard curves
-    sera_4pl_list = [' '.join([x, 'fit']) for x in sera_fit_list]
+    hue_fit_list = [' '.join([x, 'fit']) for x in hue_list]
     antigens = dilution_df['antigen'].unique()
     markers = 'o'
     style = 'serum type'
@@ -464,13 +464,13 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
     palette = sns.color_palette(n_colors=len(dilution_df[hue].unique()))
     print('plotting standard curves...')
     g = sns.lmplot(x="serum dilution", y="OD",
-                    hue=hue, hue_order=sera_fit_list, col="antigen", ci='sd', palette=palette, markers=markers,
+                    hue=hue, hue_order=hue_list, col="antigen", ci='sd', palette=palette, markers=markers,
                      data=dilution_df, col_wrap=col_wrap, fit_reg=False, x_estimator=np.mean)
 
     for antigen, ax in zip(antigens, g.axes.flat):
         df_fit = dilution_df_fit[(dilution_df_fit['antigen'] == antigen)]
         palette = sns.color_palette(n_colors=len(df_fit[hue].unique()))
-        sns.lineplot(x="serum dilution", y="OD", hue=hue, hue_order=sera_4pl_list, data=df_fit,
+        sns.lineplot(x="serum dilution", y="OD", hue=hue, hue_order=hue_fit_list, data=df_fit,
                      style=style, palette=palette,
                      ax=ax, legend=False)
         ax.set(xscale="log")

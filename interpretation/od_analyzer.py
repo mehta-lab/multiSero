@@ -75,10 +75,6 @@ def analyze_od(input_dir, output_dir, load_report):
     ntl_dirs_df, scn_scn_df, plot_setting_df, roc_param_df, cat_param_df, fit_param_df =\
         read_config(input_dir)
     stitched_pysero_df = read_output_batch(output_dir, ntl_dirs_df, scn_scn_df, load_report)
-    # fix metadata error
-    # stitched_pysero_df.loc[stitched_pysero_df['antigen'] == 'xIgG Fc', 'antigen type'] = 'Positive'
-    test_df = stitched_pysero_df.loc[(stitched_pysero_df['antigen'] == 'xIgG Fc') &
-                                     (stitched_pysero_df['antigen type'] == 'Diagnostic')]
     if plot_setting_df['antigens to plot'] == 'all':
         plot_setting_df['antigens to plot'] = stitched_pysero_df['antigen'].unique()
     split_cols = plot_setting_df['split plots by']
@@ -97,7 +93,7 @@ def analyze_od(input_dir, output_dir, load_report):
 
     if aggregate is not None:
         df_norm = df_norm.groupby(['antigen', 'antigen type', 'serum ID', 'well_id', 'plate ID', 'sample type',
-                                 'serum type', 'serum dilution', 'pipeline', 'secondary ID',
+                                 'serum type', 'serum dilution', 'serum cat', 'pipeline', 'secondary ID',
                                  'secondary dilution'])['OD'].mean().reset_index()
         suffix = '_'.join([suffix, aggregate])
 
@@ -138,7 +134,7 @@ def analyze_od(input_dir, output_dir, load_report):
             assert not cat_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
             sns.set_context("talk")
             g = sns.catplot(x="serum type", y="OD", hue=hue, col="antigen", kind="swarm",
-                            palette=["r", "c", "y"], data=cat_df, col_wrap=3)
+                            data=cat_df, col_wrap=3)
             plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_{}.png'.format(suffix)),
                                           dpi=300, bbox_inches='tight')
             if cat_param_df['zoom']:
