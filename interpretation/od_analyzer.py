@@ -77,10 +77,10 @@ def analyze_od(input_dir, output_dir, load_report):
     stitched_pysero_df = read_output_batch(output_dir, ntl_dirs_df, scn_scn_df, load_report)
     if plot_setting_df['antigens to plot'] == 'all':
         plot_setting_df['antigens to plot'] = stitched_pysero_df['antigen'].unique()
-    split_cols = plot_setting_df['split plots by']
-    split_vals = [None]
-    if split_cols is not None:
-        split_vals = stitched_pysero_df[split_cols].unique()
+    split_plots_by = plot_setting_df['split plots by']
+    split_plots_vals = [None]
+    if split_plots_by is not None:
+        split_plots_vals = stitched_pysero_df[split_plots_by].unique()
     norm_antigen = plot_setting_df['normalize OD by']
     norm_group = 'plate'
     aggregate = 'mean'
@@ -97,12 +97,12 @@ def analyze_od(input_dir, output_dir, load_report):
                                  'secondary dilution'])['OD'].mean().reset_index()
         suffix = '_'.join([suffix, aggregate])
 
-    for split_val in split_vals:
+    for split_val in split_plots_vals:
         roc_suffix = suffix
         if split_val is not None:
             roc_suffix = '_'.join([suffix, split_val])
-        df_norm_sub = slice_df(df_norm, 'keep', split_cols, split_val)
-        slice_cols = [split_cols, 'antigen type', 'antigen']
+        df_norm_sub = slice_df(df_norm, 'keep', split_plots_by, split_val)
+        slice_cols = [split_plots_by, 'antigen type', 'antigen']
         slice_keys = [[split_val], ['Diagnostic'], antigen_list]
         slice_actions = ['keep', 'keep', 'keep']
         # general slicing
@@ -128,12 +128,13 @@ def analyze_od(input_dir, output_dir, load_report):
         if not cat_param_df.empty:
             sera_cat_list = cat_param_df['serum ID']
             slice_action = cat_param_df['serum ID action']
+            split_subplots_by = cat_param_df['split subplots by']
             hue = cat_param_df['hue']
             # plot specific slicing
             cat_df = slice_df(df_norm_sub, slice_action, 'serum ID', sera_cat_list)
             assert not cat_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
             sns.set_context("talk")
-            g = sns.catplot(x="serum type", y="OD", hue=hue, col="antigen", kind="swarm",
+            g = sns.catplot(x="serum type", y="OD", hue=hue, col=split_subplots_by, kind="swarm",
                             data=cat_df, col_wrap=3)
             plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_{}.png'.format(suffix)),
                                           dpi=300, bbox_inches='tight')
@@ -146,7 +147,8 @@ def analyze_od(input_dir, output_dir, load_report):
             slice_action = fit_param_df['serum ID action']
             hue = fit_param_df['hue']
             dilution_df = slice_df(df_norm_sub, slice_action, 'serum ID', fit_param_df['serum ID'])
+            split_subplots_by = fit_param_df['split subplots by']
             standard_curve_plot(dilution_df, constants.RUN_PATH, 'fit_{}'.format(suffix), 'png', hue=hue,
-                                zoom=fit_param_df['zoom'], col_wrap=3)
+                                zoom=fit_param_df['zoom'], split_subplots_by=split_subplots_by, col_wrap=3)
         plt.close('all')
 

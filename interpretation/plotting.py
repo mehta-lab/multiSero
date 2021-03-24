@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import warnings
+import itertools
 from matplotlib import pyplot as plt
 from natsort import natsorted
 from scipy import optimize as optimization
@@ -48,10 +49,12 @@ def fit2df(df, model, serum_group='serum ID'):
 
             df_fit_temp['serum dilution'] = x_input
             df_fit_temp['OD'] = y_fit
-            df_fit_temp[serum_group] = ' '.join([serum, 'fit'])
+            df_fit_temp[serum_group] = serum
+            # df_fit_temp[serum_group] = ' '.join([serum, 'fit'])
             sub_df_expand = pd.concat(
                 [sub_df.loc[[0], ['antigen',
                              'serum type',
+                             'serum cat',
                              'secondary ID',
                              'secondary dilution',
                              'pipeline']]] * len(df_fit_temp.index), axis=0).reset_index(drop=True)
@@ -441,7 +444,7 @@ def joint_plot(df_ori,
 
 
 def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
-                        zoom=False, col_wrap=3):
+                        zoom=False, split_subplots_by='antigen', col_wrap=3):
     """
     Plot standard curves for ELISA
     :param dataframe dilution_df: dataframe containing serum OD with serial diluition
@@ -453,31 +456,34 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
     :param bool zoom: If true, output zoom-in of the low OD region
     """
     dilution_df_fit = dilution_df.copy()
-    dilution_df_fit = fit2df(dilution_df_fit, fourPL, serum_group=hue)
+    dilution_df_fit = fit2df(dilution_df_fit, fourPL)
     hue_list = dilution_df[hue].unique()
     #%% plot standard curves
-    hue_fit_list = [' '.join([x, 'fit']) for x in hue_list]
-    antigens = dilution_df['antigen'].unique()
-    markers = 'o'
+    # hue_fit_list = [' '.join([x, 'fit']) for x in hue_list]
+    split_subplots_vals = dilution_df[split_subplots_by].unique()
+    # markers = 'o'
+    mks = itertools.cycle(['o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X'])
+    markers = [next(mks) for i in hue_list]
     style = 'serum type'
+    # style = hue
     assert not dilution_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
     palette = sns.color_palette(n_colors=len(dilution_df[hue].unique()))
     print('plotting standard curves...')
     g = sns.lmplot(x="serum dilution", y="OD",
-                    hue=hue, hue_order=hue_list, col="antigen", ci='sd', palette=palette, markers=markers,
+                    hue=hue, hue_order=hue_list, col=split_subplots_by, ci='sd', palette=palette, markers=markers,
                      data=dilution_df, col_wrap=col_wrap, fit_reg=False, x_estimator=np.mean)
 
-    for antigen, ax in zip(antigens, g.axes.flat):
-        df_fit = dilution_df_fit[(dilution_df_fit['antigen'] == antigen)]
+    for val, ax in zip(split_subplots_vals, g.axes.flat):
+        df_fit = dilution_df_fit[(dilution_df_fit[split_subplots_by] == val)]
         palette = sns.color_palette(n_colors=len(df_fit[hue].unique()))
-        sns.lineplot(x="serum dilution", y="OD", hue=hue, hue_order=hue_fit_list, data=df_fit,
+        sns.lineplot(x="serum dilution", y="OD", hue=hue, hue_order=hue_list, data=df_fit,
                      style=style, palette=palette,
                      ax=ax, legend=False)
         ax.set(xscale="log")
     plt.savefig(os.path.join(fig_path, '.'.join([fig_name, ext])), dpi=300, bbox_inches='tight')
 
     if zoom:
-        for antigen, ax in zip(antigens, g.axes.flat):
+        for val, ax in zip(split_subplots_vals, g.axes.flat):
             ax.set(ylim=[-0.05, 1.5])
         fig_name += '_zoom'
         plt.savefig(os.path.join(fig_path, '.'.join([fig_name, ext])), dpi=300, bbox_inches='tight')
