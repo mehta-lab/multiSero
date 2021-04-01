@@ -1,7 +1,8 @@
 import os
 import numpy as np
 import pandas as pd
-
+import logging
+import array_analyzer.extract.constants as constants
 
 def antigen2D_to_df1D(xlsx_path, sheet, data_col):
     """
@@ -65,10 +66,11 @@ def read_plate_info(metadata_xlsx):
     # convert to number and non-numeric to NaN
     plate_info_df['serum dilution'] = \
         plate_info_df['serum dilution'].apply(pd.to_numeric, errors='coerce')
+    logger = logging.getLogger(constants.LOG_NAME)
+    if plate_info_df.isnull().to_numpy().any():
+        logger.warning("Parsing diluiton failed for some wells. "
+                       "Make sure dilutions do not contain strings")
     plate_info_df.dropna(inplace=True)
-    if np.all(plate_info_df['serum dilution'] >= 1):
-        # convert dilution to concentration
-        plate_info_df['serum dilution'] = 1 / plate_info_df['serum dilution']
     plate_info_df.drop(['row_id', 'col_id'], axis=1, inplace=True)
     if 'sample type' not in sheet_names:
         plate_info_df['sample type'] = 'Serum'
