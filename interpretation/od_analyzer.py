@@ -98,9 +98,9 @@ def analyze_od(input_dir, output_dir, load_report):
         suffix = '_'.join([suffix, aggregate])
 
     for split_val in split_plots_vals:
-        roc_suffix = suffix
+        split_suffix = suffix
         if split_val is not None:
-            roc_suffix = '_'.join([suffix, split_val])
+            split_suffix = '_'.join([split_suffix, split_val])
         df_norm_sub = slice_df(df_norm, 'keep', split_plots_by, split_val)
         slice_cols = [split_plots_by, 'antigen type', 'antigen']
         slice_keys = [[split_val], ['Diagnostic'], antigen_list]
@@ -118,6 +118,7 @@ def analyze_od(input_dir, output_dir, load_report):
             ci = roc_param_df['confidence interval']
             hue = roc_param_df['hue']
             # df_norm = offset_od(df_norm, offset_antigen, offset_group)
+            roc_suffix = split_suffix
             if ci is not None:
                 roc_suffix = '_'.join([roc_suffix, 'ci'])
             #%%
@@ -136,11 +137,11 @@ def analyze_od(input_dir, output_dir, load_report):
             sns.set_context("talk")
             g = sns.catplot(x="serum type", y="OD", hue=hue, col=split_subplots_by, kind="swarm",
                             data=cat_df, col_wrap=3)
-            plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_{}.png'.format(suffix)),
+            plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_{}.png'.format(split_suffix)),
                                           dpi=300, bbox_inches='tight')
             if cat_param_df['zoom']:
                 g.set(ylim=(-0.05, 0.4))
-                plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_zoom_{}.png'.format(suffix)),
+                plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_zoom_{}.png'.format(split_suffix)),
                                               dpi=300, bbox_inches='tight')
         #%% 4PL fit
         if not fit_param_df.empty:
@@ -148,7 +149,7 @@ def analyze_od(input_dir, output_dir, load_report):
             hue = fit_param_df['hue']
             dilution_df = slice_df(df_norm_sub, slice_action, 'serum ID', fit_param_df['serum ID'])
             split_subplots_by = fit_param_df['split subplots by']
-            standard_curve_plot(dilution_df, constants.RUN_PATH, 'fit_{}'.format(suffix), 'png', hue=hue,
+            standard_curve_plot(dilution_df, constants.RUN_PATH, 'fit_{}'.format(split_suffix), 'png', hue=hue,
                                 zoom=fit_param_df['zoom'], split_subplots_by=split_subplots_by, col_wrap=3)
         plt.close('all')
 
