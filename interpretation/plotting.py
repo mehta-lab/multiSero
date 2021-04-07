@@ -26,14 +26,16 @@ def fit2df(df, model, serum_group='serum ID'):
     sera = df[serum_group].unique()
     antigens = df['antigen'].unique()
     secondaries = df['secondary ID'].unique()
+    plate_ids = df['plate ID'].unique()
 
-    keys = itertools.product(sera, antigens, secondaries)
+    keys = itertools.product(sera, antigens, secondaries, plate_ids)
     df_fit = pd.DataFrame(columns=df.columns)
-    for serum, antigen, secondary in keys:
+    for serum, antigen, secondary, plate_id in keys:
         print('Fitting {}, {}...'.format(serum, antigen))
-        sec_dilu_df = df[(df[serum_group]== serum) &
-                    (df['antigen'] == antigen) &
-                    (df['secondary ID'] == secondary)]
+        sec_dilu_df = df[(df[serum_group] == serum) &
+                        (df['antigen'] == antigen) &
+                        (df['secondary ID'] == secondary) &
+                         (df['plate ID'] == plate_id)]
         sec_dilutions = sec_dilu_df['secondary dilution'].unique()
         for sec_dilution in sec_dilutions:
             sub_df = sec_dilu_df[(sec_dilu_df['secondary dilution'] == sec_dilution)].reset_index(drop=True)
@@ -49,15 +51,15 @@ def fit2df(df, model, serum_group='serum ID'):
 
             df_fit_temp['serum dilution'] = x_input
             df_fit_temp['OD'] = y_fit
-            df_fit_temp[serum_group] = serum
-            # df_fit_temp[serum_group] = ' '.join([serum, 'fit'])
             sub_df_expand = pd.concat(
-                [sub_df.loc[[0], ['antigen',
-                             'serum type',
-                             'serum cat',
-                             'secondary ID',
-                             'secondary dilution',
-                             'pipeline']]] * len(df_fit_temp.index), axis=0).reset_index(drop=True)
+                [sub_df.loc[[0], [serum_group,
+                                  'antigen',
+                                 'serum type',
+                                 'serum cat',
+                                 'secondary ID',
+                                 'secondary dilution',
+                                 'pipeline',
+                                  'plate ID']]] * len(df_fit_temp.index), axis=0).reset_index(drop=True)
             df_fit_temp = pd.concat([df_fit_temp, sub_df_expand], axis=1)
             df_fit = df_fit.append(df_fit_temp)
     print('4PL fitting finished')
