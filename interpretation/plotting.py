@@ -486,6 +486,6 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
 
     if zoom:
         for val, ax in zip(split_subplots_vals, g.axes.flat):
-            ax.set(ylim=[-0.05, 1.5])
+            ax.set(ylim=[-0.05, 0.4])
         fig_name += '_zoom'
         plt.savefig(os.path.join(fig_path, '.'.join([fig_name, ext])), dpi=300, bbox_inches='tight')
