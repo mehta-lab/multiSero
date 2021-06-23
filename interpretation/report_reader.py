@@ -67,9 +67,11 @@ def read_plate_info(metadata_xlsx):
     plate_info_df['serum dilution'] = \
         plate_info_df['serum dilution'].apply(pd.to_numeric, errors='coerce')
     logger = logging.getLogger(constants.LOG_NAME)
-    if plate_info_df.isnull().to_numpy().any():
-        logger.warning("Parsing diluiton failed for some wells. "
-                       "Make sure dilutions do not contain strings")
+    nan_cols = plate_info_df.columns[plate_info_df.isnull().any()].tolist()
+    if nan_cols:
+        logger.warning("Parsing metadata failed for some wells in tab {}. "
+                       "Please check info in these tabs are all filled out and in the right format "
+                       "(e.g. dilutions should not contain strings)".format(nan_cols))
     plate_info_df.dropna(inplace=True)
     plate_info_df.drop(['row_id', 'col_id'], axis=1, inplace=True)
     if 'sample type' not in sheet_names:
