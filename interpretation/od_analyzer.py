@@ -36,19 +36,19 @@ def read_config(input_dir):
             # replace NaN with None
             roc_param_df.where(roc_param_df.notnull(), None, inplace=True)
             if roc_param_df['serum ID'] is not None:
-                roc_param_df['serum ID'] = re.split(r'\s*,\s*', roc_param_df['serum ID'])
+                roc_param_df['serum ID'] = re.split(r',\s*', roc_param_df['serum ID'])
         if 'categorical plot' in config_file.sheet_names:
             cat_param_df = pd.read_excel(config_file, sheet_name='categorical plot',
                                          index_col=0, squeeze=True, usecols='A,B')
             cat_param_df.where(cat_param_df.notnull(), None, inplace=True)
             if cat_param_df['serum ID'] is not None:
-                cat_param_df['serum ID'] = re.split(r'\s*,\s*', cat_param_df['serum ID'])
+                cat_param_df['serum ID'] = re.split(r',\s*', cat_param_df['serum ID'])
         if 'standard curves' in config_file.sheet_names:
             fit_param_df = pd.read_excel(config_file, sheet_name='standard curves',
                                          index_col=0, squeeze=True, usecols='A,B')
             fit_param_df.where(fit_param_df.notnull(), None, inplace=True)
             if fit_param_df['serum ID'] is not None:
-                fit_param_df['serum ID'] = re.split(r'\s*,\s*', fit_param_df['serum ID'])
+                fit_param_df['serum ID'] = re.split(r',\s*', fit_param_df['serum ID'])
         if not constants.LOAD_REPORT:
             assert ('pysero output dirs' in config_file.sheet_names) or \
             ('scienion output dirs' in config_file.sheet_names), \
@@ -150,6 +150,6 @@ def analyze_od(input_dir, output_dir, load_report):
             dilution_df = slice_df(df_norm_sub, slice_action, 'serum ID', fit_param_df['serum ID'])
             split_subplots_by = fit_param_df['split subplots by']
             standard_curve_plot(dilution_df, constants.RUN_PATH, 'fit_{}'.format(split_suffix), 'png', hue=hue,
-                                zoom=fit_param_df['zoom'], split_subplots_by=split_subplots_by, col_wrap=3)
+                                zoom=fit_param_df['zoom'], split_subplots_by=split_subplots_by, col_wrap=1)
         plt.close('all')
 
