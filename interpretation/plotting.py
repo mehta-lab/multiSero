@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import warnings
+import itertools
 from matplotlib import pyplot as plt
 from natsort import natsorted
 from scipy import optimize as optimization
@@ -18,21 +19,23 @@ def fourPL(x, A, B, C, D):
     return ((A-D)/(1.0+((x/C)**(B))) + D)
 
 
-def fit2df(df, model):
+def fit2df(df, model, serum_group='serum ID'):
     """fit model to x, y data in dataframe.
     Return a dataframe with fit x, y for plotting
     """
-    sera = df['serum ID'].unique()
+    sera = df[serum_group].unique()
     antigens = df['antigen'].unique()
     secondaries = df['secondary ID'].unique()
+    plate_ids = df['plate ID'].unique()
 
-    keys = itertools.product(sera, antigens, secondaries)
+    keys = itertools.product(sera, antigens, secondaries, plate_ids)
     df_fit = pd.DataFrame(columns=df.columns)
-    for serum, antigen, secondary in keys:
+    for serum, antigen, secondary, plate_id in keys:
         print('Fitting {}, {}...'.format(serum, antigen))
-        sec_dilu_df = df[(df['serum ID']== serum) &
-                    (df['antigen'] == antigen) &
-                    (df['secondary ID'] == secondary)]
+        sec_dilu_df = df[(df[serum_group] == serum) &
+                        (df['antigen'] == antigen) &
+                        (df['secondary ID'] == secondary) &
+                         (df['plate ID'] == plate_id)]
         sec_dilutions = sec_dilu_df['secondary dilution'].unique()
         for sec_dilution in sec_dilutions:
             sub_df = sec_dilu_df[(sec_dilu_df['secondary dilution'] == sec_dilution)].reset_index(drop=True)
@@ -40,19 +43,23 @@ def fit2df(df, model):
             guess = [0, 1, 5e-4, 1]
             xdata = sub_df['serum dilution'].to_numpy()
             ydata = sub_df['OD'].to_numpy()
+            ydata = ydata[xdata > 0]
+            xdata = xdata[xdata > 0]  # concentration has to be positive
             params, params_covariance = optimization.curve_fit(model, xdata, ydata, guess, bounds=(0, np.inf), maxfev=1e5)
             x_input = np.logspace(np.log10(np.min(xdata)), np.log10(np.max(xdata)), 50)
             y_fit = fourPL(x_input, *params)
 
             df_fit_temp['serum dilution'] = x_input
             df_fit_temp['OD'] = y_fit
-            df_fit_temp['serum ID'] = ' '.join([serum, 'fit'])
             sub_df_expand = pd.concat(
-                [sub_df.loc[[0], ['antigen',
-                             'serum type',
-                             'secondary ID',
-                             'secondary dilution',
-                             'pipeline']]] * len(df_fit_temp.index), axis=0).reset_index(drop=True)
+                [sub_df.loc[[0], [serum_group,
+                                  'antigen',
+                                 'serum type',
+                                 'serum cat',
+                                 'secondary ID',
+                                 'secondary dilution',
+                                 'pipeline',
+                                  'plate ID']]] * len(df_fit_temp.index), axis=0).reset_index(drop=True)
             df_fit_temp = pd.concat([df_fit_temp, sub_df_expand], axis=1)
             df_fit = df_fit.append(df_fit_temp)
     print('4PL fitting finished')
@@ -439,7 +446,7 @@ def joint_plot(df_ori,
 
 
 def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
-                        zoom=False, col_wrap=3):
+                        zoom=False, split_subplots_by='antigen', col_wrap=3):
     """
     Plot standard curves for ELISA
     :param dataframe dilution_df: dataframe containing serum OD with serial diluition
@@ -452,29 +459,33 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
     """
     dilution_df_fit = dilution_df.copy()
     dilution_df_fit = fit2df(dilution_df_fit, fourPL)
-    sera_fit_list = dilution_df['serum ID'].unique()
+    hue_list = dilution_df[hue].unique()
     #%% plot standard curves
-    sera_4pl_list = [' '.join([x, 'fit']) for x in sera_fit_list]
-    antigens = dilution_df['antigen'].unique()
-    markers = 'o'
+    # hue_fit_list = [' '.join([x, 'fit']) for x in hue_list]
+    split_subplots_vals = dilution_df[split_subplots_by].unique()
+    # markers = 'o'
+    mks = itertools.cycle(['o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X'])
+    markers = [next(mks) for i in hue_list]
     style = 'serum type'
+    # style = hue
     assert not dilution_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
     palette = sns.color_palette(n_colors=len(dilution_df[hue].unique()))
     print('plotting standard curves...')
     g = sns.lmplot(x="serum dilution", y="OD",
-                    hue=hue, hue_order=sera_fit_list, col="antigen", ci='sd', palette=palette, markers=markers,
+                    hue=hue, hue_order=hue_list, col=split_subplots_by, ci='sd', palette=palette, markers=markers,
                      data=dilution_df, col_wrap=col_wrap, fit_reg=False, x_estimator=np.mean)
-    palette = sns.color_palette(n_colors=len(dilution_df_fit[hue].unique()))
-    for antigen, ax in zip(antigens, g.axes.flat):
-        df_fit = dilution_df_fit[(dilution_df_fit['antigen'] == antigen)]
-        sns.lineplot(x="serum dilution", y="OD", hue=hue, hue_order=sera_4pl_list, data=df_fit,
+
+    for val, ax in zip(split_subplots_vals, g.axes.flat):
+        df_fit = dilution_df_fit[(dilution_df_fit[split_subplots_by] == val)]
+        palette = sns.color_palette(n_colors=len(df_fit[hue].unique()))
+        sns.lineplot(x="serum dilution", y="OD", hue=hue, hue_order=hue_list, data=df_fit,
                      style=style, palette=palette,
                      ax=ax, legend=False)
         ax.set(xscale="log")
     plt.savefig(os.path.join(fig_path, '.'.join([fig_name, ext])), dpi=300, bbox_inches='tight')
 
     if zoom:
-        for antigen, ax in zip(antigens, g.axes.flat):
-            ax.set(ylim=[-0.05, 1.5])
+        for val, ax in zip(split_subplots_vals, g.axes.flat):
+            ax.set(ylim=[-0.05, 0.4])
         fig_name += '_zoom'
         plt.savefig(os.path.join(fig_path, '.'.join([fig_name, ext])), dpi=300, bbox_inches='tight')
