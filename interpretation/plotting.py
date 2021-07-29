@@ -446,7 +446,7 @@ def joint_plot(df_ori,
 
 
 def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
-                        zoom=False, split_subplots_by='antigen', col_wrap=3):
+                        zoom=False, split_subplots_by='antigen', col_wrap=4):
     """
     Plot standard curves for ELISA
     :param dataframe dilution_df: dataframe containing serum OD with serial diluition
@@ -460,17 +460,37 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
     dilution_df_fit = dilution_df.copy()
     dilution_df_fit = fit2df(dilution_df_fit, fourPL)
     hue_list = dilution_df[hue].unique()
+    denv_list = [] #just dengue plots
+
+    cr_flavi_list = []
+    for x in hue_list:
+        if x[0:4] == 'DENV':
+            denv_list.append(x) #else place in cr_flavi_list, 2 sets of plots: dnv plts, flavi plots
+
+    for x in hue_list:
+        if not x[0:4] == 'DENV':
+           cr_flavi_list.append(x) #else place in cr_flavi_list, 2 sets of plots: dnv plts, flavi plots
     #%% plot standard curves
     # hue_fit_list = [' '.join([x, 'fit']) for x in hue_list]
     split_subplots_vals = dilution_df[split_subplots_by].unique()
     # markers = 'o'
     mks = itertools.cycle(['o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X'])
+    # mks = itertools.cycle(['o','o','s','s','s','P','P'])
     markers = [next(mks) for i in hue_list]
+    # markers = [next(mks) for i in denv_list]
+    # markers = [next(mks) for i in cr_flavi_list]
     style = 'serum type'
     # style = hue
     assert not dilution_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
     palette = sns.color_palette(n_colors=len(dilution_df[hue].unique()))
+   # sera_palette = {'ADS_100-0022_DENV1':'r','ADS_100-0661_DENV3':'r','ADS_100-0562_ZIKA + JEV':'r',
+                    #'ADS_100-0181_multi + JEV':'r','UB_100-0022_DENV1':'b','UB_100-0661_DENV3':'b',
+                   # 'UB_100-0562_ZIKA + JEV':'b','UB_100-0181_multi + JEV':'b','milk_100-0022_DENV1':'g',
+                  #  'milk_100-0661_DENV3':'g','milk_100-0562_ZIKA + JEV':'g','milk_100-0181_multi + JEV':'g'} #### zip()
+    # denv_palette = sns.color_palette(n_colors=len(denv_list))
+    # cr_palette = sns.color_palette(n_colors=len(cr_flavi_list))
     print('plotting standard curves...')
+
     g = sns.lmplot(x="serum dilution", y="OD",
                     hue=hue, hue_order=hue_list, col=split_subplots_by, ci='sd', palette=palette, markers=markers,
                      data=dilution_df, col_wrap=col_wrap, fit_reg=False, x_estimator=np.mean)
@@ -478,6 +498,8 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
     for val, ax in zip(split_subplots_vals, g.axes.flat):
         df_fit = dilution_df_fit[(dilution_df_fit[split_subplots_by] == val)]
         palette = sns.color_palette(n_colors=len(df_fit[hue].unique()))
+        # denv_palette = sns.color_palette(n_colors=len(denv_list))
+        # cr_palette = sns.color_palette(n_colors=len(cr_flavi_list))
         sns.lineplot(x="serum dilution", y="OD", hue=hue, hue_order=hue_list, data=df_fit,
                      style=style, palette=palette,
                      ax=ax, legend=False)

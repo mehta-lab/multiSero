@@ -150,6 +150,6 @@ def analyze_od(input_dir, output_dir, load_report):
             dilution_df = slice_df(df_norm_sub, slice_action, 'serum ID', fit_param_df['serum ID'])
             split_subplots_by = fit_param_df['split subplots by']
             standard_curve_plot(dilution_df, constants.RUN_PATH, 'fit_{}'.format(split_suffix), 'png', hue=hue,
-                                zoom=fit_param_df['zoom'], split_subplots_by=split_subplots_by, col_wrap=1)
+                                zoom=fit_param_df['zoom'], split_subplots_by=split_subplots_by, col_wrap=4)
         plt.close('all')
 
