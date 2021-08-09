@@ -1,7 +1,8 @@
 import os
 import numpy as np
 import pandas as pd
-
+import logging
+import array_analyzer.extract.constants as constants
 
 def antigen2D_to_df1D(xlsx_path, sheet, data_col):
     """
@@ -43,6 +44,7 @@ def read_plate_info(metadata_xlsx):
     sheet_names = ['serum ID',
                    'serum dilution',
                    'serum type',
+                   'serum cat',
                    'secondary ID',
                    'secondary dilution',
                    'sample type']
@@ -64,10 +66,13 @@ def read_plate_info(metadata_xlsx):
     # convert to number and non-numeric to NaN
     plate_info_df['serum dilution'] = \
         plate_info_df['serum dilution'].apply(pd.to_numeric, errors='coerce')
+    logger = logging.getLogger(constants.LOG_NAME)
+    nan_cols = plate_info_df.columns[plate_info_df.isnull().any()].tolist()
+    if nan_cols:
+        logger.warning("Parsing metadata failed for some wells in tab {}. "
+                       "Please check info in these tabs are all filled out and in the right format "
+                       "(e.g. dilutions should not contain strings)".format(nan_cols))
     plate_info_df.dropna(inplace=True)
-    if np.all(plate_info_df['serum dilution'] >= 1):
-        # convert dilution to concentration
-        plate_info_df['serum dilution'] = 1 / plate_info_df['serum dilution']
     plate_info_df.drop(['row_id', 'col_id'], axis=1, inplace=True)
     if 'sample type' not in sheet_names:
         plate_info_df['sample type'] = 'Serum'
@@ -147,7 +152,13 @@ def slice_df(df, slice_action, column, keys):
     :param keys: key values to keep or drop
     :return:
     """
-    if any([s in [None, np.nan] for s in [slice_action, column]]):
+    if column is None or column != column:
+        return df
+    if not isinstance(keys, (list, np.ndarray)):
+        if keys != keys or keys is None: # nan
+            return df
+        keys = [keys]
+    if slice_action is None or slice_action != slice_action:
         return df
     elif slice_action == 'keep':
         df = df[df[column].isin(keys)]

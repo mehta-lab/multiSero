@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import os
 import re
 from matplotlib import pyplot as plt
@@ -34,17 +35,20 @@ def read_config(input_dir):
                                          index_col=0, squeeze=True, usecols='A,B')
             # replace NaN with None
             roc_param_df.where(roc_param_df.notnull(), None, inplace=True)
-            roc_param_df['serum ID'] = re.split(r'\s*,\s*', roc_param_df['serum ID'])
+            if roc_param_df['serum ID'] is not None:
+                roc_param_df['serum ID'] = re.split(r'\s*,\s*', roc_param_df['serum ID'])
         if 'categorical plot' in config_file.sheet_names:
             cat_param_df = pd.read_excel(config_file, sheet_name='categorical plot',
                                          index_col=0, squeeze=True, usecols='A,B')
             cat_param_df.where(cat_param_df.notnull(), None, inplace=True)
-            cat_param_df['serum ID'] = re.split(r'\s*,\s*', cat_param_df['serum ID'])
+            if cat_param_df['serum ID'] is not None:
+                cat_param_df['serum ID'] = re.split(r'\s*,\s*', cat_param_df['serum ID'])
         if 'standard curves' in config_file.sheet_names:
             fit_param_df = pd.read_excel(config_file, sheet_name='standard curves',
                                          index_col=0, squeeze=True, usecols='A,B')
             fit_param_df.where(fit_param_df.notnull(), None, inplace=True)
-            fit_param_df['serum ID'] = re.split(r'\s*,\s*', fit_param_df['serum ID'])
+            if fit_param_df['serum ID'] is not None:
+                fit_param_df['serum ID'] = re.split(r'\s*,\s*', fit_param_df['serum ID'])
         if not constants.LOAD_REPORT:
             assert ('pysero output dirs' in config_file.sheet_names) or \
             ('scienion output dirs' in config_file.sheet_names), \
@@ -52,7 +56,8 @@ def read_config(input_dir):
             "in analysis config file when load_report is False, aborting"
             if 'pysero output dirs' in config_file.sheet_names:
                 ntl_dirs_df = pd.read_excel(config_file, sheet_name='pysero output dirs', comment='#')
-                ntl_dirs_df['well ID'] = ntl_dirs_df['well ID'].str.split(pat=r'\s*,\s*')
+                if not ntl_dirs_df.isna().loc[0, 'well ID']:
+                    ntl_dirs_df['well ID'] = ntl_dirs_df['well ID'].str.split(pat=r'\s*,\s*')
             if 'scienion output dirs' in config_file.sheet_names:
                 scn_scn_df = pd.read_excel(config_file, sheet_name='scienion output dirs', comment='#')
     return ntl_dirs_df, scn_scn_df, plot_setting_df, roc_param_df, cat_param_df, fit_param_df
@@ -72,10 +77,10 @@ def analyze_od(input_dir, output_dir, load_report):
     stitched_pysero_df = read_output_batch(output_dir, ntl_dirs_df, scn_scn_df, load_report)
     if plot_setting_df['antigens to plot'] == 'all':
         plot_setting_df['antigens to plot'] = stitched_pysero_df['antigen'].unique()
-    split_cols = plot_setting_df['split plots by']
-    split_vals = [None]
-    if split_cols is not None:
-        split_vals = stitched_pysero_df[split_cols].unique()
+    split_plots_by = plot_setting_df['split plots by']
+    split_plots_vals = [None]
+    if split_plots_by is not None:
+        split_plots_vals = stitched_pysero_df[split_plots_by].unique()
     norm_antigen = plot_setting_df['normalize OD by']
     norm_group = 'plate'
     aggregate = 'mean'
@@ -88,16 +93,16 @@ def analyze_od(input_dir, output_dir, load_report):
 
     if aggregate is not None:
         df_norm = df_norm.groupby(['antigen', 'antigen type', 'serum ID', 'well_id', 'plate ID', 'sample type',
-                                 'serum type', 'serum dilution', 'pipeline', 'secondary ID',
+                                 'serum type', 'serum dilution', 'serum cat', 'pipeline', 'secondary ID',
                                  'secondary dilution'])['OD'].mean().reset_index()
         suffix = '_'.join([suffix, aggregate])
 
-    for split_val in split_vals:
-        roc_suffix = suffix
+    for split_val in split_plots_vals:
+        split_suffix = suffix
         if split_val is not None:
-            roc_suffix = '_'.join([suffix, split_val])
-        df_norm_sub = slice_df(df_norm, 'keep', split_cols, [split_val])
-        slice_cols = [split_cols, 'antigen type', 'antigen']
+            split_suffix = '_'.join([split_suffix, split_val])
+        df_norm_sub = slice_df(df_norm, 'keep', split_plots_by, split_val)
+        slice_cols = [split_plots_by, 'antigen type', 'antigen']
         slice_keys = [[split_val], ['Diagnostic'], antigen_list]
         slice_actions = ['keep', 'keep', 'keep']
         # general slicing
@@ -113,6 +118,7 @@ def analyze_od(input_dir, output_dir, load_report):
             ci = roc_param_df['confidence interval']
             hue = roc_param_df['hue']
             # df_norm = offset_od(df_norm, offset_antigen, offset_group)
+            roc_suffix = split_suffix
             if ci is not None:
                 roc_suffix = '_'.join([roc_suffix, 'ci'])
             #%%
@@ -123,25 +129,27 @@ def analyze_od(input_dir, output_dir, load_report):
         if not cat_param_df.empty:
             sera_cat_list = cat_param_df['serum ID']
             slice_action = cat_param_df['serum ID action']
+            split_subplots_by = cat_param_df['split subplots by']
             hue = cat_param_df['hue']
             # plot specific slicing
             cat_df = slice_df(df_norm_sub, slice_action, 'serum ID', sera_cat_list)
             assert not cat_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
             sns.set_context("talk")
-            g = sns.catplot(x="serum type", y="OD", hue=hue, col="antigen", kind="swarm",
-                            palette=["r", "c", "y"], data=cat_df, col_wrap=3)
-            plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_{}.png'.format(suffix)),
+            g = sns.catplot(x="serum type", y="OD", hue=hue, col=split_subplots_by, kind="swarm",
+                            data=cat_df, col_wrap=3)
+            plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_{}.png'.format(split_suffix)),
                                           dpi=300, bbox_inches='tight')
             if cat_param_df['zoom']:
                 g.set(ylim=(-0.05, 0.4))
-                plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_zoom_{}.png'.format(suffix)),
+                plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_zoom_{}.png'.format(split_suffix)),
                                               dpi=300, bbox_inches='tight')
         #%% 4PL fit
         if not fit_param_df.empty:
             slice_action = fit_param_df['serum ID action']
             hue = fit_param_df['hue']
             dilution_df = slice_df(df_norm_sub, slice_action, 'serum ID', fit_param_df['serum ID'])
-            standard_curve_plot(dilution_df, constants.RUN_PATH, 'fit_{}'.format(suffix), 'png', hue=hue,
-                                zoom=fit_param_df['zoom'], col_wrap=3)
+            split_subplots_by = fit_param_df['split subplots by']
+            standard_curve_plot(dilution_df, constants.RUN_PATH, 'fit_{}'.format(split_suffix), 'png', hue=hue,
+                                zoom=fit_param_df['zoom'], split_subplots_by=split_subplots_by, col_wrap=3)
         plt.close('all')
 
