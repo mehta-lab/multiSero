@@ -14,11 +14,10 @@ The immediate goal is to enable specific, sensitive, and quantitative serologica
 On a typical Windows, Mac, or Linux computer:
 * Create a conda environment: `conda create --name pysero python=3.7`
 * Activate conda environment: `conda activate pysero`
-* Once inside the repository folder, install dependencies: `pip install -r requirements.txt`
+* Pip install dependencies: `pip install -r requirements.txt`
+* Add the package to PYTHONPATH. Inside the package directory (...\serology-COVID19), do: `export PYTHONPATH=$PYTHONPATH:$(pwd)` 
 
 For installation notes for Jetson Nano, see [these notes](docs/installation.md).
-
-The command-line utility "pysero.py" enables automated analysis. 
 
 ## Usage
 ```buildoutcfg

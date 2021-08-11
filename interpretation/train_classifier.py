@@ -1,8 +1,10 @@
-import pandas as pd
+import logging
 import os
+import pandas as pd
 from matplotlib import pyplot as plt
 import unicodedata
 import xgboost as xgb
+import array_analyzer.utils.io_utils as io_utils
 from interpretation.plotting import get_roc_df, roc_plot_grid, thr_plot_grid
 from interpretation.report_reader import slice_df, normalize_od, offset_od
 from sklearn import metrics
@@ -56,13 +58,13 @@ def tune_cls_para(model, train, features, target, param_test, cv=None, n_jobs=8)
     :param list features: column names of features
     :param str target: column name of the target
     :param dict or list of dictionaries param_test: Dictionary with parameters names (string)
-        as keys and lists of
-        parameter settings to try as values, or a list of such
+        as keys and lists of parameter settings to try as values, or a list of such
         dictionaries, in which case the grids spanned by each dictionary
         in the list are explored. This enables searching over any sequence
         of parameter settings.
     :param int, cross-validation generator or an iterable cv: cross-validation splitting strategy.
-    :param int or None n_jobs: Number of jobs to run in parallel.
+    :param int or None n_jobs: Number of jobs to run in parallel. "None" means 1 and "-1" means using all processors.
+        If 1 is given, no parallel computing code is used at all, which is useful for debugging.
     :return object model: estimator object with optimal parameters.
     """
     gsearch = GridSearchCV(estimator=model,
@@ -75,14 +77,14 @@ def tune_cls_para(model, train, features, target, param_test, cv=None, n_jobs=8)
     gsearch.fit(train[features], train[target])
     model.set_params(**gsearch.best_params_)
     means = gsearch.cv_results_['mean_test_score']
-    print(means)
     stds = gsearch.cv_results_['std_test_score']
+    logger = logging.getLogger(__name__)
     for mean, std, params in zip(means, stds, gsearch.cv_results_['params']):
-        print("%0.4f (+/-%0.04f) for %r"
+        logger.info("%0.4f (+/-%0.04f) for %r"
               % (mean, std * 2, params))
-    print('best CV parameters:')
-    print(gsearch.best_params_)
-    print('best CV score: %f' % gsearch.best_score_)
+    logger.info('best CV parameters:')
+    logger.info(gsearch.best_params_)
+    logger.info('best CV score: %f' % gsearch.best_score_)
     return model
 
 
@@ -99,8 +101,12 @@ def plot_xgb_fscore(model, output_dir, output_fname):
 def main():
     # %% set file paths and load OD table
     data_dir = os.path.dirname(examples.__file__)
-    fig_path = os.path.join(data_dir, 'classifier_plots')
-    os.makedirs(fig_path, exist_ok=True)
+    output_dir = os.path.join(data_dir, 'classifier_outputs')
+    os.makedirs(output_dir, exist_ok=True)
+    logger = io_utils.make_logger(
+        log_dir=output_dir,
+        logger_name='train classifier.log',
+    )
     stitched_pysero_df = pd.read_csv(os.path.join(data_dir, 'master_report.csv'), index_col=0, low_memory=False)
     stitched_pysero_df['serum ID'] = stitched_pysero_df['serum ID'].apply(
         lambda x: unicodedata.normalize('NFKC', x)).str.strip()
@@ -183,7 +189,7 @@ def main():
 
     # %% retrain the classifier with optimal parameters from tun_cls_para with lower learning rate and more steps
     param = {'learning_rate': 0.001,
-             'n_estimators': 50000}
+             'n_estimators': 10000}
     clf.set_params(**param)
     clf, score = xgb_fit(clf, train, features, target='target', folds=folds, early_stopping_rounds=10000)
     # %% Model prediction
@@ -193,7 +199,7 @@ def main():
         df.loc[:, 'antigen type'] = 'Diagnostic'
     # %% transform the dataframe back to long format for plotting
     test_keys = test.drop(features + ['target'], axis=1)
-    plot_xgb_fscore(clf, output_dir=fig_path, output_fname='xgb_feature_importance')
+    plot_xgb_fscore(clf, output_dir=output_dir, output_fname='xgb_feature_importance')
     antigen_list = ['SARS CoV2 N 50', 'SARS CoV2 RBD 250', 'SARS CoV2 spike 62.5']
     suffix = '_'.join([pipeline, norm_antigen, 'norm_per_plate', 'mean_rands', str(rand_seed), 'low_c', 'ci'])
     test_keys = test_keys[['plate ID', 'well_id']].drop_duplicates()
@@ -213,7 +219,7 @@ def main():
                              'secondary dilution'])['OD'].mean()
     roc_df = roc_df.reset_index()
     roc_df = pd.concat([test, roc_df])
-    _ = roc_plot_grid(roc_df, fig_path, '_'.join(['ROC', suffix]), 'pdf', col_wrap=4, ci=ci, fpr=fpr, hue=hue)
+    _ = roc_plot_grid(roc_df, output_dir, '_'.join(['ROC', suffix]), 'pdf', col_wrap=4, ci=ci, fpr=fpr, hue=hue)
     # %% plot FPR & TPR v.s. threshold
     # threshold plot currently doesn't support CI
     ci = None
@@ -227,7 +233,7 @@ def main():
                          var_name='category',
                          value_name='rate'
                          )
-    thr_plot_grid(roc_df, fig_path, '_'.join(['ROC_thr', suffix]), 'pdf', col_wrap=4)
+    thr_plot_grid(roc_df, output_dir, '_'.join(['ROC_thr', suffix]), 'pdf', col_wrap=4)
 
 
 if __name__ == '__main__':
