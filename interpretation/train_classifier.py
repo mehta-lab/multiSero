@@ -1,3 +1,4 @@
+import argparse
 import logging
 import os
 import pandas as pd
@@ -9,18 +10,45 @@ from interpretation.plotting import get_roc_df, roc_plot_grid, thr_plot_grid
 from interpretation.report_reader import slice_df, normalize_od, offset_od
 from sklearn import metrics
 from sklearn.model_selection import GridSearchCV, GroupKFold, GroupShuffleSplit
+from sklearn.linear_model import LogisticRegressionCV
 from xgboost.sklearn import XGBClassifier
 import examples
-
-
+pd.options.mode.chained_assignment = None # disable chained assignment warning
+LOG_NAME = 'train classifier.log'
 # %%
+
+def parse_args():
+    """
+    Parse command line arguments for CLI.
+
+    :return: namespace containing the arguments passed.
+    """
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        '-c', '--classifier',
+        type=str,
+        choices=['xgboost', 'logistic_regression'],
+        default='xgboost',
+        help="classifier to train for classifying the serotype"
+             "Default: xgboost",
+    )
+    return parser.parse_args()
+
+def model_fit(model, dtrain, features, target):
+    model.fit(dtrain[features], dtrain[target])
+    train_yhat = model.predict(dtrain[features])
+    train_score = metrics.accuracy_score(dtrain[target].tolist(), train_yhat)
+    return model, train_score
+
 def xgb_fit(model, dtrain, features, target, cv=True, folds=None, cv_folds=5, early_stopping_rounds=20):
     """Train xgboost model
     :param object model: XGBClassifier instance
     :param dataframe dtrain: training data with rows being samples and columns being features
     :param list features: column names of features
     :param str target: column name of the target
-    :param bool cv: if true, optimal number of estimators is determined by cross-validation
+    :param bool cv: if true, optimal number of estimators is first determined by cross-validation,
+        then the model is fitted to the whole dataset with optimal parameters
     :param list or object folds: a KFold or StratifiedKFold instance or list of fold indices
     :param int cv_folds: Number of folds in CV.
     :param int early_stopping_rounds: Activates early stopping. Cross-Validation metric (average of validation
@@ -28,6 +56,7 @@ def xgb_fit(model, dtrain, features, target, cv=True, folds=None, cv_folds=5, ea
         every **early_stopping_rounds** round(s) to continue training.
     :return:
     """
+    logger = logging.getLogger(LOG_NAME)
     if cv:
         xgb_param = model.get_xgb_params()
         xgtrain = xgb.DMatrix(dtrain[features].values, label=dtrain[target].values)
@@ -36,18 +65,15 @@ def xgb_fit(model, dtrain, features, target, cv=True, folds=None, cv_folds=5, ea
                           metrics='auc', early_stopping_rounds=early_stopping_rounds, stratified=True)
         model.set_params(n_estimators=cvresult.shape[0])
         test_score = cvresult['test-auc-mean'].iloc[-1]
-        print('# of estimators: %d' % cvresult.shape[0])
-
-    # retrain the model with the whole dataset
-    model.fit(dtrain[features], dtrain[target], verbose=True, eval_metric='auc')
-    train_yhat = model.predict(dtrain[features])
-    train_score = metrics.accuracy_score(dtrain[target].tolist(), train_yhat)
+        logger.info('# of estimators: %d' % cvresult.shape[0])
+    # retrain the model with the whole dataset (no splitting)
+    model, train_score = model_fit(model, dtrain, features, target)
     if cv:
         score = test_score
-        print("AUC Score (Test): %f" % score)
+        logger.info("AUC Score (Test): %f" % score)
     else:
         score = train_score
-        print("Accuracy : %.4g" % score)
+        logger.info("Accuracy : %.4g" % score)
     return model, score
 
 
@@ -78,7 +104,7 @@ def tune_cls_para(model, train, features, target, param_test, cv=None, n_jobs=8)
     model.set_params(**gsearch.best_params_)
     means = gsearch.cv_results_['mean_test_score']
     stds = gsearch.cv_results_['std_test_score']
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger(LOG_NAME)
     for mean, std, params in zip(means, stds, gsearch.cv_results_['params']):
         logger.info("%0.4f (+/-%0.04f) for %r"
               % (mean, std * 2, params))
@@ -98,14 +124,15 @@ def plot_xgb_fscore(model, output_dir, output_fname):
     plt.close()
 
 
-def main():
+def main(args):
+    clf_type = args.classifier
     # %% set file paths and load OD table
     data_dir = os.path.dirname(examples.__file__)
     output_dir = os.path.join(data_dir, 'classifier_outputs')
     os.makedirs(output_dir, exist_ok=True)
     logger = io_utils.make_logger(
         log_dir=output_dir,
-        logger_name='train classifier.log',
+        logger_name=LOG_NAME,
     )
     stitched_pysero_df = pd.read_csv(os.path.join(data_dir, 'master_report.csv'), index_col=0, low_memory=False)
     stitched_pysero_df['serum ID'] = stitched_pysero_df['serum ID'].apply(
@@ -141,6 +168,7 @@ def main():
                                      columns=['antigen', 'antigen_row', 'antigen_col'])
     pysero_df_pivot.columns = ["_".join(cols) for cols in pysero_df_pivot.columns]
     features = pysero_df_pivot.columns.tolist()
+    pysero_df_pivot.dropna(inplace=True)
     pysero_df_pivot.reset_index(inplace=True)
     # "positive" = 1, "negative" = 0
     pysero_df_pivot['target'] = (pysero_df_pivot['serum type'] == 'positive')
@@ -150,56 +178,75 @@ def main():
     (train_ids, test_ids), _ = gss.split(pysero_df_pivot, groups=pysero_df_pivot['serum ID'])
     train = pysero_df_pivot.iloc[train_ids]
     test = pysero_df_pivot.iloc[test_ids]
-    # %% Initialize xgboost tree classifier
-    clf = XGBClassifier(
-        learning_rate=0.01,
-        n_estimators=1000,
-        max_depth=5,
-        min_child_weight=1,
-        gamma=0,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        objective='binary:logistic',
-        nthread=8,
-        scale_pos_weight=1,
-        seed=0)
+
     # %% set up CV folds by serum ID
     gkf = GroupKFold(n_splits=4)
     folds = []
     for fold in gkf.split(train, groups=train['serum ID']):
         folds.append(fold)
-    # %% Tune xgboost parameter
-    param_tests = [{
-        'max_depth': range(1, 8, 1),
-        'min_child_weight': range(1, 8, 1)
-    },
-        {
-            'gamma': [i / 10.0 for i in range(0, 5)]
+    #%% Initiate classifier instance
+    if clf_type == 'xgboost':
+        clf = XGBClassifier(
+            learning_rate=0.01,
+            n_estimators=1000,
+            max_depth=5,
+            min_child_weight=1,
+            gamma=0,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            objective='binary:logistic',
+            nthread=8,
+            scale_pos_weight=1,
+            seed=0)
+        #%% Tune xgboost parameter
+        param_tests = [{
+            'max_depth': range(1, 8, 1),
+            'min_child_weight': range(1, 8, 1)
         },
-        {
-            'subsample': [i / 10.0 for i in range(6, 10)],
-            'colsample_bytree': [i / 10.0 for i in range(6, 10)]
-        },
-        {
-            'reg_alpha': [0, 1e-5, 1e-2, 0.1, 1, 100]
-        }
-    ]
-    for param_test in param_tests:
-        clf = tune_cls_para(clf, train, features, target='target', param_test=param_test, cv=folds, n_jobs=-1)
+            {
+                'gamma': [i / 10.0 for i in range(0, 5)]
+            },
+            {
+                'subsample': [i / 10.0 for i in range(6, 10)],
+                'colsample_bytree': [i / 10.0 for i in range(6, 10)]
+            },
+            {
+                'reg_alpha': [0, 1e-5, 1e-2, 0.1, 1, 100]
+            }
+        ]
+        for param_test in param_tests:
+            clf = tune_cls_para(clf, train, features, target='target', param_test=param_test, cv=folds, n_jobs=-1)
 
-    # %% retrain the classifier with optimal parameters from tun_cls_para with lower learning rate and more steps
-    param = {'learning_rate': 0.001,
-             'n_estimators': 10000}
-    clf.set_params(**param)
-    clf, score = xgb_fit(clf, train, features, target='target', folds=folds, early_stopping_rounds=10000)
-    # %% Model prediction
+        #%% retrain the classifier with optimal parameters from tun_cls_para with lower learning rate and more steps
+        param = {'learning_rate': 0.001,
+                 'n_estimators': 10000}
+        clf.set_params(**param)
+        clf, score = xgb_fit(clf, train, features, target='target', folds=folds, early_stopping_rounds=10000)
+        plot_xgb_fscore(clf, output_dir=output_dir, output_fname='xgb_feature_importance')
+
+    elif clf_type == 'logistic_regression':
+        clf = LogisticRegressionCV(
+            Cs=10,
+            intercept_scaling=1,
+            max_iter=5000,
+            random_state=rand_seed,
+            solver='saga',
+            dual=False,
+            fit_intercept=True,
+            penalty='l2',
+            tol=0.0001,
+            cv=folds,
+            verbose=0)
+        clf, score = model_fit(clf, train, features, target='target')
+    else:
+        raise ValueError('Classifier type {} is not supported.'.format(clf_type))
+    #%% Model prediction
     for df in [train, test]:
         df.loc[:, 'OD'] = clf.predict_proba(df[features])[:, 1]
         df.loc[:, 'antigen'] = 'combined'
         df.loc[:, 'antigen type'] = 'Diagnostic'
     # %% transform the dataframe back to long format for plotting
     test_keys = test.drop(features + ['target'], axis=1)
-    plot_xgb_fscore(clf, output_dir=output_dir, output_fname='xgb_feature_importance')
     antigen_list = ['SARS CoV2 N 50', 'SARS CoV2 RBD 250', 'SARS CoV2 spike 62.5']
     suffix = '_'.join([pipeline, norm_antigen, 'norm_per_plate', 'mean_rands', str(rand_seed), 'low_c', 'ci'])
     test_keys = test_keys[['plate ID', 'well_id']].drop_duplicates()
@@ -219,7 +266,7 @@ def main():
                              'secondary dilution'])['OD'].mean()
     roc_df = roc_df.reset_index()
     roc_df = pd.concat([test, roc_df])
-    _ = roc_plot_grid(roc_df, output_dir, '_'.join(['ROC', suffix]), 'pdf', col_wrap=4, ci=ci, fpr=fpr, hue=hue)
+    _ = roc_plot_grid(roc_df, output_dir, '_'.join(['ROC', clf_type, suffix]), 'pdf', col_wrap=4, ci=ci, fpr=fpr, hue=hue)
     # %% plot FPR & TPR v.s. threshold
     # threshold plot currently doesn't support CI
     ci = None
@@ -233,8 +280,9 @@ def main():
                          var_name='category',
                          value_name='rate'
                          )
-    thr_plot_grid(roc_df, output_dir, '_'.join(['ROC_thr', suffix]), 'pdf', col_wrap=4)
+    thr_plot_grid(roc_df, output_dir, '_'.join(['ROC_thr', clf_type, suffix]), 'pdf', col_wrap=4)
 
 
 if __name__ == '__main__':
-    main()
+    args = parse_args()
+    main(args)
