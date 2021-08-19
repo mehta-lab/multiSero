@@ -1,3 +1,20 @@
+"""
+This script demonstrates how to build a xgboost classifiers to classify serotype of the sera using information from
+multiple antigens. Two types of classifiers are currently supported (gradient boosting tree & logistic regression).
+Usage:
+python tran_classifier -c xgboost (or -c logistic_regression)
+
+The script does the followings:
+1. loads the example dataset from /examples/master_report.csv
+2. normalizes ODs
+3. tune hyperparameters of the classifier with cross-validation
+4. refit the model with optimal hyperparameters
+5. generate ROC plots for single antigen ODs and classifier outputs, and feature importance (xgboost model only)
+
+Reference of the example data:
+https://www.medrxiv.org/content/10.1101/2021.05.07.21249238v1.full.pdf
+"""
+
 import argparse
 import logging
 import os
@@ -21,7 +38,7 @@ def parse_args():
     """
     Parse command line arguments for CLI.
 
-    :return: namespace containing the arguments passed.
+    :return: namespace object containing the arguments passed.
     """
     parser = argparse.ArgumentParser()
 
@@ -36,6 +53,14 @@ def parse_args():
     return parser.parse_args()
 
 def model_fit(model, dtrain, features, target):
+    """Vanilla model training without cross-validiation
+    :param object model:
+    :param dataframe dtrain: training data with rows being samples and columns being features
+    :param list features: column names of features
+    :param str target: column name of the target
+    :return object model: fitted classifier object.
+    :return float score: train AUC score.
+    """
     model.fit(dtrain[features], dtrain[target])
     train_yhat = model.predict(dtrain[features])
     train_score = metrics.accuracy_score(dtrain[target].tolist(), train_yhat)
@@ -54,7 +79,8 @@ def xgb_fit(model, dtrain, features, target, cv=True, folds=None, cv_folds=5, ea
     :param int early_stopping_rounds: Activates early stopping. Cross-Validation metric (average of validation
         metric computed over CV folds) needs to improve at least once in
         every **early_stopping_rounds** round(s) to continue training.
-    :return:
+    :return object model: fitted classifier object.
+    :return float score: test AUC score if "cv=True" otherwise train AUC score is returned.
     """
     logger = logging.getLogger(LOG_NAME)
     if cv:
@@ -115,7 +141,11 @@ def tune_cls_para(model, train, features, target, param_test, cv=None, n_jobs=8)
 
 
 def plot_xgb_fscore(model, output_dir, output_fname):
-    """plot xgboost feature importance"""
+    """plot xgboost feature importance
+    :param object model: XGBClassifier instance
+    :param str output_dir: output directory to save the plot
+    :param output_fname: output file name for the plot
+    """
     fig = plt.figure()
     fig.set_size_inches((6, 6))
     xgb.plot_importance(model, importance_type='gain')
@@ -125,6 +155,9 @@ def plot_xgb_fscore(model, output_dir, output_fname):
 
 
 def main(args):
+    """
+    :param object args: namespace object containing the arguments passed
+    """
     clf_type = args.classifier
     # %% set file paths and load OD table
     data_dir = os.path.dirname(examples.__file__)
