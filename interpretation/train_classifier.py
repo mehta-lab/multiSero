@@ -17,9 +17,9 @@ https://www.medrxiv.org/content/10.1101/2021.05.07.21249238v1.full.pdf
 
 import argparse
 import logging
+from matplotlib import pyplot as plt
 import os
 import pandas as pd
-from matplotlib import pyplot as plt
 import unicodedata
 import xgboost as xgb
 import array_analyzer.utils.io_utils as io_utils
@@ -28,7 +28,6 @@ from interpretation.report_reader import slice_df, normalize_od, offset_od
 from sklearn import metrics
 from sklearn.model_selection import GridSearchCV, GroupKFold, GroupShuffleSplit
 from sklearn.linear_model import LogisticRegressionCV
-from xgboost.sklearn import XGBClassifier
 import examples
 pd.options.mode.chained_assignment = None # disable chained assignment warning
 LOG_NAME = 'train classifier.log'
@@ -114,7 +113,8 @@ def tune_cls_para(model, train, features, target, param_test, cv=None, n_jobs=8)
         dictionaries, in which case the grids spanned by each dictionary
         in the list are explored. This enables searching over any sequence
         of parameter settings.
-    :param int, cross-validation generator or an iterable cv: cross-validation splitting strategy.
+    :param int, cross-validation generator or an iterable cv: cross-validation splitting strategy. See "cv" argument
+        in GridSearchCV for more info.
     :param int or None n_jobs: Number of jobs to run in parallel. "None" means 1 and "-1" means using all processors.
         If 1 is given, no parallel computing code is used at all, which is useful for debugging.
     :return object model: estimator object with optimal parameters.
@@ -194,7 +194,8 @@ def main(args):
     df_norm['antigen_row'] = df_norm['antigen_row'].map(str)
     df_norm['antigen_col'] = df_norm['antigen_col'].map(str)
     pysero_df_pivot = df_norm.copy()
-    pysero_df_pivot = pd.pivot_table(pysero_df_pivot, values='OD',
+    pysero_df_pivot = pd.pivot_table(pysero_df_pivot,
+                                     values='OD',
                                      index=['plate ID', 'well_id', 'serum ID',
                                             'serum type', 'serum dilution', 'secondary ID',
                                             'secondary dilution', 'pipeline'],
@@ -219,18 +220,18 @@ def main(args):
         folds.append(fold)
     #%% Initiate classifier instance
     if clf_type == 'xgboost':
-        clf = XGBClassifier(
-            learning_rate=0.01,
-            n_estimators=1000,
-            max_depth=5,
-            min_child_weight=1,
-            gamma=0,
-            subsample=0.8,
-            colsample_bytree=0.8,
-            objective='binary:logistic',
-            nthread=8,
-            scale_pos_weight=1,
-            seed=0)
+        clf = xgb.sklearn.XGBClassifier(
+                        learning_rate=0.01,
+                        n_estimators=1000,
+                        max_depth=5,
+                        min_child_weight=1,
+                        gamma=0,
+                        subsample=0.8,
+                        colsample_bytree=0.8,
+                        objective='binary:logistic',
+                        nthread=8,
+                        scale_pos_weight=1,
+                        seed=0)
         #%% Tune xgboost parameter
         param_tests = [{
             'max_depth': range(1, 8, 1),
