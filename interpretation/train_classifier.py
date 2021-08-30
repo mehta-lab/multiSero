@@ -65,13 +65,13 @@ def model_fit(model, dtrain, features, target):
     train_score = metrics.accuracy_score(dtrain[target].tolist(), train_yhat)
     return model, train_score
 
-def xgb_fit(model, dtrain, features, target, cv=True, folds=None, cv_folds=5, early_stopping_rounds=20):
+def xgb_fit(model, dtrain, features, target, cross_valid=True, folds=None, cv_folds=5, early_stopping_rounds=20):
     """Train xgboost model
     :param object model: XGBClassifier instance
     :param dataframe dtrain: training data with rows being samples and columns being features
     :param list features: column names of features
     :param str target: column name of the target
-    :param bool cv: if true, optimal number of estimators is first determined by cross-validation,
+    :param bool cross_valid: if true, optimal number of estimators is first determined by cross-validation,
         then the model is fitted to the whole dataset with optimal parameters
     :param list or object folds: a KFold or StratifiedKFold instance or list of fold indices
     :param int cv_folds: Number of folds in CV.
@@ -79,10 +79,10 @@ def xgb_fit(model, dtrain, features, target, cv=True, folds=None, cv_folds=5, ea
         metric computed over CV folds) needs to improve at least once in
         every **early_stopping_rounds** round(s) to continue training.
     :return object model: fitted classifier object.
-    :return float score: test AUC score if "cv=True" otherwise train AUC score is returned.
+    :return float score: test AUC score if "cross_valid=True" otherwise train AUC score is returned.
     """
     logger = logging.getLogger(LOG_NAME)
-    if cv:
+    if cross_valid:
         xgb_param = model.get_xgb_params()
         xgtrain = xgb.DMatrix(dtrain[features].values, label=dtrain[target].values)
         cvresult = xgb.cv(xgb_param, xgtrain, num_boost_round=model.get_params()['n_estimators'],
@@ -93,7 +93,7 @@ def xgb_fit(model, dtrain, features, target, cv=True, folds=None, cv_folds=5, ea
         logger.info('# of estimators: %d' % cvresult.shape[0])
     # retrain the model with the whole dataset (no splitting)
     model, train_score = model_fit(model, dtrain, features, target)
-    if cv:
+    if cross_valid:
         score = test_score
         logger.info("AUC Score (Test): %f" % score)
     else:
@@ -102,7 +102,7 @@ def xgb_fit(model, dtrain, features, target, cv=True, folds=None, cv_folds=5, ea
     return model, score
 
 
-def tune_cls_para(model, train, features, target, param_test, cv=None, n_jobs=8):
+def tune_cls_para(model, train, features, target, param_test, cross_valid=None, n_jobs=8):
     """Tune classifier parameters with sklearn GridSearchCV
     :param object model: estimator object
     :param dataframe train: training data with rows being samples and columns being features
@@ -113,7 +113,7 @@ def tune_cls_para(model, train, features, target, param_test, cv=None, n_jobs=8)
         dictionaries, in which case the grids spanned by each dictionary
         in the list are explored. This enables searching over any sequence
         of parameter settings.
-    :param int, cross-validation generator or an iterable cv: cross-validation splitting strategy. See "cv" argument
+    :param int, cross-validation generator or an iterable cross_valid: cross-validation splitting strategy. See "cv" argument
         in GridSearchCV for more info.
     :param int or None n_jobs: Number of jobs to run in parallel. "None" means 1 and "-1" means using all processors.
         If 1 is given, no parallel computing code is used at all, which is useful for debugging.
@@ -125,7 +125,7 @@ def tune_cls_para(model, train, features, target, param_test, cv=None, n_jobs=8)
                            n_jobs=n_jobs,
                            iid=False,
                            verbose=3,
-                           cv=cv)
+                           cv=cross_valid)
     gsearch.fit(train[features], train[target])
     model.set_params(**gsearch.best_params_)
     means = gsearch.cv_results_['mean_test_score']
@@ -249,7 +249,7 @@ def main(args):
             }
         ]
         for param_test in param_tests:
-            clf = tune_cls_para(clf, train, features, target='target', param_test=param_test, cv=folds, n_jobs=-1)
+            clf = tune_cls_para(clf, train, features, target='target', param_test=param_test, cross_valid=folds, n_jobs=-1)
 
         #%% retrain the classifier with optimal parameters from tun_cls_para with lower learning rate and more steps
         param = {'learning_rate': 0.001,
