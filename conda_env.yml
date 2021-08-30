@@ -1,4 +1,4 @@
-name: serology-Covid19
+name: multiSero
 channels:
   - conda-forge
   - defaults
