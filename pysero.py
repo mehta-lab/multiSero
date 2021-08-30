@@ -31,7 +31,7 @@ def parse_args():
         '-a', '--analyze_od',
         action='store_const',
         const=True,
-        help="Interpretation, not yet implemented",
+        help="Generate OD analysis plots",
     )
     parser.add_argument(
         '-i', '--input',

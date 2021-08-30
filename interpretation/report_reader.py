@@ -161,9 +161,9 @@ def slice_df(df, slice_action, column, keys):
     if slice_action is None or slice_action != slice_action:
         return df
     elif slice_action == 'keep':
-        df = df[df[column].isin(keys)]
+        df = df.loc[df[column].isin(keys), :]
     elif slice_action == 'drop':
-        df = df[~df[column].isin(keys)]
+        df = df.loc[~df[column].isin(keys), :]
     else:
         raise ValueError('slice action has to be "keep" or "drop", not "{}"'.format(slice_action))
     return df
