@@ -196,7 +196,7 @@ class ParticleFilter:
         knn.train(dst, cv.ml.ROW_SAMPLE, labels)
         # Make sure we don't have too many outliers
         if nbr_outliers > 0:
-            if len(labels) < nbr_outliers + 5 or self.fiducial_coords.shape[0] < nbr_outliers + 5:
+            if len(labels) < nbr_outliers + 5 or self.fiducial_coords.shape[0] - nbr_outliers < 2:
                 nbr_outliers = 1
         self.logger.debug(
             "Particle filter, number of outliers: {}".format(nbr_outliers),
