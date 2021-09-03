@@ -187,7 +187,8 @@ class ParticleFilter:
         :param float iter_decrease: Reduce standard deviations each iterations to slow
             down permutations
         :param int nbr_outliers: If registration hasn't converged, remove worst fitted
-            spots when running particle filter
+            spots when running particle filter. Maximum nbr_outliers allowed is
+            min(n(fiducial) - 2, n(spots) -2)
         """
         # Use kNN module to petrain spot coords
         dst = self.spot_coords.copy().astype(np.float32)
@@ -196,8 +197,8 @@ class ParticleFilter:
         knn.train(dst, cv.ml.ROW_SAMPLE, labels)
         # Make sure we don't have too many outliers
         if nbr_outliers > 0:
-            if len(labels) < nbr_outliers + 5 or self.fiducial_coords.shape[0] < nbr_outliers + 5:
-                nbr_outliers = 1
+            if min(len(labels) - nbr_outliers, self.fiducial_coords.shape[0] - nbr_outliers) < 2:
+                nbr_outliers = min(len(labels) - 2, self.fiducial_coords.shape[0] - 2)
         self.logger.debug(
             "Particle filter, number of outliers: {}".format(nbr_outliers),
         )
