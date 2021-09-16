@@ -13,6 +13,7 @@ def antigen2D_to_df1D(xlsx_path, sheet, data_col):
     :return dataframe df: linearized dataframe
     """
     df = pd.read_excel(xlsx_path, sheet_name=sheet, index_col=0)
+    #print(df.dtypes)
     df = df.unstack().reset_index(name=data_col)  # linearize the table
     df.rename(columns={'level_1': 'antigen_row', 'level_0': 'antigen_col'}, inplace=True)
     df[['antigen_row', 'antigen_col']] = df[['antigen_row', 'antigen_col']].applymap(int)
@@ -29,10 +30,11 @@ def well2D_to_df1D(xlsx_path, sheet, data_col):
     :param str data_col: new column name of the linearized values
     :return dataframe df: linearized dataframe
     """
-    df = pd.read_excel(xlsx_path, sheet_name=sheet, index_col=0)
+    df = pd.read_excel(xlsx_path, sheet_name=sheet, index_col=0,dtype=object)
+    #print(df.dtypes)
     df = df.unstack().reset_index(name=data_col)  # unpivot (linearize) the table
     df.rename(columns={'level_1': 'row_id', 'level_0': 'col_id'}, inplace=True)
-    df['well_id'] = df.row_id + df.col_id.map(str)
+    df['well_id'] = df.row_id.map(str) + df.col_id.map(str) #changed row_id to include str map
     df = df[['well_id', data_col]]
     return df
 
@@ -52,7 +54,7 @@ def read_plate_info(metadata_xlsx):
     # get sheet names that are available in metadata
     sheet_names = list(set(metadata_xlsx.sheet_names).intersection(sheet_names))
     for sheet_name in sheet_names:
-        sheet_df = pd.read_excel(metadata_xlsx, sheet_name=sheet_name, index_col=0)
+        sheet_df = pd.read_excel(metadata_xlsx, sheet_name=sheet_name, index_col=0, dtype=object)
         sheet_df = sheet_df.unstack().reset_index(name=sheet_name)  # unpivot (linearize) the table
         sheet_df.rename(columns={'level_1': 'row_id', 'level_0': 'col_id'}, inplace=True)
         if plate_info_df.empty:
@@ -83,7 +85,9 @@ def read_antigen_info(metadata_path):
     """read antigen info from the metadata"""
     print('Reading antigen information...')
     antigen_df = antigen2D_to_df1D(xlsx_path=metadata_path, sheet='antigen_array', data_col='antigen')
+    #print(antigen_df.dtypes)
     antigen_type_df = antigen2D_to_df1D(xlsx_path=metadata_path, sheet='antigen_type', data_col='antigen type')
+    #print(antigen_df.dtypes)
     antigen_df = pd.merge(antigen_df, antigen_type_df, how='left', on=['antigen_row', 'antigen_col'])
     return antigen_df
 
@@ -108,8 +112,8 @@ def read_pysero_output(file_path, antigen_df, file_type='od'):
             else:
                 sheet_name = '{}_{}_{}_{}'.format(file_type, row['antigen_row'], row['antigen_col'], row['antigen'])
             data_1_antiten_df = well2D_to_df1D(xlsx_path=file, sheet=sheet_name, data_col=data_col[file_type])
-            data_1_antiten_df['antigen_row'] = row['antigen_row']
-            data_1_antiten_df['antigen_col'] = row['antigen_col']
+            data_1_antiten_df['antigen_row'] = int(row['antigen_row'])
+            data_1_antiten_df['antigen_col'] = int(row['antigen_col'])
             data_1_antiten_df['antigen'] = row['antigen']
             data_df = data_df.append(data_1_antiten_df, ignore_index=True)
     return data_df
@@ -292,6 +296,8 @@ def read_pysero_output_batch(ntl_dirs_df):
         OD_df = pd.merge(OD_df,
                          antigen_df[['antigen_row', 'antigen_col', 'antigen type']],
                          how='left', on=['antigen_row', 'antigen_col'])
+        #plate_info_df = plate_info_df.astype(int)
+        #OD_df = OD_df.astype(str)
         OD_df = pd.merge(OD_df,
                          plate_info_df,
                          how='right', on=['well_id'])

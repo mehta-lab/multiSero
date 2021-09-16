@@ -105,9 +105,9 @@ def analyze_od(input_dir, output_dir, load_report):
         slice_cols = [split_plots_by, 'antigen type', 'antigen']
         slice_keys = [[split_val], ['Diagnostic'], antigen_list]
         slice_actions = ['keep', 'keep', 'keep']
-        # general slicing
-        for col, action, key in zip(slice_cols, slice_actions, slice_keys):
-            df_norm_sub = slice_df(df_norm_sub, action, col, key)
+        # general slicing ##### commented out
+        #for col, action, key in zip(slice_cols, slice_actions, slice_keys):
+            #df_norm_sub = slice_df(df_norm_sub, action, col, key)
         #%% compute ROC curves and AUC
         if not roc_param_df.empty:
             sera_roc_list = roc_param_df['serum ID']
@@ -152,4 +152,3 @@ def analyze_od(input_dir, output_dir, load_report):
             standard_curve_plot(dilution_df, constants.RUN_PATH, 'fit_{}'.format(split_suffix), 'png', hue=hue,
                                 zoom=fit_param_df['zoom'], split_subplots_by=split_subplots_by, col_wrap=3)
         plt.close('all')
-
