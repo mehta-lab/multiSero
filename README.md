@@ -1,9 +1,9 @@
 ![unittests](https://github.com/czbiohub/pysero/workflows/unittests/badge.svg)
 [![codecov](https://codecov.io/gh/czbiohub/pysero/branch/master/graph/badge.svg)](https://codecov.io/gh/czbiohub/pysero)
 
-# pysero
+# multiSero
 
-pysero enables serological measurements with multiplexed and standard ELISA assays.
+multiSero enables serological measurements with multiplexed and standard ELISA assays.
 
 The project automates estimation of antibody titers from data collected with ELISA assays performed with [antigen-arrays](https://doi.org/10.1101/2019.12.20.885285) and [single antigens](https://doi.org/10.1101/2020.03.17.20037713).
 
