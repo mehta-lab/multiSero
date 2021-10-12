@@ -3,7 +3,7 @@ cycler
 matplotlib
 natsort
 numpy
-opencv-python==3.4.2.17
+opencv-python==3.4.7.28
 openpyxl
 pandas>=0.25.0
 pyparsing
