@@ -128,7 +128,7 @@ def extract_od(input_dir, output_dir, workflow):
         )
 
 
-def run_pysero(args):
+def run_multisero(args):
     """
     Main function, handling logic for all subroutines
 
@@ -182,4 +182,4 @@ def run_pysero(args):
 
 if __name__ == '__main__':
     args = parse_args()
-    run_pysero(args)
+    run_multisero(args)
