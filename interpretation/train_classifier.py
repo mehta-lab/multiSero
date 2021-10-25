@@ -167,12 +167,12 @@ def main(args):
         log_dir=output_dir,
         logger_name=LOG_NAME,
     )
-    stitched_pysero_df = pd.read_csv(os.path.join(data_dir, 'master_report.csv'), index_col=0, low_memory=False)
-    stitched_pysero_df['serum ID'] = stitched_pysero_df['serum ID'].apply(
+    stitched_multisero_df = pd.read_csv(os.path.join(data_dir, 'master_report.csv'), index_col=0, low_memory=False)
+    stitched_multisero_df['serum ID'] = stitched_multisero_df['serum ID'].apply(
         lambda x: unicodedata.normalize('NFKC', x)).str.strip()
     # serum ID to exclude from computing ROC
     sera_roc_list = ['Pool', 'mab', 'Blank', 'CR3022']
-    df_norm = stitched_pysero_df.copy()
+    df_norm = stitched_multisero_df.copy()
     norm_antigen = 'xIgG Fc'
     offset_antigen = None
     norm_group = 'plate'
@@ -193,25 +193,25 @@ def main(args):
     df_norm = offset_od(df_norm, offset_antigen, offset_group)
     df_norm['antigen_row'] = df_norm['antigen_row'].map(str)
     df_norm['antigen_col'] = df_norm['antigen_col'].map(str)
-    pysero_df_pivot = df_norm.copy()
-    pysero_df_pivot = pd.pivot_table(pysero_df_pivot,
+    multisero_df_pivot = df_norm.copy()
+    multisero_df_pivot = pd.pivot_table(multisero_df_pivot,
                                      values='OD',
                                      index=['plate ID', 'well_id', 'serum ID',
                                             'serum type', 'serum dilution', 'secondary ID',
                                             'secondary dilution', 'pipeline'],
                                      columns=['antigen', 'antigen_row', 'antigen_col'])
-    pysero_df_pivot.columns = ["_".join(cols) for cols in pysero_df_pivot.columns]
-    features = pysero_df_pivot.columns.tolist()
-    pysero_df_pivot.dropna(inplace=True)
-    pysero_df_pivot.reset_index(inplace=True)
+    multisero_df_pivot.columns = ["_".join(cols) for cols in multisero_df_pivot.columns]
+    features = multisero_df_pivot.columns.tolist()
+    multisero_df_pivot.dropna(inplace=True)
+    multisero_df_pivot.reset_index(inplace=True)
     # "positive" = 1, "negative" = 0
-    pysero_df_pivot['target'] = (pysero_df_pivot['serum type'] == 'positive')
+    multisero_df_pivot['target'] = (multisero_df_pivot['serum type'] == 'positive')
     # %% Split the dataset into train and test sets
     rand_seed = 0
     gss = GroupShuffleSplit(test_size=.4, n_splits=2, random_state=rand_seed)
-    (train_ids, test_ids), _ = gss.split(pysero_df_pivot, groups=pysero_df_pivot['serum ID'])
-    train = pysero_df_pivot.iloc[train_ids]
-    test = pysero_df_pivot.iloc[test_ids]
+    (train_ids, test_ids), _ = gss.split(multisero_df_pivot, groups=multisero_df_pivot['serum ID'])
+    train = multisero_df_pivot.iloc[train_ids]
+    test = multisero_df_pivot.iloc[test_ids]
 
     # %% set up CV folds by serum ID
     gkf = GroupKFold(n_splits=4)
