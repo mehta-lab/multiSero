@@ -73,10 +73,10 @@ def parse_args():
     parser.add_argument(
         '-m', '--metadata',
         type=str,
-        default='pysero_output_data_metadata.xlsx',
+        default='multisero_output_data_metadata.xlsx',
         help="specify the file name for the experiment metadata. "
              "Assumed to be in the same directory as images. "
-             "Default: 'pysero_output_data_metadata.xlsx'"
+             "Default: 'multisero_output_data_metadata.xlsx'"
     )
     parser.set_defaults(load_report=False)
     parser.add_argument(
