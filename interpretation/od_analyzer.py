@@ -132,11 +132,14 @@ def analyze_od(input_dir, output_dir, load_report):
             split_subplots_by = cat_param_df['split subplots by']
             hue = cat_param_df['hue']
             # plot specific slicing
-            cat_df = slice_df(df_norm_sub, slice_action, 'serum ID', sera_cat_list)
+            cat_df = slice_df(df_norm_sub, slice_action, 'serum ID', sera_cat_list) #serum ID --> antigen
             assert not cat_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
             sns.set_context("talk")
             g = sns.catplot(x="serum type", y="OD", hue=hue, col=split_subplots_by, kind="swarm",
-                            data=cat_df, col_wrap=3)
+                            data=cat_df, col_wrap=5)
+            g.set_xticklabels(rotation=65, horizontalalignment='right')
+
+
             plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_{}.png'.format(split_suffix)),
                                           dpi=300, bbox_inches='tight')
             if cat_param_df['zoom']:
@@ -150,6 +153,6 @@ def analyze_od(input_dir, output_dir, load_report):
             dilution_df = slice_df(df_norm_sub, slice_action, 'serum ID', fit_param_df['serum ID'])
             split_subplots_by = fit_param_df['split subplots by']
             standard_curve_plot(dilution_df, constants.RUN_PATH, 'fit_{}'.format(split_suffix), 'png', hue=hue,
-                                zoom=fit_param_df['zoom'], split_subplots_by=split_subplots_by, col_wrap=3)
+                                zoom=fit_param_df['zoom'], split_subplots_by=split_subplots_by, col_wrap=2)
         plt.close('all')
 

@@ -18,7 +18,6 @@ def fourPL(x, A, B, C, D):
     """4 parameter logistic function"""
     return ((A-D)/(1.0+((x/C)**(B))) + D)
 
-
 def fit2df(df, model, serum_group='serum ID'):
     """fit model to x, y data in dataframe.
     Return a dataframe with fit x, y for plotting
@@ -47,10 +46,14 @@ def fit2df(df, model, serum_group='serum ID'):
             xdata = xdata[xdata > 0]  # concentration has to be positive
             params, params_covariance = optimization.curve_fit(model, xdata, ydata, guess, bounds=(0, np.inf), maxfev=1e5)
             x_input = np.logspace(np.log10(np.min(xdata)), np.log10(np.max(xdata)), 50)
+            #y_fit = fivePL(x_input,*params)
             y_fit = fourPL(x_input, *params)
 
             df_fit_temp['serum dilution'] = x_input
             df_fit_temp['OD'] = y_fit
+            df_fit_temp['b'] = params[1]
+            df_fit_temp['c'] = params[2]
+            df_fit_temp['d'] = params[3]
             sub_df_expand = pd.concat(
                 [sub_df.loc[[0], [serum_group,
                                   'antigen',
@@ -298,18 +301,18 @@ def roc_plot(x, y, **kwargs):
         auc_high = df['auc_ci_high'].unique()[0]
         tpr_low = np.interp(fpr, df['False positive rate'], df['ci_low'])
         tpr_high = np.interp(fpr, df['False positive rate'], df['ci_high'])
-        ax.text(0.4, 0.15, 'AUC={:.3f}-{:.3f}'.format(auc_low, auc_high), fontsize=12)
-        ax.text(fpr + 0.05, tpr - 0.2, 'sensitivity={:.3f}-{:.3f}\nspecificity={:.3f}'.
+        ax.text(0.4, 0.38, 'AUC={:.3f}-{:.3f}'.format(auc_low, auc_high), fontsize=12)
+        ax.text(fpr + 0.1, tpr - 0.0, 'sensitivity={:.3f}-{:.3f}\nspecificity={:.3f}'.
                 format(tpr_low, tpr_high, 1 - fpr),
                 fontsize=12, color='g')  # add text
     else:
         auc = df['AUC'].unique()[0]
-        ax.text(0.6, 0.15, 'AUC={:.3f}'.format(auc), fontsize=12)
+        ax.text(0.6, 0.45, 'AUC={:.3f}'.format(auc), fontsize=12)
         ax.text(fpr + 0.05, tpr - 0.2, 'sensitivity={:.3f}\nspecificity={:.3f}'.format(tpr, 1 - fpr),
                 fontsize=12, color='g')  # add text
 
 def roc_plot_grid(df, fig_path, fig_name, ext='png', hue=None,
-                  col_wrap=3, ci=95, tpr=None, fpr=None):
+                  col_wrap=2, ci=95, tpr=None, fpr=None):
     """
     Generate ROC plots for each antigen
     :param dataframe df: dataframe containing serum OD info
@@ -328,6 +331,7 @@ def roc_plot_grid(df, fig_path, fig_name, ext='png', hue=None,
         'Specify either true positive rate or false positive rate, not both.'
     # Plot ROC curves
     antigens = natsorted(df['antigen'].unique())
+    #antigens = ['DENV2 50 RVP', 'DENV2 50 VLP', 'DENV2 100 RVP', 'DENV2 250 NS1']##
     sns.set_context("notebook")
     assert not df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
     palette = sns.color_palette(n_colors=len(df[hue].unique()))
@@ -444,9 +448,82 @@ def joint_plot(df_ori,
     plt.savefig(os.path.join(output_path, ''.join([output_fname, '.jpg'])),
                 dpi=300, bbox_inches='tight')
 
+def find_spot_type(hmap,str):
+    #hmap is sliced dilution_df_fit
+    vlp_df = pd.DataFrame()
+    for column in hmap:
+        name = column
+        if name[-3:] == str:
+            vlp_df[f'{name}'] = hmap[column]
+    return vlp_df
+
+def find_rvp_spot_type(hmap,str):
+    #hmap is sliced dilution_df_fit
+    vlp_df = pd.DataFrame()
+    for column in hmap:
+        name = column
+        if name[-7:] == str:
+            vlp_df[f'{name}'] = hmap[column]
+    return vlp_df
+
+def plot_heatmap(vlp_df,fig_path,ext,str,type,vmin,vmax,x,y):
+    vlp_t = vlp_df.transpose()
+    #vlp_t = vlp_t.drop(columns='100-100')
+    fig, ax = plt.subplots(figsize=(x, y))
+    sns.heatmap(vlp_t, annot=True, ax=ax, vmin=vmin, vmax=vmax)
+    plt.xticks(rotation=0)
+    plt.yticks(rotation=0,fontsize=16)
+    plt.title(f'{type} Values per Antigen per Serum ID ({str})', fontsize=20)
+    plt.savefig(os.path.join(fig_path, '.'.join([f'{str}_{type}_map', ext])), dpi=300, bbox_inches='tight')
+
+def delta_ic50(vlp_df,fig_path,ext,index2type,str):
+    new_df = pd.DataFrame()
+    for col in vlp_df.T:
+        name = col  # name = serum type
+        b = index2type[name]
+        for idx in vlp_df.T.index:
+            if idx[0:5] == b:
+                match = vlp_df.T[name].loc[idx]
+                new_df[name] = vlp_df.T[name] / match
+    fig, ax = plt.subplots(figsize=(30, 15))
+    sns.heatmap(new_df, annot=True, ax=ax, vmin=0, vmax=10)
+    #sns.set(font_scale=4)
+    plt.xticks(rotation=45)
+    plt.yticks(rotation=0)
+    plt.title(f'Distinguishing Power of IC50 Values per Antigen per Serum ID ({str}), 9/10/21', fontsize=20)
+    plt.savefig(os.path.join(fig_path, '.'.join([f'deltaic{str}map', ext])), dpi=300, bbox_inches='tight')
+
+def plot_by_type(rvp_list,mks,dilution_df,dilution_df_fit,split_subplots_by,split_subplots_vals,fig_name,fig_path,ext,hue,col_wrap,zoom=False):
+    markers = [next(mks) for i in rvp_list]
+    style = 'serum type'
+    # style = hue
+    assert not dilution_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
+    # palette = sns.color_palette(n_colors=len(dilution_df[hue].unique()))
+    palette = sns.color_palette(n_colors=len(rvp_list))
+    print('plotting standard curves...')
+    g = sns.lmplot(x="serum dilution", y="OD",
+                   hue=hue, hue_order=rvp_list, col=split_subplots_by, ci=None, palette=palette, markers=markers,
+                   data=dilution_df, col_wrap=col_wrap, fit_reg=False, x_estimator=np.mean)
+
+    for val, ax in zip(split_subplots_vals, g.axes.flat):
+        df_fit = dilution_df_fit[(dilution_df_fit[split_subplots_by] == val)]
+        # palette = sns.color_palette(n_colors=len(df_fit[hue].unique()))
+        palette = sns.color_palette(n_colors=len(rvp_list))
+        sns.lineplot(x="serum dilution", y="OD", hue=hue, hue_order=rvp_list, data=df_fit,
+                     style=style, palette=palette,
+                     ax=ax, legend=False)
+        ax.set(xscale="log")
+
+    plt.savefig(os.path.join(fig_path, '.'.join([fig_name, ext])), dpi=300, bbox_inches='tight')
+
+    if zoom:
+        for val, ax in zip(split_subplots_vals, g.axes.flat):
+            ax.set(ylim=[-0.05, 0.4])
+        fig_name += '_zoom'
+        plt.savefig(os.path.join(fig_path, '.'.join([fig_name, ext])), dpi=300, bbox_inches='tight')
 
 def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
-                        zoom=False, split_subplots_by='antigen', col_wrap=3):
+                        zoom=False, split_subplots_by='antigen', col_wrap=2):
     """
     Plot standard curves for ELISA
     :param dataframe dilution_df: dataframe containing serum OD with serial diluition
@@ -458,34 +535,69 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
     :param bool zoom: If true, output zoom-in of the low OD region
     """
     dilution_df_fit = dilution_df.copy()
-    dilution_df_fit = fit2df(dilution_df_fit, fourPL)
+    dilution_df_fit = fit2df(dilution_df_fit, fourPL) # collect b and c values that characterize curves, save as variable; plot heat map of antigen (y), serum type (x) with c as numerical value
+    ic_50 = dilution_df_fit[['antigen','serum ID', 'c','b','d']]
+
+    alt_strat = ic_50.set_index('serum ID')
+    alt = alt_strat.drop_duplicates()
+    """""
+    #set alt s/t serum ID is column
+    for col in df
+    for column in alt:
+        name = column #name = serum type
+        if name[0:5] == str #antigen:
+            index by index and col 
+            subtract val from column 
+    """""
+    hmap = alt.pivot(index=None,columns='antigen',values='c')
+    bmap = alt.pivot(index=None, columns='antigen', values='b')
+    dmap = alt.pivot(index=None, columns='antigen', values='d')
+
+    hmap.to_csv(fig_path + 'hmap.csv')
+    dmap.to_csv(fig_path + 'dmap.csv')
+
+    slope_vmax = 3
+    ic_vmax = 0.001
+
+    index2type = {'100-0022 (DENV1)': 'DENV1', '100-0037 (DENV1)': 'DENV1', '100-0181 (Multitypic)': 'multi',
+                  '100-0296 (ZIKA)': 'ZIKA',
+                  '100-0363 (DENV3)': 'DENV3', '100-0405 (DENV2)': 'DENV2', '100-0520 (naïve)': 'Naive',
+                  '100-0562 (ZIKA + JEV)': 'ZIKA+JEV',
+                  '100-0645 (DENV2)': 'DENV2', '100-0661 (DENV3)': 'DENV3', '100-0332 (DENV4)': 'DENV4'}
     hue_list = dilution_df[hue].unique()
-    #%% plot standard curves
-    # hue_fit_list = [' '.join([x, 'fit']) for x in hue_list]
-    split_subplots_vals = dilution_df[split_subplots_by].unique()
-    # markers = 'o'
-    mks = itertools.cycle(['o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X'])
-    markers = [next(mks) for i in hue_list]
-    style = 'serum type'
-    # style = hue
-    assert not dilution_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
-    palette = sns.color_palette(n_colors=len(dilution_df[hue].unique()))
-    print('plotting standard curves...')
-    g = sns.lmplot(x="serum dilution", y="OD",
-                    hue=hue, hue_order=hue_list, col=split_subplots_by, ci='sd', palette=palette, markers=markers,
-                     data=dilution_df, col_wrap=col_wrap, fit_reg=False, x_estimator=np.mean)
+    str_list = ['VLP','NS1',' 50 RVP','100 RVP']
+    for y in str_list:
+        std_by_spot = []
+        for x in hue_list:
+            if x[-3:] == y:
+                std_by_spot.append(x)
+            if x[-7:] == y:
+                std_by_spot.append(x)
+        split_subplots_vals = dilution_df[split_subplots_by].unique()
+        mks = itertools.cycle(['o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X'])
+        plot_by_type(std_by_spot, mks, dilution_df, dilution_df_fit, split_subplots_by, split_subplots_vals, fig_name, fig_path,
+                     ext, hue, col_wrap, zoom=False)
+        fig_name += '_next'
+        spot_df = hmap.filter(regex=y)
+        plot_heatmap(spot_df,fig_path,ext,str=y,type='IC50',vmin=0,vmax=ic_vmax,x=45,y=15)
+        delta_ic50(spot_df,fig_path,ext,index2type,str=y)
 
-    for val, ax in zip(split_subplots_vals, g.axes.flat):
-        df_fit = dilution_df_fit[(dilution_df_fit[split_subplots_by] == val)]
-        palette = sns.color_palette(n_colors=len(df_fit[hue].unique()))
-        sns.lineplot(x="serum dilution", y="OD", hue=hue, hue_order=hue_list, data=df_fit,
-                     style=style, palette=palette,
-                     ax=ax, legend=False)
-        ax.set(xscale="log")
-    plt.savefig(os.path.join(fig_path, '.'.join([fig_name, ext])), dpi=300, bbox_inches='tight')
+    vlp_b_df = bmap.filter(regex='VLP')
+    plot_heatmap(vlp_b_df, fig_path, ext, str='VLP', type='Slope at IC50', vmin=.5, vmax=slope_vmax, x=30, y=15)
 
-    if zoom:
-        for val, ax in zip(split_subplots_vals, g.axes.flat):
-            ax.set(ylim=[-0.05, 0.4])
-        fig_name += '_zoom'
-        plt.savefig(os.path.join(fig_path, '.'.join([fig_name, ext])), dpi=300, bbox_inches='tight')
+    #ns1 plots: SLOPE
+    ns1_b_df = find_spot_type(bmap, str='NS1')
+    plot_heatmap(ns1_b_df, fig_path, ext, str='NS1', type='Slope at IC50', vmin=.5, vmax=slope_vmax, x=30, y=15)
+
+    #rvp 50 plots: IC50
+    rvp_50_b_df = find_rvp_spot_type(bmap, str=' 50 RVP')
+    plot_heatmap(rvp_50_b_df, fig_path, ext, str=' 50 RVP', type='Slope at IC50', vmin=.7, vmax=2, x=30, y=15)
+
+    #rvp 100 plots: IC50
+    rvp_100b_df = find_rvp_spot_type(bmap, str='100 RVP')
+    plot_heatmap(rvp_100b_df, fig_path, ext, str='100 RVP', type='Slope at IC50', vmin=.5, vmax=slope_vmax, x=30, y=15)
+
+    # b plots
+    plot_heatmap(bmap,fig_path,ext,str='slope',type='slope',vmin=0,vmax=slope_vmax,x=30,y=50)
+
+
