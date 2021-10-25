@@ -3,7 +3,7 @@ import os
 import pytest
 from unittest.mock import patch
 
-import pysero as pysero
+import multisero as pysero
 
 
 def test_parse_args():
