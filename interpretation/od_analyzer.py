@@ -13,7 +13,7 @@ def read_config(input_dir):
     """
     Load analysis config from the input directory.
     :param str input_dir: input directory
-    :return dataframe ntl_dirs_df: 'pysero output dirs' tab in the config file.
+    :return dataframe ntl_dirs_df: 'multisero output dirs' tab in the config file.
     :return dataframe scn_scn_df: 'scienion output dirs' tab in the config file.
     :return dataframe plot_setting_df: 'general plotting settings' tab in the config file.
     :return dataframe roc_param_df: 'ROC plot' tab in the config file.
@@ -50,12 +50,12 @@ def read_config(input_dir):
             if fit_param_df['serum ID'] is not None:
                 fit_param_df['serum ID'] = re.split(r'\s*,\s*', fit_param_df['serum ID'])
         if not constants.LOAD_REPORT:
-            assert ('pysero output dirs' in config_file.sheet_names) or \
+            assert ('multisero output dirs' in config_file.sheet_names) or \
             ('scienion output dirs' in config_file.sheet_names), \
-            "sheet by name 'pysero output dirs' or 'scienion output dirs' are required " \
+            "sheet by name 'multisero output dirs' or 'scienion output dirs' are required " \
             "in analysis config file when load_report is False, aborting"
-            if 'pysero output dirs' in config_file.sheet_names:
-                ntl_dirs_df = pd.read_excel(config_file, sheet_name='pysero output dirs', comment='#')
+            if 'multisero output dirs' in config_file.sheet_names:
+                ntl_dirs_df = pd.read_excel(config_file, sheet_name='multisero output dirs', comment='#')
                 if not ntl_dirs_df.isna().loc[0, 'well ID']:
                     ntl_dirs_df['well ID'] = ntl_dirs_df['well ID'].str.split(pat=r'\s*,\s*')
             if 'scienion output dirs' in config_file.sheet_names:
@@ -64,7 +64,7 @@ def read_config(input_dir):
 
 def analyze_od(input_dir, output_dir, load_report):
     """
-    Perform analysis on pysero or scienion OD outputs specified in the config files.
+    Perform analysis on multisero or scienion OD outputs specified in the config files.
     Save the combined table as 'master report' in the output directory.
     :param str input_dir: Input directory
     :param str output_dir: Output directory
@@ -74,20 +74,20 @@ def analyze_od(input_dir, output_dir, load_report):
     os.makedirs(output_dir, exist_ok=True)
     ntl_dirs_df, scn_scn_df, plot_setting_df, roc_param_df, cat_param_df, fit_param_df =\
         read_config(input_dir)
-    stitched_pysero_df = read_output_batch(output_dir, ntl_dirs_df, scn_scn_df, load_report)
+    stitched_multisero_df = read_output_batch(output_dir, ntl_dirs_df, scn_scn_df, load_report)
     if plot_setting_df['antigens to plot'] == 'all':
-        plot_setting_df['antigens to plot'] = stitched_pysero_df['antigen'].unique()
+        plot_setting_df['antigens to plot'] = stitched_multisero_df['antigen'].unique()
     split_plots_by = plot_setting_df['split plots by']
     split_plots_vals = [None]
     if split_plots_by is not None:
-        split_plots_vals = stitched_pysero_df[split_plots_by].unique()
+        split_plots_vals = stitched_multisero_df[split_plots_by].unique()
     norm_antigen = plot_setting_df['normalize OD by']
     norm_group = 'plate'
     aggregate = 'mean'
     # aggregate = None
     antigen_list = plot_setting_df['antigens to plot']
     suffix = ''
-    df_norm = normalize_od(stitched_pysero_df.copy(), norm_antigen, group=norm_group)
+    df_norm = normalize_od(stitched_multisero_df.copy(), norm_antigen, group=norm_group)
     if norm_antigen is not None:
         suffix = '_'.join([suffix, norm_antigen, 'norm_per', norm_group])
 
