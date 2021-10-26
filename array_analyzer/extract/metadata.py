@@ -115,7 +115,7 @@ class MetaData:
                 "Can't find re-run dir {}".format(constants.RUN_PATH)
             # Make sure it's a multisero directory
             base_path = os.path.basename(os.path.normpath(constants.RUN_PATH))
-            assert base_path[:7] == 'multisero_',\
+            assert base_path[:10] == 'multisero_',\
                 "Rerun path should be a multisero_... path, not".format(constants.RUN_PATH)
 
         self._copy_metadata_to_output()
