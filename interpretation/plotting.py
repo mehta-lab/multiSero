@@ -482,6 +482,7 @@ def plot_heatmap(hmap,fig_path,ext,spot,type,vmin,vmax,x,y):
     plt.savefig(os.path.join(fig_path, '.'.join([f'{spot}_{type}_map', ext])), dpi=300, bbox_inches='tight')
 
 def delta_ic50(vlp_df,fig_path,ext,index2type,str):
+    """ Generates a heatmap to look at the ratiometric difference between IC50 of various antigens"""
     new_df = pd.DataFrame()
     for col in vlp_df.T:
         name = col  # name = serum type
