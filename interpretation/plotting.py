@@ -447,14 +447,17 @@ def joint_plot(df_ori,
     plt.legend(hue_vals, loc='upper left')
     plt.savefig(os.path.join(output_path, ''.join([output_fname, '.jpg'])),
                 dpi=300, bbox_inches='tight')
-
-def find_spot_type(hmap,str):
+# try if str in f'{column}'
+# maybe replace str variable name with name
+# slice by df col names, s/t you can slice from df[a:b] and do the same operation on all of them at once (faster)
+def find_spot_type(hmap,spot):
     #hmap is sliced dilution_df_fit
+    hmap.loc[hmap.columns.str.contains(f'{spot}')] ##### should be equivalent to VLP_DF!!!!!
     vlp_df = pd.DataFrame()
     for column in hmap:
-        name = column
-        if name[-3:] == str:
-            vlp_df[f'{name}'] = hmap[column]
+        namee = column
+        if namee[-3:] == spot:
+            vlp_df[f'{namee}'] = hmap[column]
     return vlp_df
 
 def find_rvp_spot_type(hmap,str):
@@ -466,15 +469,17 @@ def find_rvp_spot_type(hmap,str):
             vlp_df[f'{name}'] = hmap[column]
     return vlp_df
 
-def plot_heatmap(vlp_df,fig_path,ext,str,type,vmin,vmax,x,y):
-    vlp_t = vlp_df.transpose()
+def plot_heatmap(hmap,fig_path,ext,spot,type,vmin,vmax,x,y):
+    #vlp_t = vlp_df.transpose()
+    dftt = hmap.filter(like=spot)
+    df_t = dftt.transpose()
     #vlp_t = vlp_t.drop(columns='100-100')
     fig, ax = plt.subplots(figsize=(x, y))
-    sns.heatmap(vlp_t, annot=True, ax=ax, vmin=vmin, vmax=vmax)
+    sns.heatmap(df_t, annot=True, ax=ax, vmin=vmin, vmax=vmax)
     plt.xticks(rotation=0)
     plt.yticks(rotation=0,fontsize=16)
-    plt.title(f'{type} Values per Antigen per Serum ID ({str})', fontsize=20)
-    plt.savefig(os.path.join(fig_path, '.'.join([f'{str}_{type}_map', ext])), dpi=300, bbox_inches='tight')
+    plt.title(f'{type} Values per Antigen per Serum ID ({spot})', fontsize=20)
+    plt.savefig(os.path.join(fig_path, '.'.join([f'{spot}_{type}_map', ext])), dpi=300, bbox_inches='tight')
 
 def delta_ic50(vlp_df,fig_path,ext,index2type,str):
     new_df = pd.DataFrame()
@@ -579,25 +584,25 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
                      ext, hue, col_wrap, zoom=False)
         fig_name += '_next'
         spot_df = hmap.filter(regex=y)
-        plot_heatmap(spot_df,fig_path,ext,str=y,type='IC50',vmin=0,vmax=ic_vmax,x=45,y=15)
+        plot_heatmap(hmap,fig_path,ext,spot=y,type='IC50',vmin=0,vmax=ic_vmax,x=45,y=15)
         delta_ic50(spot_df,fig_path,ext,index2type,str=y)
 
-    vlp_b_df = bmap.filter(regex='VLP')
-    plot_heatmap(vlp_b_df, fig_path, ext, str='VLP', type='Slope at IC50', vmin=.5, vmax=slope_vmax, x=30, y=15)
+    #vlp_b_df = bmap.filter(regex='VLP')
+    plot_heatmap(bmap, fig_path, ext, spot='VLP', type='Slope at IC50', vmin=.5, vmax=slope_vmax, x=30, y=15)
 
     #ns1 plots: SLOPE
-    ns1_b_df = find_spot_type(bmap, str='NS1')
-    plot_heatmap(ns1_b_df, fig_path, ext, str='NS1', type='Slope at IC50', vmin=.5, vmax=slope_vmax, x=30, y=15)
+    #ns1_b_df = find_spot_type(bmap, spot='NS1')
+    plot_heatmap(bmap, fig_path, ext, spot='NS1', type='Slope at IC50', vmin=.5, vmax=slope_vmax, x=30, y=15)
 
     #rvp 50 plots: IC50
-    rvp_50_b_df = find_rvp_spot_type(bmap, str=' 50 RVP')
-    plot_heatmap(rvp_50_b_df, fig_path, ext, str=' 50 RVP', type='Slope at IC50', vmin=.7, vmax=2, x=30, y=15)
+    #rvp_50_b_df = find_rvp_spot_type(bmap, name=' 50 RVP')
+    plot_heatmap(hmap, fig_path, ext, spot=' 50 RVP', type='Slope at IC50', vmin=.7, vmax=2, x=30, y=15)
 
     #rvp 100 plots: IC50
-    rvp_100b_df = find_rvp_spot_type(bmap, str='100 RVP')
-    plot_heatmap(rvp_100b_df, fig_path, ext, str='100 RVP', type='Slope at IC50', vmin=.5, vmax=slope_vmax, x=30, y=15)
+    #rvp_100b_df = find_rvp_spot_type(bmap, nam='100 RVP')
+    plot_heatmap(hmap, fig_path, ext, spot='100 RVP', type='Slope at IC50', vmin=.5, vmax=slope_vmax, x=30, y=15)
 
     # b plots
-    plot_heatmap(bmap,fig_path,ext,str='slope',type='slope',vmin=0,vmax=slope_vmax,x=30,y=50)
+    #plot_heatmap(bmap,fig_path,ext,name='slope',type='slope',vmin=0,vmax=slope_vmax,x=30,y=50)
 
 
