@@ -5,6 +5,7 @@ import pandas as pd
 import seaborn as sns
 import warnings
 import itertools
+import re
 from matplotlib import pyplot as plt
 from natsort import natsorted
 from scipy import optimize as optimization
@@ -450,7 +451,7 @@ def joint_plot(df_ori,
 # try if str in f'{column}'
 # maybe replace str variable name with name
 # slice by df col names, s/t you can slice from df[a:b] and do the same operation on all of them at once (faster)
-def find_spot_type(hmap,spot):
+def find_spot_type(hmap,spot): #irrelevvant now
     #hmap is sliced dilution_df_fit
     hmap.loc[hmap.columns.str.contains(f'{spot}')] ##### should be equivalent to VLP_DF!!!!!
     vlp_df = pd.DataFrame()
@@ -460,7 +461,7 @@ def find_spot_type(hmap,spot):
             vlp_df[f'{namee}'] = hmap[column]
     return vlp_df
 
-def find_rvp_spot_type(hmap,str):
+def find_rvp_spot_type(hmap,str): #irrelevant now
     #hmap is sliced dilution_df_fit
     vlp_df = pd.DataFrame()
     for column in hmap:
@@ -487,14 +488,12 @@ def delta_ic50(vlp_df,fig_path,ext,str):
     for col in vlp_df.T:
         name = col  # name = serum type
         b = col[10:15]
-        #b = index2type[name]
         for idx in vlp_df.T.index:
             if idx[0:5] == b:
                 match = vlp_df.T[name].loc[idx]
                 new_df[name] = vlp_df.T[name] / match
     fig, ax = plt.subplots(figsize=(30, 15))
     sns.heatmap(new_df, annot=True, ax=ax, vmin=0, vmax=10)
-    #sns.set(font_scale=4)
     plt.xticks(rotation=45)
     plt.yticks(rotation=0)
     plt.title(f'Distinguishing Power of IC50 Values per Antigen per Serum ID ({str}), 9/10/21', fontsize=20)
@@ -556,6 +555,7 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
             index by index and col 
             subtract val from column 
     """""
+    ##let's make heatmap plotting its own function
     hmap = alt.pivot(index=None,columns='antigen',values='c')
     bmap = alt.pivot(index=None, columns='antigen', values='b')
     dmap = alt.pivot(index=None, columns='antigen', values='d')
@@ -567,7 +567,15 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
     ic_vmax = 0.001
 
     hue_list = dilution_df[hue].unique()
-    str_list = ['VLP','NS1',' 50 RVP','100 RVP']
+    #g2 = [elem[-7:] for elem in hue_list]
+    g2 = []
+    for elem in hue_list:
+        m = re.search(r'\d+', elem)
+        if m:
+            g2.append(elem[m.start():])
+        else:
+            pass
+    # next step: eliminate serotype numbers in antigen/spot type list
     for y in str_list:
         std_by_spot = []
         for x in hue_list:
@@ -584,21 +592,14 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
         plot_heatmap(hmap,fig_path,ext,spot=y,type='IC50',vmin=0,vmax=ic_vmax,x=45,y=15)
         delta_ic50(spot_df,fig_path,ext,str=y)
 
-    #vlp_b_df = bmap.filter(regex='VLP')
+    #collect spot types and run a for loop for all unique spot types (antigen types)
     plot_heatmap(bmap, fig_path, ext, spot='VLP', type='Slope at IC50', vmin=.5, vmax=slope_vmax, x=30, y=15)
-
     #ns1 plots: SLOPE
-    #ns1_b_df = find_spot_type(bmap, spot='NS1')
     plot_heatmap(bmap, fig_path, ext, spot='NS1', type='Slope at IC50', vmin=.5, vmax=slope_vmax, x=30, y=15)
-
     #rvp 50 plots: IC50
-    #rvp_50_b_df = find_rvp_spot_type(bmap, name=' 50 RVP')
     plot_heatmap(hmap, fig_path, ext, spot=' 50 RVP', type='Slope at IC50', vmin=.7, vmax=2, x=30, y=15)
-
     #rvp 100 plots: IC50
-    #rvp_100b_df = find_rvp_spot_type(bmap, nam='100 RVP')
     plot_heatmap(hmap, fig_path, ext, spot='100 RVP', type='Slope at IC50', vmin=.5, vmax=slope_vmax, x=30, y=15)
-
     # b plots
     #plot_heatmap(bmap,fig_path,ext,name='slope',type='slope',vmin=0,vmax=slope_vmax,x=30,y=50)
 
