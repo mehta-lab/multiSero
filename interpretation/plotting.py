@@ -481,12 +481,13 @@ def plot_heatmap(hmap,fig_path,ext,spot,type,vmin,vmax,x,y):
     plt.title(f'{type} Values per Antigen per Serum ID ({spot})', fontsize=20)
     plt.savefig(os.path.join(fig_path, '.'.join([f'{spot}_{type}_map', ext])), dpi=300, bbox_inches='tight')
 
-def delta_ic50(vlp_df,fig_path,ext,index2type,str):
+def delta_ic50(vlp_df,fig_path,ext,str):
     """ Generates a heatmap to look at the ratiometric difference between IC50 of various antigens"""
     new_df = pd.DataFrame()
     for col in vlp_df.T:
         name = col  # name = serum type
-        b = index2type[name]
+        b = col[10:15]
+        #b = index2type[name]
         for idx in vlp_df.T.index:
             if idx[0:5] == b:
                 match = vlp_df.T[name].loc[idx]
@@ -559,17 +560,12 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
     bmap = alt.pivot(index=None, columns='antigen', values='b')
     dmap = alt.pivot(index=None, columns='antigen', values='d')
 
-    hmap.to_csv(fig_path + 'hmap.csv')
-    dmap.to_csv(fig_path + 'dmap.csv')
+    #hmap.to_csv(fig_path + 'hmap.csv')
+    #dmap.to_csv(fig_path + 'dmap.csv')
 
     slope_vmax = 3
     ic_vmax = 0.001
 
-    index2type = {'100-0022 (DENV1)': 'DENV1', '100-0037 (DENV1)': 'DENV1', '100-0181 (Multitypic)': 'multi',
-                  '100-0296 (ZIKA)': 'ZIKA',
-                  '100-0363 (DENV3)': 'DENV3', '100-0405 (DENV2)': 'DENV2', '100-0520 (naïve)': 'Naive',
-                  '100-0562 (ZIKA + JEV)': 'ZIKA+JEV',
-                  '100-0645 (DENV2)': 'DENV2', '100-0661 (DENV3)': 'DENV3', '100-0332 (DENV4)': 'DENV4'}
     hue_list = dilution_df[hue].unique()
     str_list = ['VLP','NS1',' 50 RVP','100 RVP']
     for y in str_list:
@@ -586,7 +582,7 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
         fig_name += '_next'
         spot_df = hmap.filter(regex=y)
         plot_heatmap(hmap,fig_path,ext,spot=y,type='IC50',vmin=0,vmax=ic_vmax,x=45,y=15)
-        delta_ic50(spot_df,fig_path,ext,index2type,str=y)
+        delta_ic50(spot_df,fig_path,ext,str=y)
 
     #vlp_b_df = bmap.filter(regex='VLP')
     plot_heatmap(bmap, fig_path, ext, spot='VLP', type='Slope at IC50', vmin=.5, vmax=slope_vmax, x=30, y=15)
