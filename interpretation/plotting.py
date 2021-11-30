@@ -448,33 +448,66 @@ def joint_plot(df_ori,
     plt.legend(hue_vals, loc='upper left')
     plt.savefig(os.path.join(output_path, ''.join([output_fname, '.jpg'])),
                 dpi=300, bbox_inches='tight')
-# try if str in f'{column}'
-# maybe replace str variable name with name
-# slice by df col names, s/t you can slice from df[a:b] and do the same operation on all of them at once (faster)
-def find_spot_type(hmap,spot): #irrelevvant now
-    #hmap is sliced dilution_df_fit
-    hmap.loc[hmap.columns.str.contains(f'{spot}')] ##### should be equivalent to VLP_DF!!!!!
-    vlp_df = pd.DataFrame()
-    for column in hmap:
-        namee = column
-        if namee[-3:] == spot:
-            vlp_df[f'{namee}'] = hmap[column]
-    return vlp_df
 
-def find_rvp_spot_type(hmap,str): #irrelevant now
-    #hmap is sliced dilution_df_fit
-    vlp_df = pd.DataFrame()
-    for column in hmap:
-        name = column
-        if name[-7:] == str:
-            vlp_df[f'{name}'] = hmap[column]
-    return vlp_df
+def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
+                        zoom=False, split_subplots_by='antigen', col_wrap=2):
+    """
+    Plot standard curves for ELISA
+    :param dataframe dilution_df: dataframe containing serum OD with serial diluition
+    :param str fig_path: dir to save the plots
+    :param str fig_name: name of the figure file
+    :param str ext: figure file extension
+    :param str hue: attribute to be plotted with different colors
+    :param int col_wrap: number of columns in the facetgrid
+    :param bool zoom: If true, output zoom-in of the low OD region
+    """
+    dilution_df_fit = dilution_df.copy()
+    dilution_df_fit = fit2df(dilution_df_fit, fourPL)
+    hue_list = dilution_df[hue].unique()
+    # %% plot standard curves
+    # hue_fit_list = [' '.join([x, 'fit']) for x in hue_list]
+    split_subplots_vals = dilution_df[split_subplots_by].unique()
+    # markers = 'o'
+    mks = itertools.cycle(['o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X'])
+    markers = [next(mks) for i in hue_list]
+    style = 'serum type'
+    # style = hue
+    assert not dilution_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
+    palette = sns.color_palette(n_colors=len(dilution_df[hue].unique()))
+    print('plotting standard curves...')
+    g = sns.lmplot(x="serum dilution", y="OD",
+                   hue=hue, hue_order=hue_list, col=split_subplots_by, ci='sd', palette=palette, markers=markers,
+                   data=dilution_df, col_wrap=col_wrap, fit_reg=False, x_estimator=np.mean)
+
+    for val, ax in zip(split_subplots_vals, g.axes.flat):
+        df_fit = dilution_df_fit[(dilution_df_fit[split_subplots_by] == val)]
+        palette = sns.color_palette(n_colors=len(df_fit[hue].unique()))
+        sns.lineplot(x="serum dilution", y="OD", hue=hue, hue_order=hue_list, data=df_fit,
+                     style=style, palette=palette,
+                     ax=ax, legend=False)
+        ax.set(xscale="log")
+    plt.savefig(os.path.join(fig_path, '.'.join([fig_name, ext])), dpi=300, bbox_inches='tight')
+
+    if zoom:
+        for val, ax in zip(split_subplots_vals, g.axes.flat):
+            ax.set(ylim=[-0.05, 0.4])
+        fig_name += '_zoom'
+        plt.savefig(os.path.join(fig_path, '.'.join([fig_name, ext])), dpi=300, bbox_inches='tight')
 
 def plot_heatmap(hmap,fig_path,ext,spot,type,vmin,vmax,x,y):
-    #vlp_t = vlp_df.transpose()
+    """
+    Generates heatmap of IC50 or slope at IC50 for various antigens
+    :param dataframe hmap: DataFrame of slope, upper limit, and/or IC50 values per antigen per serum ID
+    :param str fig_path: dir to save the plots
+    :param str ext: figure file extension
+    :param str spot: what type of antigen is being evaluated (ie: EDIII, NS1, etc)
+    :param float vmin: minimum for cmap range
+    :param float vmax: maximum for cmap range
+    :param int x: width of heatmap plot
+    :param int y: height of heatmap plot
+    """
     dftt = hmap.filter(like=spot)
     df_t = dftt.transpose()
-    #vlp_t = vlp_t.drop(columns='100-100')
     fig, ax = plt.subplots(figsize=(x, y))
     sns.heatmap(df_t, annot=True, ax=ax, vmin=vmin, vmax=vmax)
     plt.xticks(rotation=0)
@@ -482,24 +515,45 @@ def plot_heatmap(hmap,fig_path,ext,spot,type,vmin,vmax,x,y):
     plt.title(f'{type} Values per Antigen per Serum ID ({spot})', fontsize=20)
     plt.savefig(os.path.join(fig_path, '.'.join([f'{spot}_{type}_map', ext])), dpi=300, bbox_inches='tight')
 
-def delta_ic50(vlp_df,fig_path,ext,str):
-    """ Generates a heatmap to look at the ratiometric difference between IC50 of various antigens"""
+def delta_ic50(ic_df,fig_path,ext,spot):
+    """
+    Generates a heatmap to look at the ratiometric difference between IC50 of various antigens
+    :param dataframe ic_df: DataFrame IC50 values per antigen per serum ID
+    :param str fig_path: dir to save the plots
+    :param str ext: figure file extension
+    :param str spot: what type of antigen is being evaluated (ie: EDIII, NS1, etc)
+    """
     new_df = pd.DataFrame()
-    for col in vlp_df.T:
+    for col in ic_df.T:
         name = col  # name = serum type
         b = col[10:15]
-        for idx in vlp_df.T.index:
+        for idx in ic_df.T.index:
             if idx[0:5] == b:
-                match = vlp_df.T[name].loc[idx]
-                new_df[name] = vlp_df.T[name] / match
+                match = ic_df.T[name].loc[idx]
+                new_df[name] = ic_df.T[name] / match
     fig, ax = plt.subplots(figsize=(30, 15))
     sns.heatmap(new_df, annot=True, ax=ax, vmin=0, vmax=10)
     plt.xticks(rotation=45)
     plt.yticks(rotation=0)
-    plt.title(f'Distinguishing Power of IC50 Values per Antigen per Serum ID ({str}), 9/10/21', fontsize=20)
-    plt.savefig(os.path.join(fig_path, '.'.join([f'deltaic{str}map', ext])), dpi=300, bbox_inches='tight')
+    plt.title(f'Distinguishing Power of IC50 Values per Antigen per Serum ID ({spot}), 9/10/21', fontsize=20)
+    plt.savefig(os.path.join(fig_path, '.'.join([f'deltaic{spot}map', ext])), dpi=300, bbox_inches='tight')
 
 def plot_by_type(rvp_list,mks,dilution_df,dilution_df_fit,split_subplots_by,split_subplots_vals,fig_name,fig_path,ext,hue,col_wrap,zoom=False):
+    """
+    For antigen evaluation: standard plots grouped by antigen type. Meant to be viewed in conjunction with heatmaps.
+    :param str rvp_list: list of antigen types
+    :param str mks: list of marker types for plotting
+    :param dataframe dilution_df: dataframe containing serum OD with serial dilution
+    :param dataframe dilution_df_fit: dataframe containing serum OD with serial dilution fitted to 4PL curve
+    :param str split_subplots_by: breakdown of subplots, either by antigen or serum ID
+    :param str split_subplots_vals: unique values of split_subplots_by
+    :param str fig_name: name of the figure file
+    :param str fig_path: dir to save the plots
+    :param str ext: figure file extension
+    :param str hue: attribute to be plotted with different colors
+    :param int col_wrap: number of columns in the facetgrid
+    :param bool zoom: If true, output zoom-in of the low OD region
+    """
     markers = [next(mks) for i in rvp_list]
     style = 'serum type'
     # style = hue
@@ -528,10 +582,10 @@ def plot_by_type(rvp_list,mks,dilution_df,dilution_df_fit,split_subplots_by,spli
         fig_name += '_zoom'
         plt.savefig(os.path.join(fig_path, '.'.join([fig_name, ext])), dpi=300, bbox_inches='tight')
 
-def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
+def total_plots(dilution_df, fig_path, fig_name, ext, hue=None,
                         zoom=False, split_subplots_by='antigen', col_wrap=2):
     """
-    Plot standard curves for ELISA
+    Plot standard curves with heatmap plots for holistic antigen candidate evaluation
     :param dataframe dilution_df: dataframe containing serum OD with serial diluition
     :param str fig_path: dir to save the plots
     :param str fig_name: name of the figure file
@@ -541,76 +595,58 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
     :param bool zoom: If true, output zoom-in of the low OD region
     """
     dilution_df_fit = dilution_df.copy()
-    dilution_df_fit = fit2df(dilution_df_fit, fourPL) # collect b and c values that characterize curves, save as variable; plot heat map of antigen (y), serum type (x) with c as numerical value
-    ic_50 = dilution_df_fit[['antigen','serum ID', 'c','b','d']]
+    dilution_df_fit = fit2df(dilution_df_fit,
+                             fourPL)  # collect b and c values that characterize curves, save as variable; plot heat map of antigen (y), serum type (x) with c as numerical value
+    ic_50 = dilution_df_fit[['antigen', 'serum ID', 'c', 'b', 'd']]
 
-    alt_strat = ic_50.set_index('serum ID')
-    alt = alt_strat.drop_duplicates()
-    """""
-    #set alt s/t serum ID is column
-    for col in df
-    for column in alt:
-        name = column #name = serum type
-        if name[0:5] == str #antigen:
-            index by index and col 
-            subtract val from column 
-    """""
-    ##let's make heatmap plotting its own function: specify: antigen evaluation -- deltaic50 helps evaluate antigens
-    hmap = alt.pivot(index=None,columns='antigen',values='c')
-    bmap = alt.pivot(index=None, columns='antigen', values='b')
-    dmap = alt.pivot(index=None, columns='antigen', values='d')
-
-    #hmap.to_csv(fig_path + 'hmap.csv')
-    #dmap.to_csv(fig_path + 'dmap.csv')
-
-    slope_vmax = 3
-    ic_vmax = 0.001
+    alt = ic_50.set_index('serum ID').drop_duplicates()
 
     hue_list = dilution_df[hue].unique()
 
-    g2 = []
-    for elem in hue_list:
-        m = re.search(r'\d+', elem)
-        if m:
-            g2.append(elem[m.start():])
-        else:
-            pass
-    # next step: eliminate serotype numbers in antigen/spot type list
-    # if d+ plus space, eliminate d+ plus space
-    type_ls = []
-    for elem in g2:
-        m = re.match(r'\d+ \d+', elem) #pattern = d+ plus space plus d+
-        if m:
-            spottype = elem[2:]
-            type_ls.append(spottype)
-        else:
-            pass
+    hmap = alt.pivot(index=None, columns='antigen', values='c')
+    if hmap:
+        bmap = alt.pivot(index=None, columns='antigen', values='b')
+        dmap = alt.pivot(index=None, columns='antigen', values='d')
 
-    antigen_type_list = np.unique(type_ls)
+        # hmap.to_csv(fig_path + 'hmap.csv')
+        # dmap.to_csv(fig_path + 'dmap.csv')
 
-    for y in antigen_type_list:
-        std_by_spot = []
-        for x in hue_list: #if y is in x, let's plot it
-            if y in x:
-                std_by_spot.append(x)
-        split_subplots_vals = dilution_df[split_subplots_by].unique()
-        mks = itertools.cycle(['o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X'])
-        plot_by_type(std_by_spot, mks, dilution_df, dilution_df_fit, split_subplots_by, split_subplots_vals, fig_name, fig_path,
-                     ext, hue, col_wrap, zoom=False)
-        fig_name += '_next'
-        spot_df = hmap.filter(regex=y)
-        plot_heatmap(hmap,fig_path,ext,spot=y,type='IC50',vmin=0,vmax=ic_vmax,x=45,y=15)
-        delta_ic50(spot_df,fig_path,ext,str=y)
+        slope_vmax = 3
+        ic_vmax = 0.001
 
-    #collect spot types and run a for loop for all unique spot types (antigen types)
-    plot_heatmap(bmap, fig_path, ext, spot='VLP', type='Slope at IC50', vmin=.5, vmax=slope_vmax, x=30, y=15)
-    #ns1 plots: SLOPE
-    plot_heatmap(bmap, fig_path, ext, spot='NS1', type='Slope at IC50', vmin=.5, vmax=slope_vmax, x=30, y=15)
-    #rvp 50 plots: IC50
-    plot_heatmap(hmap, fig_path, ext, spot=' 50 RVP', type='Slope at IC50', vmin=.7, vmax=2, x=30, y=15)
-    #rvp 100 plots: IC50
-    plot_heatmap(hmap, fig_path, ext, spot='100 RVP', type='Slope at IC50', vmin=.5, vmax=slope_vmax, x=30, y=15)
-    # b plots
-    #plot_heatmap(bmap,fig_path,ext,name='slope',type='slope',vmin=0,vmax=slope_vmax,x=30,y=50)
+        g2 = []
+        for elem in hue_list:
+            m = re.search(r'\d+', elem)
+            if m:
+                g2.append(elem[m.start():])
+            else:
+                pass
+        # next step: eliminate serotype numbers in antigen/spot type list
+        # if d+ plus space, eliminate d+ plus space
+        type_ls = []
+        for elem in g2:
+            m = re.match(r'\d+ \d+', elem)  # pattern = d+ plus space plus d+
+            if m:
+                spottype = elem[2:]
+                type_ls.append(spottype)
+            else:
+                pass
 
+        antigen_type_list = np.unique(type_ls)
 
+        for y in antigen_type_list:
+            std_by_spot = []
+            for x in hue_list:  # if y is in x, plot it
+                if y in x:
+                    std_by_spot.append(x)
+            split_subplots_vals = dilution_df[split_subplots_by].unique()
+            mks = itertools.cycle(['o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X'])
+            plot_by_type(std_by_spot, mks, dilution_df, dilution_df_fit, split_subplots_by, split_subplots_vals,
+                         fig_name, fig_path, ext, hue, col_wrap, zoom=False)
+            fig_name += '_next'
+            spot_df = hmap.filter(regex=y)
+            plot_heatmap(hmap, fig_path, ext, spot=y, type='IC50', vmin=0, vmax=ic_vmax, x=45, y=15)
+            plot_heatmap(bmap, fig_path, ext, spot=y, type='Slope at IC50', vmin=.5, vmax=slope_vmax, x=30, y=15)
+            delta_ic50(spot_df, fig_path, ext, spot=y)
+    else:
+        standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue, zoom, split_subplots_by, col_wrap)
