@@ -535,7 +535,7 @@ def delta_ic50(ic_df,fig_path,ext,spot):
     sns.heatmap(new_df, annot=True, ax=ax, vmin=0, vmax=10)
     plt.xticks(rotation=45)
     plt.yticks(rotation=0)
-    plt.title(f'Distinguishing Power of IC50 Values per Antigen per Serum ID ({spot})', fontsize=20)
+    plt.title(f'Ratio of IC50 Values per Antigen per Serum ID ({spot})', fontsize=20)
     plt.savefig(os.path.join(fig_path, '.'.join([f'deltaic{spot}map', ext])), dpi=300, bbox_inches='tight')
 
 def plot_by_type(rvp_list,mks,dilution_df,dilution_df_fit,split_subplots_by,split_subplots_vals,fig_name,fig_path,ext,hue,col_wrap,zoom=False):
