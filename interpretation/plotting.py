@@ -555,7 +555,7 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
             index by index and col 
             subtract val from column 
     """""
-    ##let's make heatmap plotting its own function
+    ##let's make heatmap plotting its own function: specify: antigen evaluation -- deltaic50 helps evaluate antigens
     hmap = alt.pivot(index=None,columns='antigen',values='c')
     bmap = alt.pivot(index=None, columns='antigen', values='b')
     dmap = alt.pivot(index=None, columns='antigen', values='d')
@@ -567,7 +567,7 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
     ic_vmax = 0.001
 
     hue_list = dilution_df[hue].unique()
-    #g2 = [elem[-7:] for elem in hue_list]
+
     g2 = []
     for elem in hue_list:
         m = re.search(r'\d+', elem)
@@ -576,12 +576,22 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
         else:
             pass
     # next step: eliminate serotype numbers in antigen/spot type list
-    for y in str_list:
+    # if d+ plus space, eliminate d+ plus space
+    type_ls = []
+    for elem in g2:
+        m = re.match(r'\d+ \d+', elem) #pattern = d+ plus space plus d+
+        if m:
+            spottype = elem[2:]
+            type_ls.append(spottype)
+        else:
+            pass
+
+    antigen_type_list = np.unique(type_ls)
+
+    for y in antigen_type_list:
         std_by_spot = []
-        for x in hue_list:
-            if x[-3:] == y:
-                std_by_spot.append(x)
-            if x[-7:] == y:
+        for x in hue_list: #if y is in x, let's plot it
+            if y in x:
                 std_by_spot.append(x)
         split_subplots_vals = dilution_df[split_subplots_by].unique()
         mks = itertools.cycle(['o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X'])
