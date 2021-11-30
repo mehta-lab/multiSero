@@ -535,7 +535,7 @@ def delta_ic50(ic_df,fig_path,ext,spot):
     sns.heatmap(new_df, annot=True, ax=ax, vmin=0, vmax=10)
     plt.xticks(rotation=45)
     plt.yticks(rotation=0)
-    plt.title(f'Distinguishing Power of IC50 Values per Antigen per Serum ID ({spot}), 9/10/21', fontsize=20)
+    plt.title(f'Distinguishing Power of IC50 Values per Antigen per Serum ID ({spot})', fontsize=20)
     plt.savefig(os.path.join(fig_path, '.'.join([f'deltaic{spot}map', ext])), dpi=300, bbox_inches='tight')
 
 def plot_by_type(rvp_list,mks,dilution_df,dilution_df_fit,split_subplots_by,split_subplots_vals,fig_name,fig_path,ext,hue,col_wrap,zoom=False):
@@ -604,7 +604,7 @@ def total_plots(dilution_df, fig_path, fig_name, ext, hue=None,
     hue_list = dilution_df[hue].unique()
 
     hmap = alt.pivot(index=None, columns='antigen', values='c')
-    if hmap:
+    if not hmap.empty:
         bmap = alt.pivot(index=None, columns='antigen', values='b')
         dmap = alt.pivot(index=None, columns='antigen', values='d')
 
@@ -627,7 +627,7 @@ def total_plots(dilution_df, fig_path, fig_name, ext, hue=None,
         for elem in g2:
             m = re.match(r'\d+ \d+', elem)  # pattern = d+ plus space plus d+
             if m:
-                spottype = elem[2:]
+                spottype = elem[1:]
                 type_ls.append(spottype)
             else:
                 pass
