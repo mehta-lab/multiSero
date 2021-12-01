@@ -99,7 +99,7 @@ def analyze_od(input_dir, output_dir, load_report):
     if aggregate is not None:
         df_norm = df_norm.groupby(['antigen', 'antigen type', 'serum ID', 'well_id', 'plate ID', 'sample type',
                                  'serum type', 'serum dilution', 'serum cat', 'pipeline', 'secondary ID',
-                                 'secondary dilution'])['OD'].mean().reset_index()
+                                 'secondary dilution','PRNT'])['OD'].mean().reset_index()
         suffix = '_'.join([suffix, aggregate])
 
     for split_val in split_plots_vals:
