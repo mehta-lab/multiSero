@@ -482,6 +482,7 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
     for val, ax in zip(split_subplots_vals, g.axes.flat):
         df_fit = dilution_df_fit[(dilution_df_fit[split_subplots_by] == val)]
         palette = sns.color_palette(n_colors=len(df_fit[hue].unique()))
+        sns.set(font_scale=2)
         sns.lineplot(x="serum dilution", y="OD", hue=hue, hue_order=hue_list, data=df_fit,
                      style=style, palette=palette,
                      ax=ax, legend=False)
@@ -510,6 +511,7 @@ def plot_heatmap(hmap,fig_path,ext,spot,type,vmin,vmax,x,y):
     df_t = dftt.transpose()
     fig, ax = plt.subplots(figsize=(x, y))
     sns.heatmap(df_t, annot=True, ax=ax, vmin=vmin, vmax=vmax)
+    sns.set(font_scale=2)
     plt.xticks(rotation=0)
     plt.yticks(rotation=0,fontsize=16)
     plt.title(f'{type} Values per Antigen per Serum ID ({spot})', fontsize=20)
@@ -533,12 +535,14 @@ def delta_ic50(ic_df,fig_path,ext,spot):
                 new_df[name] = ic_df.T[name] / match
     fig, ax = plt.subplots(figsize=(30, 15))
     sns.heatmap(new_df, annot=True, ax=ax, vmin=0, vmax=10)
+    sns.set(font_scale=2)
     plt.xticks(rotation=45)
     plt.yticks(rotation=0)
     plt.title(f'Ratio of IC50 Values per Antigen per Serum ID ({spot})', fontsize=20)
     plt.savefig(os.path.join(fig_path, '.'.join([f'deltaic{spot}map', ext])), dpi=300, bbox_inches='tight')
 
-def plot_by_type(rvp_list,mks,dilution_df,dilution_df_fit,split_subplots_by,split_subplots_vals,fig_name,fig_path,ext,hue,col_wrap,zoom=False):
+def plot_by_type(rvp_list,mks,dilution_df,dilution_df_fit,split_subplots_by,split_subplots_vals,fig_name,
+                 fig_path,ext,hue,col_wrap,zoom=False):
     """
     For antigen evaluation: standard plots grouped by antigen type. Meant to be viewed in conjunction with heatmaps.
     :param str rvp_list: list of antigen types
@@ -569,6 +573,7 @@ def plot_by_type(rvp_list,mks,dilution_df,dilution_df_fit,split_subplots_by,spli
         df_fit = dilution_df_fit[(dilution_df_fit[split_subplots_by] == val)]
         # palette = sns.color_palette(n_colors=len(df_fit[hue].unique()))
         palette = sns.color_palette(n_colors=len(rvp_list))
+        sns.set(font_scale=2)
         sns.lineplot(x="serum dilution", y="OD", hue=hue, hue_order=rvp_list, data=df_fit,
                      style=style, palette=palette,
                      ax=ax, legend=False)
@@ -596,7 +601,7 @@ def total_plots(dilution_df, fig_path, fig_name, ext, hue=None,
     """
     dilution_df_fit = dilution_df.copy()
     dilution_df_fit = fit2df(dilution_df_fit,
-                             fourPL)  # collect b and c values that characterize curves, save as variable; plot heat map of antigen (y), serum type (x) with c as numerical value
+                             fourPL)
     ic_50 = dilution_df_fit[['antigen', 'serum ID', 'c', 'b', 'd']]
 
     alt = ic_50.set_index('serum ID').drop_duplicates()
