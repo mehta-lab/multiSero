@@ -599,17 +599,17 @@ def total_plots(dilution_df, fig_path, fig_name, ext, hue=None,
     :param int col_wrap: number of columns in the facetgrid
     :param bool zoom: If true, output zoom-in of the low OD region
     """
-    dilution_df_fit = dilution_df.copy()
-    dilution_df_fit = fit2df(dilution_df_fit,
-                             fourPL)
-    ic_50 = dilution_df_fit[['antigen', 'serum ID', 'c', 'b', 'd']]
+    if hue == 'antigen':
+        dilution_df_fit = dilution_df.copy()
+        dilution_df_fit = fit2df(dilution_df_fit,
+                                 fourPL)
+        ic_50 = dilution_df_fit[['antigen', 'serum ID', 'c', 'b', 'd']]
 
-    alt = ic_50.set_index('serum ID').drop_duplicates()
+        alt = ic_50.set_index('serum ID').drop_duplicates()
+        # logreg_classification(dilution_df,fig_path,ext)
+        hue_list = dilution_df[hue].unique()
 
-    hue_list = dilution_df[hue].unique()
-
-    hmap = alt.pivot(index=None, columns='antigen', values='c')
-    if not hmap.empty:
+        hmap = alt.pivot(index=None, columns='antigen', values='c')
         bmap = alt.pivot(index=None, columns='antigen', values='b')
         dmap = alt.pivot(index=None, columns='antigen', values='d')
 
