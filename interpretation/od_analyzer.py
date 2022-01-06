@@ -86,6 +86,11 @@ def analyze_od(input_dir, output_dir, load_report):
     aggregate = 'mean'
     # aggregate = None
     antigen_list = plot_setting_df['antigens to plot']
+    #antigen_list = []
+    #antigen_list.append(plot_setting_df['antigens to plot'])
+    #antigen_list.append('DENV1 100 EDIII')
+    #antigen_list.append('DENV2 100 RVP')
+    #antigen_list.append('DENV2 50 VLP')
     suffix = ''
     df_norm = normalize_od(stitched_multisero_df.copy(), norm_antigen, group=norm_group)
     if norm_antigen is not None:

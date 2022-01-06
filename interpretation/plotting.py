@@ -475,6 +475,7 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
     assert not dilution_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
     palette = sns.color_palette(n_colors=len(dilution_df[hue].unique()))
     print('plotting standard curves...')
+    sns.set_context("poster")
     g = sns.lmplot(x="serum dilution", y="OD",
                    hue=hue, hue_order=hue_list, col=split_subplots_by, ci='sd', palette=palette, markers=markers,
                    data=dilution_df, col_wrap=col_wrap, fit_reg=False, x_estimator=np.mean)
