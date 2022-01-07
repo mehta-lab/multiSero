@@ -529,11 +529,11 @@ def delta_ic50(ic_df,fig_path,ext,spot):
     new_df = pd.DataFrame()
     for col in ic_df.T:
         name = col  # name = serum type
-        b = col[10:15]
+        b = col[-6:-1] #presumes serum ID labeled with serotype in parantheses, ie: serum ID ABC135 (DENV1)
         for idx in ic_df.T.index:
             if idx[0:5] == b:
                 match = ic_df.T[name].loc[idx]
-                new_df[name] = ic_df.T[name] / match
+                new_df[name] = match / ic_df.T[name]
     fig, ax = plt.subplots(figsize=(30, 15))
     sns.heatmap(new_df, annot=True, ax=ax, vmin=0, vmax=10)
     sns.set(font_scale=2)
@@ -610,9 +610,11 @@ def total_plots(dilution_df, fig_path, fig_name, ext, hue=None,
         # logreg_classification(dilution_df,fig_path,ext)
         hue_list = dilution_df[hue].unique()
 
-        hmap = alt.pivot(index=None, columns='antigen', values='c')
-        bmap = alt.pivot(index=None, columns='antigen', values='b')
-        dmap = alt.pivot(index=None, columns='antigen', values='d')
+        hmap = alt.pivot_table(index='serum ID', columns='antigen', values='c')
+        #hmap = alt.pivot(index=None, columns='antigen', values='c')
+        #bmap = alt.pivot(index=None, columns='antigen', values='b')
+        bmap = alt.pivot_table(index='serum ID', columns='antigen', values='b')
+        #dmap = alt.pivot(index=None, columns='antigen', values='d')
 
         # hmap.to_csv(fig_path + 'hmap.csv')
         # dmap.to_csv(fig_path + 'dmap.csv')
