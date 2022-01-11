@@ -475,7 +475,7 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
     assert not dilution_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
     palette = sns.color_palette(n_colors=len(dilution_df[hue].unique()))
     print('plotting standard curves...')
-    sns.set_context("poster")
+    sns.set_context("talk")
     g = sns.lmplot(x="serum dilution", y="OD",
                    hue=hue, hue_order=hue_list, col=split_subplots_by, ci='sd', palette=palette, markers=markers,
                    data=dilution_df, col_wrap=col_wrap, fit_reg=False, x_estimator=np.mean)
@@ -508,10 +508,12 @@ def plot_heatmap(hmap,fig_path,ext,spot,type,vmin,vmax,x,y):
     :param int x: width of heatmap plot
     :param int y: height of heatmap plot
     """
-    dftt = hmap.filter(like=spot)
-    df_t = dftt.transpose()
+    #dftt = hmap.filter(like=spot)
+    dftt = hmap
+    df_t = dftt.transpose() #comment out if in serum ID mode
     fig, ax = plt.subplots(figsize=(x, y))
     sns.heatmap(df_t, annot=True, ax=ax, vmin=vmin, vmax=vmax)
+    #sns.heatmap(df_t, annot=True, ax=ax, vmin=vmin, vmax=vmax)
     sns.set(font_scale=2)
     plt.xticks(rotation=0)
     plt.yticks(rotation=0,fontsize=16)
@@ -529,14 +531,16 @@ def delta_ic50(ic_df,fig_path,ext,spot):
     new_df = pd.DataFrame()
     for col in ic_df.T:
         name = col  # name = serum type
-        b = col[-6:-1] #presumes serum ID labeled with serotype in parantheses, ie: serum ID ABC135 (DENV1)
+        #b = col[-6:-1] #presumes serum ID labeled with serotype in parantheses, ie: serum ID ABC135 (DENV1)
+        b = col[0:5] #serum ID = hue mode
         for idx in ic_df.T.index:
-            if idx[0:5] == b:
+            #if idx[0:5] == b: #antigen hue mode
+            if idx[-6:-1] == b:  #serum ID hue mode
                 match = ic_df.T[name].loc[idx]
                 new_df[name] = match / ic_df.T[name]
-    fig, ax = plt.subplots(figsize=(30, 15))
-    sns.heatmap(new_df, annot=True, ax=ax, vmin=0, vmax=10)
-    sns.set(font_scale=2)
+    fig, ax = plt.subplots(figsize=(45, 15))
+    sns.heatmap(new_df, annot=True, ax=ax, vmin=0, vmax=2.5)
+    sns.set_context("talk")
     plt.xticks(rotation=45)
     plt.yticks(rotation=0)
     plt.title(f'Ratio of IC50 Values per Antigen per Serum ID ({spot})', fontsize=20)
@@ -657,4 +661,29 @@ def total_plots(dilution_df, fig_path, fig_name, ext, hue=None,
             plot_heatmap(bmap, fig_path, ext, spot=y, type='Slope at IC50', vmin=.5, vmax=slope_vmax, x=30, y=15)
             delta_ic50(spot_df, fig_path, ext, spot=y)
     else:
-        standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue, zoom, split_subplots_by, col_wrap)
+        dilution_df_fit = dilution_df.copy()
+        dilution_df_fit = fit2df(dilution_df_fit,
+                                 fourPL)
+        ic_50 = dilution_df_fit[['antigen', 'serum ID', 'c', 'b', 'd']]
+
+        alt = ic_50.set_index('serum ID').drop_duplicates()
+        # logreg_classification(dilution_df,fig_path,ext)
+        hue_list = dilution_df[hue].unique()
+
+        hmap = alt.pivot_table(index='antigen', columns='serum ID', values='c')
+        # hmap = alt.pivot(index=None, columns='antigen', values='c')
+        # bmap = alt.pivot(index=None, columns='antigen', values='b')
+        bmap = alt.pivot_table(index='antigen', columns='serum ID', values='b')
+        # dmap = alt.pivot(index=None, columns='antigen', values='d')
+
+        # hmap.to_csv(fig_path + 'hmap.csv')
+        # dmap.to_csv(fig_path + 'dmap.csv')
+
+        slope_vmax = 3
+        ic_vmax = 0.001
+
+        y = '2022 2hr inc.'
+        spot_df = hmap
+        plot_heatmap(hmap, fig_path, ext, spot=y, type='IC50', vmin=0, vmax=ic_vmax, x=60, y=15)
+        # plot_heatmap(bmap, fig_path, ext, spot=y, type='Slope at IC50', vmin=.5, vmax=slope_vmax, x=30, y=15)
+        delta_ic50(spot_df, fig_path, ext, spot=y)
