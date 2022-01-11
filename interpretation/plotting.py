@@ -27,15 +27,17 @@ def fit2df(df, model, serum_group='serum ID'):
     antigens = df['antigen'].unique()
     secondaries = df['secondary ID'].unique()
     plate_ids = df['plate ID'].unique()
+    prnt = df['PRNT'].unique()
 
-    keys = itertools.product(sera, antigens, secondaries, plate_ids)
+    keys = itertools.product(sera, antigens, secondaries, plate_ids, prnt)
     df_fit = pd.DataFrame(columns=df.columns)
-    for serum, antigen, secondary, plate_id in keys:
+    for serum, antigen, secondary, plate_id, prnt in keys:
         print('Fitting {}, {}...'.format(serum, antigen))
         sec_dilu_df = df[(df[serum_group] == serum) &
                         (df['antigen'] == antigen) &
                         (df['secondary ID'] == secondary) &
-                         (df['plate ID'] == plate_id)]
+                         (df['plate ID'] == plate_id) &
+                         (df['PRNT'] == prnt)]
         sec_dilutions = sec_dilu_df['secondary dilution'].unique()
         for sec_dilution in sec_dilutions:
             sub_df = sec_dilu_df[(sec_dilu_df['secondary dilution'] == sec_dilution)].reset_index(drop=True)
@@ -63,6 +65,7 @@ def fit2df(df, model, serum_group='serum ID'):
                                  'secondary ID',
                                  'secondary dilution',
                                  'pipeline',
+                                  'PRNT',
                                   'plate ID']]] * len(df_fit_temp.index), axis=0).reset_index(drop=True)
             df_fit_temp = pd.concat([df_fit_temp, sub_df_expand], axis=1)
             df_fit = df_fit.append(df_fit_temp)
@@ -664,7 +667,7 @@ def total_plots(dilution_df, fig_path, fig_name, ext, hue=None,
         dilution_df_fit = dilution_df.copy()
         dilution_df_fit = fit2df(dilution_df_fit,
                                  fourPL)
-        ic_50 = dilution_df_fit[['antigen', 'serum ID', 'c', 'b', 'd']]
+        ic_50 = dilution_df_fit[['antigen', 'serum ID', 'c', 'b', 'd','PRNT']]
 
         alt = ic_50.set_index('serum ID').drop_duplicates()
         # logreg_classification(dilution_df,fig_path,ext)
@@ -674,6 +677,7 @@ def total_plots(dilution_df, fig_path, fig_name, ext, hue=None,
         # hmap = alt.pivot(index=None, columns='antigen', values='c')
         # bmap = alt.pivot(index=None, columns='antigen', values='b')
         bmap = alt.pivot_table(index='antigen', columns='serum ID', values='b')
+        prnt = alt.pivot_table(index='antigen', columns='serum ID', values='PRNT')
         # dmap = alt.pivot(index=None, columns='antigen', values='d')
 
         # hmap.to_csv(fig_path + 'hmap.csv')
@@ -686,4 +690,6 @@ def total_plots(dilution_df, fig_path, fig_name, ext, hue=None,
         spot_df = hmap
         plot_heatmap(hmap, fig_path, ext, spot=y, type='IC50', vmin=0, vmax=ic_vmax, x=60, y=15)
         # plot_heatmap(bmap, fig_path, ext, spot=y, type='Slope at IC50', vmin=.5, vmax=slope_vmax, x=30, y=15)
+        delta_ic50(spot_df, fig_path, ext, spot=y)
+        spot_df = prnt
         delta_ic50(spot_df, fig_path, ext, spot=y)
