@@ -3,6 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from matplotlib import gridspec
 import warnings
 import itertools
 import re
@@ -517,13 +518,13 @@ def plot_heatmap(hmap,fig_path,ext,spot,type,vmin,vmax,x,y):
     fig, ax = plt.subplots(figsize=(x, y))
     sns.heatmap(df_t, annot=True, ax=ax, vmin=vmin, vmax=vmax)
     #sns.heatmap(df_t, annot=True, ax=ax, vmin=vmin, vmax=vmax)
-    sns.set(font_scale=2)
-    plt.xticks(rotation=0)
+    sns.set_context("talk")
+    plt.xticks(rotation=45)
     plt.yticks(rotation=0,fontsize=16)
     plt.title(f'{type} Values per Antigen per Serum ID ({spot})', fontsize=20)
     plt.savefig(os.path.join(fig_path, '.'.join([f'{spot}_{type}_map', ext])), dpi=300, bbox_inches='tight')
 
-def delta_ic50(ic_df,fig_path,ext,spot):
+def delta_ic50(ic_df,df2,df3,fig_path,ext,spot):
     """
     Generates a heatmap to look at the ratiometric difference between IC50 of various antigens
     :param dataframe ic_df: DataFrame IC50 values per antigen per serum ID
@@ -540,13 +541,23 @@ def delta_ic50(ic_df,fig_path,ext,spot):
             #if idx[0:5] == b: #antigen hue mode
             if idx[-6:-1] == b:  #serum ID hue mode
                 match = ic_df.T[name].loc[idx]
-                new_df[name] = match / ic_df.T[name]
-    fig, ax = plt.subplots(figsize=(45, 15))
-    sns.heatmap(new_df, annot=True, ax=ax, vmin=0, vmax=2.5)
-    sns.set_context("talk")
-    plt.xticks(rotation=45)
-    plt.yticks(rotation=0)
-    plt.title(f'Ratio of IC50 Values per Antigen per Serum ID ({spot})', fontsize=20)
+                match2 = df2.T[name].loc[idx]
+                new_df[name] = (match / ic_df.T[name])/(match2 / df2.T[name] ) #attempting to normalize affinity measurement by prnt50 ratios
+    fig, (ax,ax2) = plt.subplots(figsize=(45, 15),ncols=2)
+    gs = gridspec.GridSpec(1, 2, width_ratios=[15, 1])
+    ax = plt.subplot(gs[0])
+    ax2 = plt.subplot(gs[1])
+    sns.heatmap(new_df, annot=True, ax=ax, cbar=False)
+    sns.set(font_scale=2)
+    #ax.xticks(rotation=45)
+    #ax.yticks(rotation=0)
+
+    #df3 = df2.iloc[0,:]
+    #df3.columns = ['PRNT']
+    sns.heatmap(df3, annot=True, ax=ax2,vmin=0,vmax=2.5,yticklabels=False,xticklabels=False)
+    ax2.set(ylabel=None)
+    fig.tight_layout()
+    #plt.title(f'Ratio of IC50 Values per Antigen per Serum ID ({spot})', fontsize=20)
     plt.savefig(os.path.join(fig_path, '.'.join([f'deltaic{spot}map', ext])), dpi=300, bbox_inches='tight')
 
 def plot_by_type(rvp_list,mks,dilution_df,dilution_df_fit,split_subplots_by,split_subplots_vals,fig_name,
@@ -684,12 +695,16 @@ def total_plots(dilution_df, fig_path, fig_name, ext, hue=None,
         # dmap.to_csv(fig_path + 'dmap.csv')
 
         slope_vmax = 3
-        ic_vmax = 0.001
+        ic_vmax = 0
 
         y = '2022 2hr inc.'
-        spot_df = hmap
-        plot_heatmap(hmap, fig_path, ext, spot=y, type='IC50', vmin=0, vmax=ic_vmax, x=60, y=15)
+
+        lmap = np.log(hmap)
+        spot_df = lmap
+        df2 = np.log(prnt)
+        df3 = ic_50[['serum ID','PRNT']].set_index('serum ID').drop_duplicates()
+        plot_heatmap(lmap, fig_path, ext, spot=y, type='IC50', vmin=-10, vmax=ic_vmax, x=45, y=15)
         # plot_heatmap(bmap, fig_path, ext, spot=y, type='Slope at IC50', vmin=.5, vmax=slope_vmax, x=30, y=15)
-        delta_ic50(spot_df, fig_path, ext, spot=y)
-        spot_df = prnt
-        delta_ic50(spot_df, fig_path, ext, spot=y)
+        delta_ic50(spot_df,df2,df3, fig_path, ext, spot=y)
+        #spot_df = prnt
+        #delta_ic50(spot_df, fig_path, ext, spot=y)
