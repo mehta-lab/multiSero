@@ -85,11 +85,29 @@ def analyze_od(input_dir, output_dir, load_report):
     norm_group = 'plate'
     aggregate = 'mean'
     # aggregate = None
-    antigen_list = plot_setting_df['antigens to plot']
-    #antigen_list = []
+    #antigen_list = plot_setting_df['antigens to plot']
+    antigen_list = []
     #antigen_list.append(plot_setting_df['antigens to plot'])
+    antigen_list.append('xIgG Fc')
+    antigen_list.append('xIgG Fc Old D12')
+    #antigen_list.append('DENV1 100 RVP')
+    antigen_list.append('DENV1 125 NS1 Old D12')
+    antigen_list.append('DENV1 125 NS1 New D12')
     #antigen_list.append('DENV1 100 EDIII')
+    #antigen_list.append('DENV2 50 VLP')
     #antigen_list.append('DENV2 100 RVP')
+    antigen_list.append('DENV2 250 NS1 Old D12')
+    antigen_list.append('DENV2 250 NS1 New D12')
+    #antigen_list.append('DENV2 100 EDIII')
+    #antigen_list.append('DENV3 50 VLP')
+    #antigen_list.append('DENV3 100 RVP')
+    #antigen_list.append('DENV3 250 NS1')
+    #antigen_list.append('DENV3 100 EDIII')
+    #antigen_list.append('xmouse IgG Fc')
+    #antigen_list.append('ZIKA 225 NS1')
+    #antigen_list.append('CHIK max VLP')
+    #antigen_list.append('JEV 245 NS1')
+    #antigen_list.append('DENV4 100 EDIII')
     #antigen_list.append('DENV2 50 VLP')
     suffix = ''
     df_norm = normalize_od(stitched_multisero_df.copy(), norm_antigen, group=norm_group)
@@ -108,7 +126,8 @@ def analyze_od(input_dir, output_dir, load_report):
             split_suffix = '_'.join([split_suffix, split_val])
         df_norm_sub = slice_df(df_norm, 'keep', split_plots_by, split_val)
         slice_cols = [split_plots_by, 'antigen type', 'antigen']
-        slice_keys = [[split_val], ['Diagnostic'], antigen_list]
+        slice_keys = [[split_val], ['Diagnostic','Positive'], antigen_list]
+        #slice_keys = [[split_val], ['Negative'], antigen_list]
         slice_actions = ['keep', 'keep', 'keep']
         # general slicing
         for col, action, key in zip(slice_cols, slice_actions, slice_keys):
@@ -141,7 +160,7 @@ def analyze_od(input_dir, output_dir, load_report):
             assert not cat_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
             sns.set_context("talk")
             g = sns.catplot(x="serum type", y="OD", hue=hue, col=split_subplots_by, kind="swarm",
-                            data=cat_df, col_wrap=5)
+                            data=cat_df, col_wrap=3)
             g.set_xticklabels(rotation=65, horizontalalignment='right')
 
 
