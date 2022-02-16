@@ -618,7 +618,7 @@ def total_plots(dilution_df, fig_path, fig_name, ext, hue=None,
     :param int col_wrap: number of columns in the facetgrid
     :param bool zoom: If true, output zoom-in of the low OD region
     """
-    if hue == 'antige':
+    if hue == 'antige': #this whole top half isn't really relevant. you can produce standard curve in part ii, and effective delta plots. it's better to just change index value according to hue.
         dilution_df_fit = dilution_df.copy()
         dilution_df_fit = fit2df(dilution_df_fit,
                                  fourPL)
