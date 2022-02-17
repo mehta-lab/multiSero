@@ -525,7 +525,7 @@ def plot_heatmap(hmap,fig_path,ext,spot,type,vmin,vmax,x,y):
     plt.title(f'{type} Values per Antigen per Serum ID ({spot})', fontsize=20)
     plt.savefig(os.path.join(fig_path, '.'.join([f'{spot}_{type}_map', ext])), dpi=300, bbox_inches='tight')
 
-def delta_ic50(ic_df,df2,df3,fig_path,ext,spot):
+def delta_ic50(ic_df,prnt_val,fig_path,ext,spot,hue):
     """
     Generates a heatmap to look at the ratiometric difference between IC50 of various antigens
     :param dataframe ic_df: DataFrame IC50 values per antigen per serum ID
@@ -533,17 +533,20 @@ def delta_ic50(ic_df,df2,df3,fig_path,ext,spot):
     :param str ext: figure file extension
     :param str spot: what type of antigen is being evaluated (ie: EDIII, NS1, etc)
     """
+    if hue =='antigen':
+        [i, j, m, p] = [-6, -1, 0, 5]
+    else:
+        [i, j, m, p] = [0, 5, -6, -1] # hue == 'serum ID' mode
+    #finding match
     new_df = pd.DataFrame()
     for col in ic_df.T:
         name = col  # name = serum type
-        #b = col[-6:-1] #presumes serum ID labeled with serotype in parantheses, ie: serum ID ABC135 (DENV1)
-        b = col[0:5] #serum ID = hue mode
+        b = col[i:j] #presumes serum ID labeled with serotype in parantheses, ie: serum ID ABC135 (DENV1)
         for idx in ic_df.T.index:
-            #if idx[0:5] == b: #antigen hue mode
-            if idx[-6:-1] == b:  #serum ID hue mode
+            if idx[m:p] == b:
                 match = ic_df.T[name].loc[idx]
-                match2 = df2.T[name].loc[idx]
-                new_df[name] = np.abs(ic_df.T[name] / match) #attempting to normalize affinity measurement by prnt50 ratios
+                new_df[name] = np.abs(ic_df.T[name] / match)
+    #actual plotting
     fig, (ax,ax2) = plt.subplots(figsize=(45,15) ,ncols=2)
     gs = gridspec.GridSpec(1, 2, width_ratios=[15, 1])
     ax = plt.subplot(gs[0])
@@ -553,8 +556,8 @@ def delta_ic50(ic_df,df2,df3,fig_path,ext,spot):
     sns.heatmap(new_df, annot=True, ax=ax, vmin=0,vmax=2.5, cbar=False)
     ax.tick_params(labelrotation=45)
     ax.set_yticklabels(ic_df.T.index, rotation=0)
-    sns.heatmap(df3, annot=True, ax=ax2,vmin=0,vmax=2.5,yticklabels=False,cbar=False)
-    ax.set(xlabel='antigen')
+    sns.heatmap(prnt_val, annot=True, ax=ax2,vmin=0,vmax=2.5,yticklabels=False,cbar=False)
+    ax.set(xlabel=hue)
     ax2.set(ylabel=None)
     fig.tight_layout()
     #plt.title(f'Binding Affinity Measurements per Antigen per Serum ID ({spot})', fontsize=20)
@@ -620,61 +623,6 @@ def total_plots(dilution_df, fig_path, fig_name, ext, hue=None,
     """
     if hue == 'antige': #this whole top half isn't really relevant. you can produce standard curve in part ii, and effective delta plots. it's better to just change index value according to hue.
         dilution_df_fit = dilution_df.copy()
-        dilution_df_fit = fit2df(dilution_df_fit,
-                                 fourPL)
-        ic_50 = dilution_df_fit[['antigen', 'serum ID', 'c', 'b', 'd','OD']]
-
-        alt = ic_50.set_index('serum ID').drop_duplicates()
-        # logreg_classification(dilution_df,fig_path,ext)
-        hue_list = dilution_df[hue].unique()
-
-        hmap = alt.pivot_table(index='serum ID', columns='antigen', values='c')
-        omap = alt.pivot_table(index='serum ID', columns='antigen', values='OD')
-        #bmap = alt.pivot(index=None, columns='antigen', values='b')
-        bmap = alt.pivot_table(index='serum ID', columns='antigen', values='b')
-        #dmap = alt.pivot(index=None, columns='antigen', values='d')
-        df2 = bmap
-        df3 = df2
-        # hmap.to_csv(fig_path + 'hmap.csv')
-        # dmap.to_csv(fig_path + 'dmap.csv')
-
-        slope_vmax = 3
-        ic_vmax = 0.001
-
-        g2 = []
-        for elem in hue_list:
-            m = re.search(r'\d+', elem)
-            if m:
-                g2.append(elem[m.start():])
-            else:
-                pass
-        # next step: eliminate serotype numbers in antigen/spot type list
-        # if d+ plus space, eliminate d+ plus space
-        type_ls = []
-        for elem in g2:
-            m = re.match(r'\d+ \d+', elem)  # pattern = d+ plus space plus d+
-            if m:
-                spottype = elem[1:]
-                type_ls.append(spottype)
-            else:
-                pass
-
-        antigen_type_list = np.unique(type_ls)
-
-        for y in antigen_type_list:
-            std_by_spot = []
-            for x in hue_list:  # if y is in x, plot it
-                if y in x:
-                    std_by_spot.append(x)
-            split_subplots_vals = dilution_df[split_subplots_by].unique()
-            mks = itertools.cycle(['o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X'])
-            plot_by_type(hue_list, mks, dilution_df, dilution_df_fit, split_subplots_by, split_subplots_vals,
-                         fig_name, fig_path, ext, hue, col_wrap, zoom=False)
-            fig_name += '_next'
-            spot_df = hmap.filter(regex=y)
-            plot_heatmap(hmap, fig_path, ext, spot=y, type='IC50', vmin=0, vmax=ic_vmax, x=45, y=15)
-            plot_heatmap(bmap, fig_path, ext, spot=y, type='Slope at IC50', vmin=.5, vmax=slope_vmax, x=30, y=15)
-            delta_ic50(spot_df, df2, df3, fig_path, ext, spot=y)
     else:
 
         dilution_df_fit = dilution_df.copy()
@@ -683,39 +631,23 @@ def total_plots(dilution_df, fig_path, fig_name, ext, hue=None,
         ic_50 = dilution_df_fit[['antigen', 'serum ID', 'c', 'b', 'd','PRNT','OD']]
 
         alt = ic_50.set_index('serum ID').drop_duplicates()
-        # logreg_classification(dilution_df,fig_path,ext)
-        hue_list = dilution_df[hue].unique()
-        #data = pd.melt(alt,id_vars=['antigen','PRNT'],value_vars='OD')
-        omap = alt.pivot_table(index='antigen', columns='serum ID', values='OD')
-        hmap = alt.pivot_table(index='antigen', columns='serum ID', values='c')
-        # hmap = alt.pivot(index=None, columns='antigen', values='c')
-        # bmap = alt.pivot(index=None, columns='antigen', values='b')
-        bmap = alt.pivot_table(index='antigen', columns='serum ID', values='b')
-        prnt = alt.pivot_table(index='antigen', columns='serum ID', values='PRNT')
+
+        #hue_list = dilution_df[hue].unique()
+
+        omap = alt.pivot_table(index=hue, columns=split_subplots_by, values='OD')
+        hmap = alt.pivot_table(index=hue, columns=split_subplots_by, values='c')
+        bmap = alt.pivot_table(index=hue, columns=split_subplots_by, values='b')
+        prnt = alt.pivot_table(index=hue, columns=split_subplots_by, values='PRNT')
         # dmap = alt.pivot(index=None, columns='antigen', values='d')
 
-        # hmap.to_csv(fig_path + 'hmap.csv')
-        # dmap.to_csv(fig_path + 'dmap.csv')
+        lmap = np.log(hmap)
+        spot_df = lmap
+        prnt_val = ic_50[['serum ID','PRNT']].set_index('serum ID').drop_duplicates()
 
         slope_vmax = 3
         ic_vmax = 0
-
         y = ' '
 
-        lmap = np.log(hmap)
-        lmap_sero = lmap[lmap < -2]
-        lmap_sero = lmap_sero.fillna(0)
-        #lmap_sero = lmap_sero.unstack(level=0)
-        #sero_sero = pd.melt(omap.T,id_vars='xIgG Fc')
-        #for col in lmap_sero.T:
-            #sns.scatterplot(data=lmap_sero.T,x=lmap_sero.T.col],y=lmap_sero.T['xIgG Fc'])
-        #plt.savefig(os.path.join(fig_path, '.'.join(['scatter', ext])), dpi=300, bbox_inches='tight')
-        spot_df = lmap
-        df2 = np.log(prnt)
-        df3 = ic_50[['serum ID','PRNT']].set_index('serum ID').drop_duplicates()
         plot_heatmap(lmap, fig_path, ext, spot=y, type='Log of IC50', vmin=-10, vmax=ic_vmax, x=45, y=15)
-        # plot_heatmap(bmap, fig_path, ext, spot=y, type='Slope at IC50', vmin=.5, vmax=slope_vmax, x=30, y=15)
-        delta_ic50(spot_df,df2,df3, fig_path, ext, spot=y)
-
-
+        delta_ic50(spot_df,prnt_val, fig_path, ext, spot=y,hue=hue)
         standard_curve_plot(dilution_df, fig_path, fig_name, ext,hue, zoom, split_subplots_by, col_wrap)
