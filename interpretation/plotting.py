@@ -621,33 +621,29 @@ def total_plots(dilution_df, fig_path, fig_name, ext, hue=None,
     :param int col_wrap: number of columns in the facetgrid
     :param bool zoom: If true, output zoom-in of the low OD region
     """
-    if hue == 'antige': #this whole top half isn't really relevant. you can produce standard curve in part ii, and effective delta plots. it's better to just change index value according to hue.
-        dilution_df_fit = dilution_df.copy()
-    else:
+    dilution_df_fit = dilution_df.copy()
+    dilution_df_fit = fit2df(dilution_df_fit,
+                             fourPL)
+    ic_50 = dilution_df_fit[['antigen', 'serum ID', 'c', 'b', 'd', 'PRNT', 'OD']]
 
-        dilution_df_fit = dilution_df.copy()
-        dilution_df_fit = fit2df(dilution_df_fit,
-                                 fourPL)
-        ic_50 = dilution_df_fit[['antigen', 'serum ID', 'c', 'b', 'd','PRNT','OD']]
+    alt = ic_50.set_index('serum ID').drop_duplicates()
 
-        alt = ic_50.set_index('serum ID').drop_duplicates()
+    # hue_list = dilution_df[hue].unique()
 
-        #hue_list = dilution_df[hue].unique()
+    omap = alt.pivot_table(index=hue, columns=split_subplots_by, values='OD')
+    hmap = alt.pivot_table(index=hue, columns=split_subplots_by, values='c')
+    bmap = alt.pivot_table(index=hue, columns=split_subplots_by, values='b')
+    prnt = alt.pivot_table(index=hue, columns=split_subplots_by, values='PRNT')
+    # dmap = alt.pivot(index=None, columns='antigen', values='d')
 
-        omap = alt.pivot_table(index=hue, columns=split_subplots_by, values='OD')
-        hmap = alt.pivot_table(index=hue, columns=split_subplots_by, values='c')
-        bmap = alt.pivot_table(index=hue, columns=split_subplots_by, values='b')
-        prnt = alt.pivot_table(index=hue, columns=split_subplots_by, values='PRNT')
-        # dmap = alt.pivot(index=None, columns='antigen', values='d')
+    lmap = np.log(hmap)
+    spot_df = lmap
+    prnt_val = ic_50[['serum ID', 'PRNT']].set_index('serum ID').drop_duplicates()
 
-        lmap = np.log(hmap)
-        spot_df = lmap
-        prnt_val = ic_50[['serum ID','PRNT']].set_index('serum ID').drop_duplicates()
+    slope_vmax = 3 #relevant if plotting b
+    ic_vmax = 0
+    y = ' '
 
-        slope_vmax = 3
-        ic_vmax = 0
-        y = ' '
-
-        plot_heatmap(lmap, fig_path, ext, spot=y, type='Log of IC50', vmin=-10, vmax=ic_vmax, x=45, y=15)
-        delta_ic50(spot_df,prnt_val, fig_path, ext, spot=y,hue=hue)
-        standard_curve_plot(dilution_df, fig_path, fig_name, ext,hue, zoom, split_subplots_by, col_wrap)
+    plot_heatmap(lmap, fig_path, ext, spot=y, type='Log of IC50', vmin=-10, vmax=ic_vmax, x=45, y=15)
+    delta_ic50(spot_df, prnt_val, fig_path, ext, spot=y, hue=hue)
+    standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue, zoom, split_subplots_by, col_wrap)
