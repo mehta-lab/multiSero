@@ -85,30 +85,8 @@ def analyze_od(input_dir, output_dir, load_report):
     norm_group = 'plate'
     aggregate = 'mean'
     # aggregate = None
-    #antigen_list = plot_setting_df['antigens to plot']
-    antigen_list = []
-    #antigen_list.append(plot_setting_df['antigens to plot'])
-    antigen_list.append('xIgG Fc')
-    antigen_list.append('xIgG Fc Old D12')
-    #antigen_list.append('DENV1 100 RVP')
-    antigen_list.append('DENV1 125 NS1 Old D12')
-    antigen_list.append('DENV1 125 NS1 New D12')
-    #antigen_list.append('DENV1 100 EDIII')
-    #antigen_list.append('DENV2 50 VLP')
-    #antigen_list.append('DENV2 100 RVP')
-    antigen_list.append('DENV2 250 NS1 Old D12')
-    antigen_list.append('DENV2 250 NS1 New D12')
-    #antigen_list.append('DENV2 100 EDIII')
-    #antigen_list.append('DENV3 50 VLP')
-    #antigen_list.append('DENV3 100 RVP')
-    #antigen_list.append('DENV3 250 NS1')
-    #antigen_list.append('DENV3 100 EDIII')
-    #antigen_list.append('xmouse IgG Fc')
-    #antigen_list.append('ZIKA 225 NS1')
-    #antigen_list.append('CHIK max VLP')
-    #antigen_list.append('JEV 245 NS1')
-    #antigen_list.append('DENV4 100 EDIII')
-    #antigen_list.append('DENV2 50 VLP')
+    antigen_list = plot_setting_df['antigens to plot']
+
     suffix = ''
     df_norm = normalize_od(stitched_multisero_df.copy(), norm_antigen, group=norm_group)
     if norm_antigen is not None:
