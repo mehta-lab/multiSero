@@ -47,6 +47,7 @@ def read_plate_info(metadata_xlsx):
                    'serum cat',
                    'secondary ID',
                    'secondary dilution',
+                   'PRNT',
                    'sample type']
     plate_info_df = pd.DataFrame()
     # get sheet names that are available in metadata
@@ -88,10 +89,10 @@ def read_antigen_info(metadata_path):
     return antigen_df
 
 
-def read_pysero_output(file_path, antigen_df, file_type='od'):
+def read_multisero_output(file_path, antigen_df, file_type='od'):
     """
-    read and re-format pysero spot fitting output
-    :param str file_path: path to the pysero output xlsx file
+    read and re-format multisero spot fitting output
+    :param str file_path: path to the multisero output xlsx file
     :param dataframe antigen_df:
     :param str file_type: output file type. 'od', 'int', or 'bg'
     :return: linearized dataframe
@@ -244,7 +245,7 @@ def read_scn_output_batch(scn_dirs_df):
     """
     scn_df = pd.DataFrame()
     for scn_dir, plate_id, in zip(scn_dirs_df['directory'], scn_dirs_df['plate ID']):
-        metadata_path = os.path.join(scn_dir, 'pysero_output_data_metadata.xlsx')
+        metadata_path = os.path.join(scn_dir, 'multisero_output_data_metadata.xlsx')
         with pd.ExcelFile(metadata_path) as meta_file:
             antigen_df = read_antigen_info(meta_file)
             plate_info_df = read_plate_info(meta_file)
@@ -265,19 +266,19 @@ def read_scn_output_batch(scn_dirs_df):
     return scn_df
 
 
-def read_pysero_output_batch(ntl_dirs_df):
+def read_multisero_output_batch(ntl_dirs_df):
     """
-    batch read pysero outputs
+    batch read multisero outputs
     :param dataframe ntl_dirs_df: dataframe loaded from the analysis config
-    containing directories of pysero output xlsx file
-    :return dataframe scn_df: combined pysero OD dataframe from multiple outputs
+    containing directories of multisero output xlsx file
+    :return dataframe scn_df: combined multisero OD dataframe from multiple outputs
     """
-    pysero_df = pd.DataFrame()
+    multisero_df = pd.DataFrame()
     for data_folder, slice_action, well_id, plate_id in \
             zip(ntl_dirs_df['directory'], ntl_dirs_df['well action'],
                 ntl_dirs_df['well ID'], ntl_dirs_df['plate ID']):
         print('Load {}...'.format(data_folder))
-        metadata_path = os.path.join(data_folder, 'pysero_output_data_metadata.xlsx')
+        metadata_path = os.path.join(data_folder, 'multisero_output_data_metadata.xlsx')
         OD_path = os.path.join(data_folder, 'median_ODs.xlsx')
         int_path = os.path.join(data_folder, 'median_intensities.xlsx')
         bg_path = os.path.join(data_folder, 'median_backgrounds.xlsx')
@@ -286,39 +287,39 @@ def read_pysero_output_batch(ntl_dirs_df):
             antigen_df = read_antigen_info(meta_file)
             plate_info_df = read_plate_info(meta_file)
         plate_info_df['plate ID'] = plate_id
-        OD_df = read_pysero_output(OD_path, antigen_df, file_type='od')
-        int_df = read_pysero_output(int_path, antigen_df, file_type='int')
-        bg_df = read_pysero_output(bg_path, antigen_df, file_type='bg')
+        OD_df = read_multisero_output(OD_path, antigen_df, file_type='od')
+        int_df = read_multisero_output(int_path, antigen_df, file_type='int')
+        bg_df = read_multisero_output(bg_path, antigen_df, file_type='bg')
         OD_df = pd.merge(OD_df,
                          antigen_df[['antigen_row', 'antigen_col', 'antigen type']],
                          how='left', on=['antigen_row', 'antigen_col'])
         OD_df = pd.merge(OD_df,
                          plate_info_df,
                          how='right', on=['well_id'])
-        pysero_df_tmp = pd.merge(OD_df,
+        multisero_df_tmp = pd.merge(OD_df,
                                  int_df,
                                  how='left', on=['antigen_row', 'antigen_col', 'well_id'])
-        pysero_df_tmp = pd.merge(pysero_df_tmp,
+        multisero_df_tmp = pd.merge(multisero_df_tmp,
                                  bg_df,
                                  how='left', on=['antigen_row', 'antigen_col', 'well_id'])
-        pysero_df_tmp['pipeline'] = 'nautilus'
-        pysero_df_tmp.replace([np.inf, -np.inf], np.nan, inplace=True)
-        pysero_df_tmp.dropna(subset=['OD'], inplace=True)
-        pysero_df_tmp = slice_df(pysero_df_tmp, slice_action, 'well_id', well_id)
-        pysero_df = pysero_df.append(pysero_df_tmp, ignore_index=True)
-    return pysero_df
+        multisero_df_tmp['pipeline'] = 'nautilus'
+        multisero_df_tmp.replace([np.inf, -np.inf], np.nan, inplace=True)
+        multisero_df_tmp.dropna(subset=['OD'], inplace=True)
+        multisero_df_tmp = slice_df(multisero_df_tmp, slice_action, 'well_id', well_id)
+        multisero_df = multisero_df.append(multisero_df_tmp, ignore_index=True)
+    return multisero_df
 
 
 def read_output_batch(output_dir, ntl_dirs_df, scn_dirs_df, load_report):
     """
-    batch read pysero and scienion outputs
+    batch read multisero and scienion outputs
     :param output_dir: directory to save the master report
     :param dataframe ntl_dirs_df: dataframe loaded from the analysis config
-    containing directories of pysero output xlsx file
+    containing directories of multisero output xlsx file
     :param dataframe scn_dirs_df: dataframe loaded from the analysis config
     containing directories of scienion output xlsx file, assuming the file name always
     ends with '_analysis.xlsx'
-    :return dataframe stitched_pysero_df: combined pysero and scienion OD dataframe from multiple outputs
+    :return dataframe stitched_multisero_df: combined multisero and scienion OD dataframe from multiple outputs
     """
     if not load_report:
         df_list = []
@@ -327,18 +328,18 @@ def read_output_batch(output_dir, ntl_dirs_df, scn_dirs_df, load_report):
             scn_df = read_scn_output_batch(scn_dirs_df)
 
         if not ntl_dirs_df.empty:
-           pysero_df = read_pysero_output_batch(ntl_dirs_df)
+           multisero_df = read_multisero_output_batch(ntl_dirs_df)
 
-        df_list.append(pysero_df)
+        df_list.append(multisero_df)
         df_list.append(scn_df)
         #% Concatenate dataframes
-        stitched_pysero_df = pd.concat(df_list)
-        stitched_pysero_df.reset_index(drop=True, inplace=True)
+        stitched_multisero_df = pd.concat(df_list)
+        stitched_multisero_df.reset_index(drop=True, inplace=True)
         # remove empty xkappa-biotin spots, round off dilution
-        stitched_pysero_df = stitched_pysero_df[(stitched_pysero_df['antigen'] != 'xkappa-biotin') |
-                                (stitched_pysero_df['antigen type'] == 'Fiducial')]
-        stitched_pysero_df['serum dilution'] = stitched_pysero_df['serum dilution'].round(7)
-        stitched_pysero_df.to_csv(os.path.join(output_dir, 'master_report.csv'))
+        stitched_multisero_df = stitched_multisero_df[(stitched_multisero_df['antigen'] != 'xkappa-biotin') |
+                                (stitched_multisero_df['antigen type'] == 'Fiducial')]
+        stitched_multisero_df['serum dilution'] = stitched_multisero_df['serum dilution'].round(7)
+        stitched_multisero_df.to_csv(os.path.join(output_dir, 'master_report.csv'))
     else:
-        stitched_pysero_df = pd.read_csv(os.path.join(output_dir, 'master_report.csv'), index_col=0, low_memory=False)
-    return stitched_pysero_df
+        stitched_multisero_df = pd.read_csv(os.path.join(output_dir, 'master_report.csv'), index_col=0, low_memory=False)
+    return stitched_multisero_df

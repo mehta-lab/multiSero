@@ -54,7 +54,7 @@ def test_wrong_xml_name(create_good_xml):
 
 def test_xlsx(create_good_xlsx):
     input_dir, output_dir = create_good_xlsx
-    constants.METADATA_FILE = 'pysero_output_data_metadata.xlsx'
+    constants.METADATA_FILE = 'multisero_output_data_metadata.xlsx'
     constants.RUN_PATH = output_dir
     MetaData(input_dir, output_dir)
     assert constants.params['rows'] == 6
@@ -67,7 +67,7 @@ def test_xlsx(create_good_xlsx):
 
 def test_xlsx_rerun(create_good_xlsx):
     input_dir, output_dir = create_good_xlsx
-    constants.METADATA_FILE = 'pysero_output_data_metadata.xlsx'
+    constants.METADATA_FILE = 'multisero_output_data_metadata.xlsx'
     constants.RUN_PATH = output_dir
     constants.RERUN = True
     MetaData(input_dir, output_dir)

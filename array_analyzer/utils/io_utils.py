@@ -128,7 +128,7 @@ def make_run_dir(input_dir, output_dir, rerun=False):
         return output_dir
     run_dir = os.path.join(
         output_dir,
-        '_'.join(['pysero',
+        '_'.join(['multisero',
                   os.path.basename(os.path.normpath(input_dir)),
                   f"{datetime.now().year:04d}" +
                   f"{datetime.now().month:02d}" +
@@ -140,7 +140,7 @@ def make_run_dir(input_dir, output_dir, rerun=False):
     return run_dir
 
 
-def make_logger(log_dir, logger_name='pysero.log', log_level=20):
+def make_logger(log_dir, logger_name='multisero.log', log_level=20):
     """
     Creates a logger which writes to a file, not to console.
 
