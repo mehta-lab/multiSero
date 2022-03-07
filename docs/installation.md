@@ -12,7 +12,7 @@ Following are platform dependent installation instructions
 
 Following installation was tested on `4.9.140-tegra aarch64 GNU/Linux`.
 
-We use a python package manager to isolate the dependencies required for pysero.
+We use a python package manager to isolate the dependencies required for multisero.
 conda package manager is not directly supported by above version of Linux.
 Instead, pip virtual environment works well for package management.
 
@@ -21,23 +21,23 @@ Major steps in setup are:
     `sudo apt install -y python3-venv`
     
 2.	Create an environment: 
-    `python3 -m venv ~/python-envs/pysero`
+    `python3 -m venv ~/python-envs/multisero`
     
 3.	Activate environment: 
-    `source ~/python-envs/pysero/bin/activate`
+    `source ~/python-envs/multisero/bin/activate`
     
 4.	Deactivate environment: 
     `deactivate`
     
 5. Update pyenv.cfg to use system-wide packages:
-    `cd ~/python-envs/env/pysero`
+    `cd ~/python-envs/env/multisero`
     
     Use `nano pyvenv.cfg to` change:
     `include-system-site-packages = true` 
     (allow packages that require lower-level installation to be accessed in the environment)
 
 Some packages need to be installed in local environment and some system-wide.
-Use `pip install -I` to install in the `pysero` site-packages folder, the environment will access the local pacakages first and then search for global packages.
+Use `pip install -I` to install in the `multisero` site-packages folder, the environment will access the local pacakages first and then search for global packages.
 
 ### install dependencies for python packages:
 

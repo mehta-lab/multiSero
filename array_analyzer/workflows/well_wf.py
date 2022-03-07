@@ -61,7 +61,6 @@ def well_analysis(input_dir, output_dir, method='segmentation'):
             cx = np.floor(img_size[1]/2).astype('int')
             cy = np.floor(img_size[0]/2).astype('int')
             im_crop = processing.crop_image(image, cx, cy, radius, border_=0)
-
             well_mask = np.ones_like(im_crop, dtype='bool')
             int_well_ = image_parser.get_well_intensity(im_crop, well_mask)
 

@@ -1,9 +1,9 @@
-![unittests](https://github.com/czbiohub/pysero/workflows/unittests/badge.svg)
-[![codecov](https://codecov.io/gh/czbiohub/pysero/branch/master/graph/badge.svg)](https://codecov.io/gh/czbiohub/pysero)
+![unittests](https://github.com/czbiohub/multisero/workflows/unittests/badge.svg)
+[![codecov](https://codecov.io/gh/czbiohub/multisero/branch/master/graph/badge.svg)](https://codecov.io/gh/czbiohub/multisero)
 
-# pysero
+# multisero
 
-pysero enables serological measurements with multiplexed and standard ELISA assays.
+multisero enables serological measurements with multiplexed and standard ELISA assays.
 
 The project automates estimation of antibody titers from data collected with ELISA assays performed with [antigen-arrays](https://doi.org/10.1101/2019.12.20.885285) and [single antigens](https://doi.org/10.1101/2020.03.17.20037713).
 
@@ -12,8 +12,8 @@ The immediate goal is to enable specific, sensitive, and quantitative serologica
 ## Installation
 
 On a typical Windows, Mac, or Linux computer:
-* Create a conda environment: `conda create --name pysero python=3.7`
-* Activate conda environment: `conda activate pysero`
+* Create a conda environment: `conda create --name multisero python=3.7`
+* Activate conda environment: `conda activate multisero`
 * Pip install dependencies: `pip install -r requirements.txt`
 * Add the package to PYTHONPATH. Inside the package directory (...\serology-COVID19), do: `export PYTHONPATH=$PYTHONPATH:$(pwd)` 
 
@@ -21,7 +21,7 @@ For installation notes for Jetson Nano, see [these notes](docs/installation.md).
 
 ## Usage
 ```buildoutcfg
-usage: pysero.py [-h] (-e | -a) -i INPUT -o OUTPUT
+usage: multisero.py [-h] (-e | -a) -i INPUT -o OUTPUT
                  [-wf {well_segmentation,well_crop,array_interp,array_fit}]
                  [-d] [-r] [-m METADATA]
 
@@ -47,11 +47,11 @@ optional arguments:
   -m METADATA, --metadata METADATA
                         specify the file name for the experiment metadata.
                         Assumed to be in the same directory as images.
-                        Default: 'pysero_output_data_metadata.xlsx'
+                        Default: 'multisero_output_data_metadata.xlsx'
 ```
 ### Extract OD from antigen array images
-`python pysero.py -e -i <input> -o <output> -m <METADATA>` will take metadata for antigen array and images as input, and output optical densities for each antigen. 
-The optical densities are stored in an excel file at the following path: `<output>/pysero_<input>_<year><month><day>_<hour><min>/median_ODs.xlsx`
+`python multisero.py -e -i <input> -o <output> -m <METADATA>` will take metadata for antigen array and images as input, and output optical densities for each antigen.
+The optical densities are stored in an excel file at the following path: `<output>/multisero_<input>_<year><month><day>_<hour><min>/median_ODs.xlsx`
 
 If rerunning some of the wells, the input metadata file needs to contain a sheet named 'rerun_wells'
 with a column named 'well_names' listing wells that will be rerun.
@@ -59,7 +59,7 @@ with a column named 'well_names' listing wells that will be rerun.
 This [workflow](docs/workflow.md) describes the steps in the extraction of optical density.
 
 ### Generate OD analysis plots
-`python pysero.py -a -i <input> -o <output> -m <METADATA>` will read pysero or scienion spot fitting outputs and generates analysis plots for each single antigen. 3 types of plots are supported for now (ROC, categorical, standard curves).
+`python multisero.py -a -i <input> -o <output> -m <METADATA>` will read multisero or scienion spot fitting outputs and generates analysis plots for each single antigen. 3 types of plots are supported for now (ROC, categorical, standard curves).
 The example xlsx config file can be found in \example folder in the repo. 
 
 An '-l' flag can be added to load the saved report from previous run to speed up loading.

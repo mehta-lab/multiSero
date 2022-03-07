@@ -91,6 +91,7 @@ def point_registration(input_dir, output_dir):
         max_intensity = io_utils.get_max_intensity(image)
         logger.debug("Image max intensity: {}".format(max_intensity))
         # Crop image to well only
+        """""
         try:
             well_center, well_radi, _ = image_parser.find_well_border(
                 image,
@@ -106,7 +107,8 @@ def point_registration(input_dir, output_dir):
         except IndexError:
             logging.warning("Couldn't find well in {}".format(well_name))
             im_well = image
-
+        """""
+        im_well = image
         # Find spot center coordinates
         spot_coords = spot_detector.get_spot_coords(
             im=im_well,

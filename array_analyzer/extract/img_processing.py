@@ -92,7 +92,7 @@ def create_otsu_mask(input_image, scale=1):
         thr = threshold_otsu(input_image, nbins=512)
     return input_image > (scale * thr)
 
-def crop_image_from_coords(im, coords, margin=200):
+def crop_image_from_coords(im, coords, margin=500):
     """
     Given image coordinates, crop image around them with a margin.
 
@@ -139,7 +139,7 @@ def crop_image_at_center(im, center, height, width):
     return crop, bbox
 
 
-def crop_image(arr, cx_, cy_, radius_, border_=200):
+def crop_image(arr, cx_, cy_, radius_, border_=500):
     """
     crop the supplied image to include only the well and its spots
 

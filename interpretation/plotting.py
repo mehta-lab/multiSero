@@ -3,8 +3,10 @@ import os
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from matplotlib import gridspec
 import warnings
 import itertools
+import re
 from matplotlib import pyplot as plt
 from natsort import natsorted
 from scipy import optimize as optimization
@@ -18,7 +20,6 @@ def fourPL(x, A, B, C, D):
     """4 parameter logistic function"""
     return ((A-D)/(1.0+((x/C)**(B))) + D)
 
-
 def fit2df(df, model, serum_group='serum ID'):
     """fit model to x, y data in dataframe.
     Return a dataframe with fit x, y for plotting
@@ -27,15 +28,17 @@ def fit2df(df, model, serum_group='serum ID'):
     antigens = df['antigen'].unique()
     secondaries = df['secondary ID'].unique()
     plate_ids = df['plate ID'].unique()
+    prnt = df['PRNT'].unique()
 
-    keys = itertools.product(sera, antigens, secondaries, plate_ids)
+    keys = itertools.product(sera, antigens, secondaries, plate_ids, prnt)
     df_fit = pd.DataFrame(columns=df.columns)
-    for serum, antigen, secondary, plate_id in keys:
+    for serum, antigen, secondary, plate_id, prnt in keys:
         print('Fitting {}, {}...'.format(serum, antigen))
         sec_dilu_df = df[(df[serum_group] == serum) &
                         (df['antigen'] == antigen) &
                         (df['secondary ID'] == secondary) &
-                         (df['plate ID'] == plate_id)]
+                         (df['plate ID'] == plate_id) &
+                         (df['PRNT'] == prnt)]
         sec_dilutions = sec_dilu_df['secondary dilution'].unique()
         for sec_dilution in sec_dilutions:
             sub_df = sec_dilu_df[(sec_dilu_df['secondary dilution'] == sec_dilution)].reset_index(drop=True)
@@ -47,10 +50,14 @@ def fit2df(df, model, serum_group='serum ID'):
             xdata = xdata[xdata > 0]  # concentration has to be positive
             params, params_covariance = optimization.curve_fit(model, xdata, ydata, guess, bounds=(0, np.inf), maxfev=1e5)
             x_input = np.logspace(np.log10(np.min(xdata)), np.log10(np.max(xdata)), 50)
+            #y_fit = fivePL(x_input,*params)
             y_fit = fourPL(x_input, *params)
 
             df_fit_temp['serum dilution'] = x_input
             df_fit_temp['OD'] = y_fit
+            df_fit_temp['b'] = params[1]
+            df_fit_temp['c'] = params[2]
+            df_fit_temp['d'] = params[3]
             sub_df_expand = pd.concat(
                 [sub_df.loc[[0], [serum_group,
                                   'antigen',
@@ -59,6 +66,7 @@ def fit2df(df, model, serum_group='serum ID'):
                                  'secondary ID',
                                  'secondary dilution',
                                  'pipeline',
+                                  'PRNT',
                                   'plate ID']]] * len(df_fit_temp.index), axis=0).reset_index(drop=True)
             df_fit_temp = pd.concat([df_fit_temp, sub_df_expand], axis=1)
             df_fit = df_fit.append(df_fit_temp)
@@ -298,18 +306,18 @@ def roc_plot(x, y, **kwargs):
         auc_high = df['auc_ci_high'].unique()[0]
         tpr_low = np.interp(fpr, df['False positive rate'], df['ci_low'])
         tpr_high = np.interp(fpr, df['False positive rate'], df['ci_high'])
-        ax.text(0.4, 0.15, 'AUC={:.3f}-{:.3f}'.format(auc_low, auc_high), fontsize=12)
-        ax.text(fpr + 0.05, tpr - 0.2, 'sensitivity={:.3f}-{:.3f}\nspecificity={:.3f}'.
+        ax.text(0.4, 0.38, 'AUC={:.3f}-{:.3f}'.format(auc_low, auc_high), fontsize=12)
+        ax.text(fpr + 0.1, tpr - 0.0, 'sensitivity={:.3f}-{:.3f}\nspecificity={:.3f}'.
                 format(tpr_low, tpr_high, 1 - fpr),
                 fontsize=12, color='g')  # add text
     else:
         auc = df['AUC'].unique()[0]
-        ax.text(0.6, 0.15, 'AUC={:.3f}'.format(auc), fontsize=12)
+        ax.text(0.6, 0.45, 'AUC={:.3f}'.format(auc), fontsize=12)
         ax.text(fpr + 0.05, tpr - 0.2, 'sensitivity={:.3f}\nspecificity={:.3f}'.format(tpr, 1 - fpr),
                 fontsize=12, color='g')  # add text
 
 def roc_plot_grid(df, fig_path, fig_name, ext='png', hue=None,
-                  col_wrap=3, ci=95, tpr=None, fpr=None):
+                  col_wrap=2, ci=95, tpr=None, fpr=None):
     """
     Generate ROC plots for each antigen
     :param dataframe df: dataframe containing serum OD info
@@ -328,6 +336,7 @@ def roc_plot_grid(df, fig_path, fig_name, ext='png', hue=None,
         'Specify either true positive rate or false positive rate, not both.'
     # Plot ROC curves
     antigens = natsorted(df['antigen'].unique())
+    #antigens = ['DENV2 50 RVP', 'DENV2 50 VLP', 'DENV2 100 RVP', 'DENV2 250 NS1']##
     sns.set_context("notebook")
     assert not df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
     palette = sns.color_palette(n_colors=len(df[hue].unique()))
@@ -444,9 +453,8 @@ def joint_plot(df_ori,
     plt.savefig(os.path.join(output_path, ''.join([output_fname, '.jpg'])),
                 dpi=300, bbox_inches='tight')
 
-
 def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
-                        zoom=False, split_subplots_by='antigen', col_wrap=3):
+                        zoom=False, split_subplots_by='antigen', col_wrap=2):
     """
     Plot standard curves for ELISA
     :param dataframe dilution_df: dataframe containing serum OD with serial diluition
@@ -460,7 +468,7 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
     dilution_df_fit = dilution_df.copy()
     dilution_df_fit = fit2df(dilution_df_fit, fourPL)
     hue_list = dilution_df[hue].unique()
-    #%% plot standard curves
+    # %% plot standard curves
     # hue_fit_list = [' '.join([x, 'fit']) for x in hue_list]
     split_subplots_vals = dilution_df[split_subplots_by].unique()
     # markers = 'o'
@@ -471,13 +479,15 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
     assert not dilution_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
     palette = sns.color_palette(n_colors=len(dilution_df[hue].unique()))
     print('plotting standard curves...')
+    sns.set_context("talk")
     g = sns.lmplot(x="serum dilution", y="OD",
-                    hue=hue, hue_order=hue_list, col=split_subplots_by, ci='sd', palette=palette, markers=markers,
-                     data=dilution_df, col_wrap=col_wrap, fit_reg=False, x_estimator=np.mean)
+                   hue=hue, hue_order=hue_list, col=split_subplots_by, ci='sd', palette=palette, markers=markers,
+                   data=dilution_df, col_wrap=col_wrap, fit_reg=False, x_estimator=np.mean)
 
     for val, ax in zip(split_subplots_vals, g.axes.flat):
         df_fit = dilution_df_fit[(dilution_df_fit[split_subplots_by] == val)]
         palette = sns.color_palette(n_colors=len(df_fit[hue].unique()))
+        sns.set(font_scale=2)
         sns.lineplot(x="serum dilution", y="OD", hue=hue, hue_order=hue_list, data=df_fit,
                      style=style, palette=palette,
                      ax=ax, legend=False)
@@ -489,3 +499,151 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
             ax.set(ylim=[-0.05, 0.4])
         fig_name += '_zoom'
         plt.savefig(os.path.join(fig_path, '.'.join([fig_name, ext])), dpi=300, bbox_inches='tight')
+
+def plot_heatmap(hmap,fig_path,ext,spot,type,vmin,vmax,x,y):
+    """
+    Generates heatmap of IC50 or slope at IC50 for various antigens
+    :param dataframe hmap: DataFrame of slope, upper limit, and/or IC50 values per antigen per serum ID
+    :param str fig_path: dir to save the plots
+    :param str ext: figure file extension
+    :param str spot: what type of antigen is being evaluated (ie: EDIII, NS1, etc)
+    :param float vmin: minimum for cmap range
+    :param float vmax: maximum for cmap range
+    :param int x: width of heatmap plot
+    :param int y: height of heatmap plot
+    """
+    #dftt = hmap.filter(like=spot)
+    dftt = hmap
+    df_t = dftt.transpose() #comment out if in serum ID mode
+    fig, ax = plt.subplots(figsize=(x, y))
+    sns.set_context('poster')
+    sns.set(font_scale=4)
+    sns.heatmap(df_t, annot=True, ax=ax, vmin=vmin, vmax=vmax)
+    #sns.heatmap(df_t, annot=True, ax=ax, vmin=vmin, vmax=vmax)
+    plt.xticks(rotation=45,fontsize=28)
+    plt.yticks(rotation=0,fontsize=28)
+    plt.title(f'{type} Values per Antigen per Serum ID ({spot})', fontsize=20)
+    plt.savefig(os.path.join(fig_path, '.'.join([f'{spot}_{type}_map', ext])), dpi=300, bbox_inches='tight')
+
+def delta_ic50(ic_df,prnt_val,fig_path,ext,spot,hue):
+    """
+    Generates a heatmap to look at the ratiometric difference between IC50 of various antigens
+    :param dataframe ic_df: DataFrame IC50 values per antigen per serum ID
+    :param str fig_path: dir to save the plots
+    :param str ext: figure file extension
+    :param str spot: what type of antigen is being evaluated (ie: EDIII, NS1, etc)
+    """
+    if hue =='antigen':
+        [i, j, m, p] = [-6, -1, 0, 5]
+    else:
+        [i, j, m, p] = [0, 5, -6, -1] # hue == 'serum ID' mode
+    #finding match
+    new_df = pd.DataFrame()
+    for col in ic_df.T:
+        name = col  # name = serum type
+        b = col[i:j] #presumes serum ID labeled with serotype in parantheses, ie: serum ID ABC135 (DENV1)
+        for idx in ic_df.T.index:
+            if idx[m:p] == b:
+                match = ic_df.T[name].loc[idx]
+                new_df[name] = np.abs(ic_df.T[name] / match)
+    #actual plotting
+    fig, (ax,ax2) = plt.subplots(figsize=(45,15) ,ncols=2)
+    gs = gridspec.GridSpec(1, 2, width_ratios=[15, 1])
+    ax = plt.subplot(gs[0])
+    ax2 = plt.subplot(gs[1])
+    sns.set_context('poster')
+    sns.set(font_scale=4)
+    sns.heatmap(new_df, annot=True, ax=ax, vmin=0,vmax=2.5, cbar=False)
+    ax.tick_params(labelrotation=45)
+    ax.set_yticklabels(ic_df.T.index, rotation=0)
+    sns.heatmap(prnt_val, annot=True, ax=ax2,vmin=0,vmax=2.5,yticklabels=False,cbar=False)
+    ax.set(xlabel=hue)
+    ax2.set(ylabel=None)
+    fig.tight_layout()
+    #plt.title(f'Binding Affinity Measurements per Antigen per Serum ID ({spot})', fontsize=20)
+    plt.savefig(os.path.join(fig_path, '.'.join([f'deltaic{spot}map', ext])), dpi=300, bbox_inches='tight')
+
+def plot_by_type(rvp_list,mks,dilution_df,dilution_df_fit,split_subplots_by,split_subplots_vals,fig_name,
+                 fig_path,ext,hue,col_wrap,zoom=False):
+    """
+    For antigen evaluation: standard plots grouped by antigen type. Meant to be viewed in conjunction with heatmaps.
+    :param str rvp_list: list of antigen types
+    :param str mks: list of marker types for plotting
+    :param dataframe dilution_df: dataframe containing serum OD with serial dilution
+    :param dataframe dilution_df_fit: dataframe containing serum OD with serial dilution fitted to 4PL curve
+    :param str split_subplots_by: breakdown of subplots, either by antigen or serum ID
+    :param str split_subplots_vals: unique values of split_subplots_by
+    :param str fig_name: name of the figure file
+    :param str fig_path: dir to save the plots
+    :param str ext: figure file extension
+    :param str hue: attribute to be plotted with different colors
+    :param int col_wrap: number of columns in the facetgrid
+    :param bool zoom: If true, output zoom-in of the low OD region
+    """
+    markers = [next(mks) for i in rvp_list]
+    style = 'serum type'
+    # style = hue
+    assert not dilution_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
+    # palette = sns.color_palette(n_colors=len(dilution_df[hue].unique()))
+    palette = sns.color_palette(n_colors=len(rvp_list))
+    print('plotting standard curves...')
+    g = sns.lmplot(x="serum dilution", y="OD",
+                   hue=hue, hue_order=rvp_list, col=split_subplots_by, ci=None, palette=palette, markers=markers,
+                   data=dilution_df, col_wrap=col_wrap, fit_reg=False, x_estimator=np.mean)
+
+    for val, ax in zip(split_subplots_vals, g.axes.flat):
+        df_fit = dilution_df_fit[(dilution_df_fit[split_subplots_by] == val)]
+        # palette = sns.color_palette(n_colors=len(df_fit[hue].unique()))
+        palette = sns.color_palette(n_colors=len(rvp_list))
+        sns.set(font_scale=2)
+        sns.lineplot(x="serum dilution", y="OD", hue=hue, hue_order=rvp_list, data=df_fit,
+                     style=style, palette=palette,
+                     ax=ax, legend=False)
+        ax.set(xscale="log")
+
+    plt.savefig(os.path.join(fig_path, '.'.join([fig_name, ext])), dpi=300, bbox_inches='tight')
+
+    if zoom:
+        for val, ax in zip(split_subplots_vals, g.axes.flat):
+            ax.set(ylim=[-0.05, 0.4])
+        fig_name += '_zoom'
+        plt.savefig(os.path.join(fig_path, '.'.join([fig_name, ext])), dpi=300, bbox_inches='tight')
+
+def total_plots(dilution_df, fig_path, fig_name, ext, hue=None,
+                        zoom=False, split_subplots_by='antigen', col_wrap=2):
+    """
+    Plot standard curves with heatmap plots for holistic antigen candidate evaluation
+    :param dataframe dilution_df: dataframe containing serum OD with serial diluition
+    :param str fig_path: dir to save the plots
+    :param str fig_name: name of the figure file
+    :param str ext: figure file extension
+    :param str hue: attribute to be plotted with different colors
+    :param int col_wrap: number of columns in the facetgrid
+    :param bool zoom: If true, output zoom-in of the low OD region
+    """
+    dilution_df_fit = dilution_df.copy()
+    dilution_df_fit = fit2df(dilution_df_fit,
+                             fourPL)
+    ic_50 = dilution_df_fit[['antigen', 'serum ID', 'c', 'b', 'd', 'PRNT', 'OD']]
+
+    alt = ic_50.set_index('serum ID').drop_duplicates()
+
+    # hue_list = dilution_df[hue].unique()
+
+    omap = alt.pivot_table(index=hue, columns=split_subplots_by, values='OD')
+    hmap = alt.pivot_table(index=hue, columns=split_subplots_by, values='c')
+    bmap = alt.pivot_table(index=hue, columns=split_subplots_by, values='b')
+    prnt = alt.pivot_table(index=hue, columns=split_subplots_by, values='PRNT')
+    # dmap = alt.pivot(index=None, columns='antigen', values='d')
+
+    lmap = np.log(hmap)
+    spot_df = lmap
+    prnt_val = ic_50[['serum ID', 'PRNT']].set_index('serum ID').drop_duplicates()
+
+    slope_vmax = 3 #relevant if plotting b
+    ic_vmax = 0
+    y = ' '
+
+    plot_heatmap(lmap, fig_path, ext, spot=y, type='Log of IC50', vmin=-10, vmax=ic_vmax, x=45, y=15)
+    delta_ic50(spot_df, prnt_val, fig_path, ext, spot=y, hue=hue)
+    standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue, zoom, split_subplots_by, col_wrap)
