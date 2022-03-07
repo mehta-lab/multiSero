@@ -456,6 +456,32 @@ def joint_plot(df_ori,
     plt.savefig(os.path.join(output_path, ''.join([output_fname, '.jpg'])),
                 dpi=300, bbox_inches='tight')
 
+    def kde_plot(df_ori, x_col, y_col, hue, title, ax=None, bw='scott', n_levels=60, xlim=None, ylim=None):
+
+        # g = sns.JointGrid(x=x_col, y=y_col, data=df)
+        #                   # xlim=(0, 50), ylim=(0, 8))
+        # g = g.plot_joint(sns.kdeplot, cmap="Purples_d")
+        # g = g.plot_marginals(sns.kdeplot, color="m", shade=True)
+        df = df_ori.dropna(subset=[x_col, y_col])
+        diff_df = df[y_col] - df[x_col]
+        me = diff_df.mean()
+        mae = diff_df.abs().mean()
+        # cmap = sns.cubehelix_palette(as_cmap=True, dark=0, light=1, reverse=False)
+        cmap = 'Blues'
+        fig = plt.figure()
+        fig.set_size_inches((9, 9))
+
+        hue_vals = []
+        for hue_val, hue_df in df.groupby(hue):
+            hue_vals.append(hue_val)
+            sns.kdeplot(x=x_col, y=y_col, data=hue_df[[x_col, y_col]], ax=ax,
+                        legend=False, gridsize=400, bw=bw, n_levels=n_levels, shade=True, cmap=cmap)
+        xfit = np.linspace(xlim[0], xlim[1], 2)
+        ax.plot(xfit, xfit, linewidth=2, color='k', linestyle='--', alpha=0.5)
+        ax.text(0.4 * xlim[1], 0.15 * ylim[1], 'bias={:.3f}'.format(me), fontsize=12)  # add text
+        ax.text(0.4 * xlim[1], 0.08 * ylim[1], 'variance={:.3f}'.format(mae), fontsize=12)  # add text
+        plt.title(title)
+
 def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
                         zoom=False, split_subplots_by='antigen', col_wrap=2):
     """
