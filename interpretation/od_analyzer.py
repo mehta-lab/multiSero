@@ -4,7 +4,7 @@ import os
 import re
 from matplotlib import pyplot as plt
 import seaborn as sns
-from interpretation.plotting import roc_plot_grid, standard_curve_plot
+from interpretation.plotting import roc_plot_grid, total_plots
 from interpretation.report_reader import slice_df, normalize_od, read_output_batch
 import array_analyzer.extract.constants as constants
 
@@ -13,7 +13,7 @@ def read_config(input_dir):
     """
     Load analysis config from the input directory.
     :param str input_dir: input directory
-    :return dataframe ntl_dirs_df: 'pysero output dirs' tab in the config file.
+    :return dataframe ntl_dirs_df: 'multisero output dirs' tab in the config file.
     :return dataframe scn_scn_df: 'scienion output dirs' tab in the config file.
     :return dataframe plot_setting_df: 'general plotting settings' tab in the config file.
     :return dataframe roc_param_df: 'ROC plot' tab in the config file.
@@ -36,26 +36,26 @@ def read_config(input_dir):
             # replace NaN with None
             roc_param_df.where(roc_param_df.notnull(), None, inplace=True)
             if roc_param_df['serum ID'] is not None:
-                roc_param_df['serum ID'] = re.split(r',\s*', roc_param_df['serum ID'])
+                roc_param_df['serum ID'] = re.split(r'\s*,\s*', roc_param_df['serum ID'])
         if 'categorical plot' in config_file.sheet_names:
             cat_param_df = pd.read_excel(config_file, sheet_name='categorical plot',
                                          index_col=0, squeeze=True, usecols='A,B')
             cat_param_df.where(cat_param_df.notnull(), None, inplace=True)
             if cat_param_df['serum ID'] is not None:
-                cat_param_df['serum ID'] = re.split(r',\s*', cat_param_df['serum ID'])
+                cat_param_df['serum ID'] = re.split(r'\s*,\s*', cat_param_df['serum ID'])
         if 'standard curves' in config_file.sheet_names:
             fit_param_df = pd.read_excel(config_file, sheet_name='standard curves',
                                          index_col=0, squeeze=True, usecols='A,B')
             fit_param_df.where(fit_param_df.notnull(), None, inplace=True)
             if fit_param_df['serum ID'] is not None:
-                fit_param_df['serum ID'] = re.split(r',\s*', fit_param_df['serum ID'])
+                fit_param_df['serum ID'] = re.split(r'\s*,\s*', fit_param_df['serum ID'])
         if not constants.LOAD_REPORT:
-            assert ('pysero output dirs' in config_file.sheet_names) or \
+            assert ('multisero output dirs' in config_file.sheet_names) or \
             ('scienion output dirs' in config_file.sheet_names), \
-            "sheet by name 'pysero output dirs' or 'scienion output dirs' are required " \
+            "sheet by name 'multisero output dirs' or 'scienion output dirs' are required " \
             "in analysis config file when load_report is False, aborting"
-            if 'pysero output dirs' in config_file.sheet_names:
-                ntl_dirs_df = pd.read_excel(config_file, sheet_name='pysero output dirs', comment='#')
+            if 'multisero output dirs' in config_file.sheet_names:
+                ntl_dirs_df = pd.read_excel(config_file, sheet_name='multisero output dirs', comment='#')
                 if not ntl_dirs_df.isna().loc[0, 'well ID']:
                     ntl_dirs_df['well ID'] = ntl_dirs_df['well ID'].str.split(pat=r'\s*,\s*')
             if 'scienion output dirs' in config_file.sheet_names:
@@ -64,7 +64,7 @@ def read_config(input_dir):
 
 def analyze_od(input_dir, output_dir, load_report):
     """
-    Perform analysis on pysero or scienion OD outputs specified in the config files.
+    Perform analysis on multisero or scienion OD outputs specified in the config files.
     Save the combined table as 'master report' in the output directory.
     :param str input_dir: Input directory
     :param str output_dir: Output directory
@@ -74,27 +74,28 @@ def analyze_od(input_dir, output_dir, load_report):
     os.makedirs(output_dir, exist_ok=True)
     ntl_dirs_df, scn_scn_df, plot_setting_df, roc_param_df, cat_param_df, fit_param_df =\
         read_config(input_dir)
-    stitched_pysero_df = read_output_batch(output_dir, ntl_dirs_df, scn_scn_df, load_report)
+    stitched_multisero_df = read_output_batch(output_dir, ntl_dirs_df, scn_scn_df, load_report)
     if plot_setting_df['antigens to plot'] == 'all':
-        plot_setting_df['antigens to plot'] = stitched_pysero_df['antigen'].unique()
+        plot_setting_df['antigens to plot'] = stitched_multisero_df['antigen'].unique()
     split_plots_by = plot_setting_df['split plots by']
     split_plots_vals = [None]
     if split_plots_by is not None:
-        split_plots_vals = stitched_pysero_df[split_plots_by].unique()
+        split_plots_vals = stitched_multisero_df[split_plots_by].unique()
     norm_antigen = plot_setting_df['normalize OD by']
     norm_group = 'plate'
     aggregate = 'mean'
     # aggregate = None
     antigen_list = plot_setting_df['antigens to plot']
+
     suffix = ''
-    df_norm = normalize_od(stitched_pysero_df.copy(), norm_antigen, group=norm_group)
+    df_norm = normalize_od(stitched_multisero_df.copy(), norm_antigen, group=norm_group)
     if norm_antigen is not None:
         suffix = '_'.join([suffix, norm_antigen, 'norm_per', norm_group])
 
     if aggregate is not None:
         df_norm = df_norm.groupby(['antigen', 'antigen type', 'serum ID', 'well_id', 'plate ID', 'sample type',
                                  'serum type', 'serum dilution', 'serum cat', 'pipeline', 'secondary ID',
-                                 'secondary dilution'])['OD'].mean().reset_index()
+                                 'secondary dilution','PRNT'])['OD'].mean().reset_index()
         suffix = '_'.join([suffix, aggregate])
 
     for split_val in split_plots_vals:
@@ -103,7 +104,8 @@ def analyze_od(input_dir, output_dir, load_report):
             split_suffix = '_'.join([split_suffix, split_val])
         df_norm_sub = slice_df(df_norm, 'keep', split_plots_by, split_val)
         slice_cols = [split_plots_by, 'antigen type', 'antigen']
-        slice_keys = [[split_val], ['Diagnostic'], antigen_list]
+        slice_keys = [[split_val], ['Diagnostic','Positive'], antigen_list]
+        #slice_keys = [[split_val], ['Negative'], antigen_list]
         slice_actions = ['keep', 'keep', 'keep']
         # general slicing
         for col, action, key in zip(slice_cols, slice_actions, slice_keys):
@@ -132,11 +134,14 @@ def analyze_od(input_dir, output_dir, load_report):
             split_subplots_by = cat_param_df['split subplots by']
             hue = cat_param_df['hue']
             # plot specific slicing
-            cat_df = slice_df(df_norm_sub, slice_action, 'serum ID', sera_cat_list)
+            cat_df = slice_df(df_norm_sub, slice_action, 'serum ID', sera_cat_list) #serum ID --> antigen
             assert not cat_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
             sns.set_context("talk")
             g = sns.catplot(x="serum type", y="OD", hue=hue, col=split_subplots_by, kind="swarm",
                             data=cat_df, col_wrap=3)
+            g.set_xticklabels(rotation=65, horizontalalignment='right')
+
+
             plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_{}.png'.format(split_suffix)),
                                           dpi=300, bbox_inches='tight')
             if cat_param_df['zoom']:
@@ -149,7 +154,7 @@ def analyze_od(input_dir, output_dir, load_report):
             hue = fit_param_df['hue']
             dilution_df = slice_df(df_norm_sub, slice_action, 'serum ID', fit_param_df['serum ID'])
             split_subplots_by = fit_param_df['split subplots by']
-            standard_curve_plot(dilution_df, constants.RUN_PATH, 'fit_{}'.format(split_suffix), 'png', hue=hue,
-                                zoom=fit_param_df['zoom'], split_subplots_by=split_subplots_by, col_wrap=4)
+            total_plots(dilution_df, constants.RUN_PATH, 'fit_{}'.format(split_suffix), 'png', hue=hue,
+                                zoom=fit_param_df['zoom'], split_subplots_by=split_subplots_by, col_wrap=2)
         plt.close('all')
 

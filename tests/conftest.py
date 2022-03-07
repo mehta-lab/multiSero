@@ -74,7 +74,7 @@ def create_good_xml(tmp_path_factory):
 @pytest.fixture(scope="session")
 def create_good_xlsx(tmp_path_factory):
     input_dir = tmp_path_factory.mktemp("input_dir")
-    output_dir = tmp_path_factory.mktemp("pysero_output_dir")
+    output_dir = tmp_path_factory.mktemp("multisero_output_dir")
 
     # make a dummy worksheet with realistic parameters
     params_worksheet = {'': '',
@@ -122,7 +122,7 @@ def create_good_xlsx(tmp_path_factory):
 
     # writing a two-worksheet excel file
     writer = pd.ExcelWriter(
-        os.path.join(str(input_dir), 'pysero_output_data_metadata.xlsx'),
+        os.path.join(str(input_dir), 'multisero_output_data_metadata.xlsx'),
         index=False,
         engine='openpyxl',
     )
