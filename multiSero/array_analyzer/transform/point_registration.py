@@ -2,7 +2,7 @@ import cv2 as cv
 import logging
 import numpy as np
 
-import array_analyzer.extract.constants as constants
+import multiSero.array_analyzer.extract.constants as constants
 
 
 def icp(source, target, max_iterate=50, matrix_diff=1.):

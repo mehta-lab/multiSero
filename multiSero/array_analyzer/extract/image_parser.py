@@ -12,7 +12,7 @@ from skimage.morphology import binary_closing, binary_dilation, selem, disk, bin
 from skimage import measure
 
 from .img_processing import thresh_and_binarize
-from array_analyzer.transform.point_registration import icp
+from multiSero.array_analyzer.transform.point_registration import icp
 
 """
 method is
