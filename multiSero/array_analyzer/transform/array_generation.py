@@ -59,7 +59,7 @@ def build_centroid_binary_blocks(cent_list, image_, params_, return_type='region
         return target
 
 
-def get_spot_intensity(coords, im, background, search_range=3):
+def get_spot_intensity(coords, im, background, search_range=2):
     """
     Extract signal and background intensity at each spot given the spot coordinate
     with the following steps:

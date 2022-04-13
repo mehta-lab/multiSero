@@ -338,7 +338,7 @@ def find_fiducials_markers(props_,
     return cent_map
 
 
-def grid_from_centroids(props_, n_rows, n_cols, grid_spacing=82):
+def grid_from_centroids(props_, n_rows, n_cols, grid_spacing=90):
     """
     based on the region props, creates a dictionary of format:
         key = (centroid_x, centroid_y)
