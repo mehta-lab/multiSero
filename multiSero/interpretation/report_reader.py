@@ -47,7 +47,7 @@ def read_plate_info(metadata_xlsx):
                    'serum cat',
                    'secondary ID',
                    'secondary dilution',
-                   'PRNT',
+                   'visit value',
                    'sample type']
     plate_info_df = pd.DataFrame()
     # get sheet names that are available in metadata
