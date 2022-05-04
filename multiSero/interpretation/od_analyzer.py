@@ -155,7 +155,7 @@ def analyze_od(input_dir, output_dir, load_report):
             hue = fit_param_df['hue']
             dilution_df = slice_df(df_norm_sub, slice_action, 'serum ID', fit_param_df['serum ID'])
             split_subplots_by = fit_param_df['split subplots by']
-            total_plots(dilution_df, constants.RUN_PATH, 'fit_{}'.format(split_suffix), 'png', hue=hue,
-                        zoom=fit_param_df['zoom'], split_subplots_by=split_subplots_by, col_wrap=2)
+            #total_plots(dilution_df, constants.RUN_PATH, 'fit_{}'.format(split_suffix), 'png', hue=hue,
+                        #zoom=fit_param_df['zoom'], split_subplots_by=split_subplots_by, col_wrap=2)
         plt.close('all')
 
