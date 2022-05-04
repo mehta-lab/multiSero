@@ -94,7 +94,8 @@ def analyze_od(input_dir, output_dir, load_report):
     if aggregate is not None:
         df_norm = df_norm.groupby(['antigen', 'antigen type', 'serum ID', 'well_id', 'plate ID', 'sample type',
                                  'serum type', 'serum dilution', 'serum cat', 'pipeline', 'secondary ID',
-                                 'secondary dilution','PRNT'])['OD'].mean().reset_index()
+                                 'secondary dilution'#,'PRNT'
+                                   ])['OD'].mean().reset_index()
         suffix = '_'.join([suffix, aggregate])
 
     for split_val in split_plots_vals:
@@ -136,8 +137,10 @@ def analyze_od(input_dir, output_dir, load_report):
             cat_df = slice_df(df_norm_sub, slice_action, 'serum ID', sera_cat_list) #serum ID --> antigen
             assert not cat_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
             sns.set_context("talk")
+            #plt.figure(figsize=(8, 4))
+            #sns.set(rc={'figure.figsize': (12, 4)})
             g = sns.catplot(x="serum type", y="OD", hue=hue, col=split_subplots_by, kind="swarm",
-                            data=cat_df, col_wrap=3)
+                            data=cat_df, col_wrap=1, height=4, aspect=12/4)
             g.set_xticklabels(rotation=65, horizontalalignment='right')
 
 
