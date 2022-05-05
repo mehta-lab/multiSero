@@ -153,14 +153,16 @@ def analyze_od(input_dir, output_dir, load_report):
             split_subplots_by = cat_param_df['split subplots by']
             hue = cat_param_df['hue']
             # plot specific slicing
-            cat_df = slice_df(df_norm_sub, slice_action, 'serum ID', sera_cat_list) #serum ID --> antigen
+            #cat_df = slice_df(df_norm_sub, slice_action, 'serum ID', sera_cat_list) #serum ID --> antigen
+            cat_df = slice_df(ms_tidy_df, slice_action, 'serum ID', sera_cat_list)
             assert not cat_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
             sns.set_context("talk")
             #plt.figure(figsize=(8, 4))
             #sns.set(rc={'figure.figsize': (12, 4)})
             #new graphical plot
-            g = sns.catplot(x="serum type", y="OD", hue=hue, col=split_subplots_by, kind="swarm",
-                            data=cat_df, col_wrap=1, height=4, aspect=12/4)
+            g = sns.catplot(x="time bin", y="OD", hue=hue, col=split_subplots_by, row="serum cat", kind="swarm",
+                            data=cat_df, height=4, aspect=12/4)
+            #g = sns.FacetGrid(ms_tidy_df,col='antigen',row='serum cat')
             g.set_xticklabels(rotation=65, horizontalalignment='right')
 
 
