@@ -128,6 +128,26 @@ def analyze_od(input_dir, output_dir, load_report):
             roc_plot_grid(roc_df, constants.RUN_PATH, '_'.join(['ROC', roc_suffix]), 'png', ci=ci, fpr=fpr, hue=hue)
     #%% Plot categorical scatter plot for episurvey
         if not cat_param_df.empty:
+            #multisero_df #make sure that multisero_df is tidy
+            ms_tidy_df = df_norm_sub[['antigen','OD','visit value','serum cat','serum type','serum ID']]
+            #for each in ms_tidy_df['serum type'].unique():
+            group = ms_tidy_df.groupby('serum type')
+            df2 = group.apply(lambda x: x['visit value'].unique())
+            for element in df2.index:
+                #if element == ms_tidy_df['serum type']
+                    #print('yuh')
+                if (len(df2[element]) > 1):
+                    if (df2[element][0][2:-2] > df2[element][1][2:-2]):
+                        ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][0], 'time bin'] = 'late'
+                        ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][1], 'time bin'] = 'early'
+                    if (df2[element][0][2:-2] < df2[element][1][2:-2]):
+                        ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][0], 'time bin'] = 'early'
+                        ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][1], 'time bin'] = 'late'
+                #else:
+                    #ms_tidy_df.loc[ms_tidy_df['serum type'] == df2[element], 'time bin'] = 'visited once'
+            #if ms_tidy_df['visit value']
+            #ms_tidy_df['time label'] =
+            #multisero_df[plot status] = if visit value is <12 for each entry in ID1 label 'early' else 'late'
             sera_cat_list = cat_param_df['serum ID']
             slice_action = cat_param_df['serum ID action']
             split_subplots_by = cat_param_df['split subplots by']
@@ -138,6 +158,7 @@ def analyze_od(input_dir, output_dir, load_report):
             sns.set_context("talk")
             #plt.figure(figsize=(8, 4))
             #sns.set(rc={'figure.figsize': (12, 4)})
+            #new graphical plot
             g = sns.catplot(x="serum type", y="OD", hue=hue, col=split_subplots_by, kind="swarm",
                             data=cat_df, col_wrap=1, height=4, aspect=12/4)
             g.set_xticklabels(rotation=65, horizontalalignment='right')
