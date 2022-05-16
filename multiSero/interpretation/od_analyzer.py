@@ -103,7 +103,7 @@ def analyze_od(input_dir, output_dir, load_report):
             split_suffix = '_'.join([split_suffix, split_val])
         df_norm_sub = slice_df(df_norm, 'keep', split_plots_by, split_val)
         slice_cols = [split_plots_by, 'antigen type', 'antigen']
-        slice_keys = [[split_val], ['Diagnostic','Positive'], antigen_list]
+        slice_keys = [[split_val], ['Diagnostic'], antigen_list]
         #slice_keys = [[split_val], ['Negative'], antigen_list]
         slice_actions = ['keep', 'keep', 'keep']
         # general slicing
@@ -129,13 +129,15 @@ def analyze_od(input_dir, output_dir, load_report):
     #%% Plot categorical scatter plot for episurvey
         if not cat_param_df.empty:
             #multisero_df #make sure that multisero_df is tidy
-            ms_tidy_df = df_norm_sub[['antigen','OD','visit value','serum cat','serum type','serum ID']]
+            ms_tidy_df = df_norm_sub[['antigen','OD','visit value','serum cat','serum type','serum ID','serum dilution']]
+            ms_tidy_df.drop(ms_tidy_df.loc[ms_tidy_df['serum dilution'] > 0.00005].index, inplace=True)
             #for each in ms_tidy_df['serum type'].unique():
             group = ms_tidy_df.groupby('serum type')
             df2 = group.apply(lambda x: x['visit value'].unique())
+            #find mean OD for patients for each serum ID where time bin = early
+
             for element in df2.index:
                 #if element == ms_tidy_df['serum type']
-                    #print('yuh')
                 if (len(df2[element]) > 1):
                     if (df2[element][0][2:-2] > df2[element][1][2:-2]):
                         ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][0], 'time bin'] = 'late'
@@ -143,24 +145,40 @@ def analyze_od(input_dir, output_dir, load_report):
                     if (df2[element][0][2:-2] < df2[element][1][2:-2]):
                         ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][0], 'time bin'] = 'early'
                         ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][1], 'time bin'] = 'late'
-                #else:
-                    #ms_tidy_df.loc[ms_tidy_df['serum type'] == df2[element], 'time bin'] = 'visited once'
+                else:
+                    print(element)
+                    ms_tidy_df.loc[ms_tidy_df['serum type'] == element, 'time bin'] = 'visited once'
             #if ms_tidy_df['visit value']
-            #ms_tidy_df['time label'] =
-            #multisero_df[plot status] = if visit value is <12 for each entry in ID1 label 'early' else 'late'
+            """
+            #delta_od_df =
+            #THE FOLLOWING DOESN'T MAKE SENSE BECAUSE YOU'RE NOT SELECTING FOR ANTIGEN TYPES.
+            for each in ms_tidy_df['serum type'].unique(): #TO MAKE IT MAKE SENSE I THINK YOU NEED TO DO IT LIKE THEY DO IT IN PLOTTING.PY
+                ms_tidy_df.loc[((ms_tidy_df['serum type'] == each) & (ms_tidy_df['time bin'] == 'early')),
+                               'mean early OD'] = ms_tidy_df['OD'].loc[(ms_tidy_df['serum type'] == each) &
+                                                                       (ms_tidy_df['time bin'] == 'early')].mean()
+                ms_tidy_df.loc[((ms_tidy_df['serum type'] == each) & (ms_tidy_df['time bin'] == 'late')),
+                               'mean late OD'] = ms_tidy_df['OD'].loc[(ms_tidy_df['serum type'] == each) &
+                                                                       (ms_tidy_df['time bin'] == 'late')].mean()
+            """
+
+                #delta_od_df['serum type'] = each
+                #delta_od_df['delta OD'] = ms_tidy_df['mean late OD'].loc[ms_tidy_df['serum type'] == each] - ms_tidy_df['mean early OD'].loc[ms_tidy_df['serum type'] == each]
+            #
+            #
             sera_cat_list = cat_param_df['serum ID']
             slice_action = cat_param_df['serum ID action']
             split_subplots_by = cat_param_df['split subplots by']
             hue = cat_param_df['hue']
             # plot specific slicing
             #cat_df = slice_df(df_norm_sub, slice_action, 'serum ID', sera_cat_list) #serum ID --> antigen
+            ms_tidy_df.drop(ms_tidy_df.loc[ms_tidy_df['time bin'] == 'visited once'].index, inplace=True)
             cat_df = slice_df(ms_tidy_df, slice_action, 'serum ID', sera_cat_list)
             assert not cat_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
             sns.set_context("talk")
             #plt.figure(figsize=(8, 4))
             #sns.set(rc={'figure.figsize': (12, 4)})
             #new graphical plot
-            g = sns.catplot(x="time bin", y="OD", hue=hue, col=split_subplots_by, row="serum cat", kind="swarm",
+            g = sns.catplot(x="time bin", y="OD", hue=hue, col=split_subplots_by, row="serum cat", kind="box", order=["early","late"],
                             data=cat_df, height=4, aspect=12/4)
             #g = sns.FacetGrid(ms_tidy_df,col='antigen',row='serum cat')
             g.set_xticklabels(rotation=65, horizontalalignment='right')
