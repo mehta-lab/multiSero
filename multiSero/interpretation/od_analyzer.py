@@ -84,7 +84,10 @@ def analyze_od(input_dir, output_dir, load_report):
     norm_group = 'plate'
     aggregate = 'mean'
     # aggregate = None
-    antigen_list = plot_setting_df['antigens to plot']
+    antigen_list = []
+    antigen_list.append(plot_setting_df['antigens to plot']) #define list with first element, then the rest, can be one line
+    antigen_list.append('SARS CoV2 RBD 250')
+    antigen_list.append('SARS CoV2 spike 62.5')
 
     suffix = ''
     df_norm = normalize_od(stitched_multisero_df.copy(), norm_antigen, group=norm_group)
@@ -131,24 +134,49 @@ def analyze_od(input_dir, output_dir, load_report):
             #multisero_df #make sure that multisero_df is tidy
             ms_tidy_df = df_norm_sub[['antigen','OD','visit value','serum cat','serum type','serum ID','serum dilution']]
             ms_tidy_df.drop(ms_tidy_df.loc[ms_tidy_df['serum dilution'] > 0.00005].index, inplace=True)
+            ms_tidy_df.drop(ms_tidy_df.loc[(ms_tidy_df['serum cat'] != '[\'COVID-Vax+\']')
+                                           & (ms_tidy_df['serum cat'] != '[\'COVID+Vax+\']')
+                                           & (ms_tidy_df['serum cat'] != '[\'COVID+Vax-\']')].index, inplace=True)
+            #ms_tidy_df.drop(ms_tidy_df.loc[(ms_tidy_df['serum cat'] != 'COVID+Vax+') & (ms_tidy_df['serum cat'] != 'COVID+Vax-')
+                                           #& (ms_tidy_df['serum cat'] != 'COVID-Vax+')].index, inplace=True)
             #for each in ms_tidy_df['serum type'].unique():
+
+            deltaod = ms_tidy_df.copy(deep=True)
+            deltaod.set_index(['serum type','antigen'],inplace=True)
+            #grouped = deltaod.groupby(['serum type','antigen'])['OD'].mean()#still need to separate by visit val
+            #grouped = deltaod.groupby(['serum type', 'antigen','visit value'])['OD'] #not complete
+            #abc = deltaod.loc[("serum type","antigen"),"visit value"]
+            #deltaod.groupby(['serum type', 'antigen','visit value'])['OD'].transform(lambda x: x[0] / x[1])
+            #deltaod.groupby(level=0)[3].transform(lambda x: x[0] / x[1])
+
+            #for antigen, new_df in deltaod.groupby(level=0):
+                #print(new_df)
             group = ms_tidy_df.groupby('serum type')
+            #df3 = group.apply(lambda x: x['OD'])
             df2 = group.apply(lambda x: x['visit value'].unique())
             #find mean OD for patients for each serum ID where time bin = early
-
             for element in df2.index:
                 #if element == ms_tidy_df['serum type']
                 if (len(df2[element]) > 1):
+                    #ms_tidy_df['dOD'] = deltaod.groupby(['serum type', 'antigen', 'visit value'])['OD'].transform(lambda x: x[0] / x[1])
                     if (df2[element][0][2:-2] > df2[element][1][2:-2]):
-                        ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][0], 'time bin'] = 'late'
-                        ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][1], 'time bin'] = 'early'
+                        ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][0], 'vaccination status'] = 'post-vax'
+                        ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][1], 'vaccination status'] = 'pre-vax'
                     if (df2[element][0][2:-2] < df2[element][1][2:-2]):
-                        ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][0], 'time bin'] = 'early'
-                        ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][1], 'time bin'] = 'late'
+                        ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][0], 'vaccination status'] = 'pre-vax'
+                        ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][1], 'vaccination status'] = 'post-vax'
                 else:
                     print(element)
-                    ms_tidy_df.loc[ms_tidy_df['serum type'] == element, 'time bin'] = 'visited once'
             #if ms_tidy_df['visit value']
+
+            prevaxdf = ms_tidy_df.loc[ms_tidy_df['vaccination status'] == 'pre-vax']
+            prevaxdf['old OD'] = prevaxdf['OD']
+            #prevaxdf.set_index(['serum type', 'antigen'], inplace=True)
+            postvaxdf = ms_tidy_df.loc[ms_tidy_df['vaccination status'] == 'post-vax']
+            postvaxdf['new OD'] = postvaxdf['OD']
+            #prevaxdf.set_index(['serum type', 'antigen'], inplace=True)
+            result = pd.merge(prevaxdf, postvaxdf, how='inner', on=['antigen', 'serum type'])
+            result['delta OD'] = result['new OD'] - result['old OD']
             """
             #delta_od_df =
             #THE FOLLOWING DOESN'T MAKE SENSE BECAUSE YOU'RE NOT SELECTING FOR ANTIGEN TYPES.
@@ -171,18 +199,36 @@ def analyze_od(input_dir, output_dir, load_report):
             hue = cat_param_df['hue']
             # plot specific slicing
             #cat_df = slice_df(df_norm_sub, slice_action, 'serum ID', sera_cat_list) #serum ID --> antigen
-            ms_tidy_df.drop(ms_tidy_df.loc[ms_tidy_df['time bin'] == 'visited once'].index, inplace=True)
+            ms_tidy_df.loc[ms_tidy_df['serum cat'] == '[\'COVID-Vax+\']', 'vaccination status'] = 'post-vax'
+            #ms_tidy_df.drop(ms_tidy_df.loc[ms_tidy_df['serum cat'] == 'neg'].index, inplace=True)
             cat_df = slice_df(ms_tidy_df, slice_action, 'serum ID', sera_cat_list)
             assert not cat_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
             sns.set_context("talk")
-            #plt.figure(figsize=(8, 4))
-            #sns.set(rc={'figure.figsize': (12, 4)})
-            #new graphical plot
-            g = sns.catplot(x="time bin", y="OD", hue=hue, col=split_subplots_by, row="serum cat", kind="box", order=["early","late"],
-                            data=cat_df, height=4, aspect=12/4)
-            #g = sns.FacetGrid(ms_tidy_df,col='antigen',row='serum cat')
-            g.set_xticklabels(rotation=65, horizontalalignment='right')
 
+            ## FIGURE 5A -- VIOLIN/CATPLOT OF OD
+            #TODO: CHANGE COLOR SCHEME TO MATCH FIG3
+            g = sns.catplot(x="vaccination status", y="OD", hue=hue, col=split_subplots_by, kind="swarm",
+                            order=["pre-vax", "post-vax"], dodge=True, data=cat_df, col_wrap=3, legend=False)
+            g.map_dataframe(sns.violinplot, x="vaccination status", y="OD", hue=hue, color="0.8", dodge=True,
+                            order=["pre-vax", "post-vax"], alpha=0.3)
+            plt.legend(bbox_to_anchor=(1.02, 0.5), loc='center left', borderaxespad=0)
+            g.set_xticklabels(rotation=0, horizontalalignment='center')
+            plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_{}.png'.format(split_suffix)),
+                        dpi=300, bbox_inches='tight')
+            if cat_param_df['zoom']:
+                g.set(ylim=(-0.05, 0.4))
+                plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_zoom_{}.png'.format(split_suffix)),
+                            dpi=300, bbox_inches='tight')
+
+            ## PLOTTING DELTA OD
+            """
+            hue = 'serum cat_x'
+            g = sns.catplot(x="serum cat_x", y="delta OD", hue=hue, col=split_subplots_by, kind="swarm", data=result, col_wrap=3)
+            g.set_xticklabels(rotation=0, horizontalalignment='center')
+            """
+            #
+            #g = sns.FacetGrid(ms_tidy_df,col='antigen',row='serum cat')
+            #g.set_xticklabels(rotation=65, horizontalalignment='center')
 
             plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_{}.png'.format(split_suffix)),
                         dpi=300, bbox_inches='tight')
