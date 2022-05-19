@@ -206,8 +206,8 @@ def analyze_od(input_dir, output_dir, load_report):
             sns.set_context("talk")
 
             ## FIGURE 5A -- VIOLIN/CATPLOT OF OD
-            #TODO: CHANGE COLOR SCHEME TO MATCH FIG3
-            g = sns.catplot(x="vaccination status", y="OD", hue=hue, col=split_subplots_by, kind="swarm",
+            fig_palette = ["#ee2cef", "#21e020", "#248ff9", "#e7e5e6"]
+            g = sns.catplot(x="vaccination status", y="OD", hue=hue, col=split_subplots_by, kind="swarm", palette= fig_palette,
                             order=["pre-vax", "post-vax"], dodge=True, data=cat_df, col_wrap=3, legend=False)
             g.map_dataframe(sns.violinplot, x="vaccination status", y="OD", hue=hue, color="0.8", dodge=True,
                             order=["pre-vax", "post-vax"], alpha=0.3)
@@ -220,21 +220,19 @@ def analyze_od(input_dir, output_dir, load_report):
                 plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_zoom_{}.png'.format(split_suffix)),
                             dpi=300, bbox_inches='tight')
 
-            ## PLOTTING DELTA OD
-            """
+            ## FIGURE 5B -- PLOTTING DELTA OD (VIOLIN/SCATTER)
             hue = 'serum cat_x'
-            g = sns.catplot(x="serum cat_x", y="delta OD", hue=hue, col=split_subplots_by, kind="swarm", data=result, col_wrap=3)
+            g = sns.catplot(x="serum cat_x", y="delta OD", hue=hue, col=split_subplots_by, kind="swarm", palette= fig_palette,
+                            data=result, col_wrap=3, legend=False)
+            g.map_dataframe(sns.violinplot, x="serum cat_x", y="delta OD", color="0.8", hue=hue, alpha=0.3, dodge=False)
+            plt.legend(bbox_to_anchor=(1.02, 0.5), loc='center left', borderaxespad=0)
             g.set_xticklabels(rotation=0, horizontalalignment='center')
-            """
-            #
-            #g = sns.FacetGrid(ms_tidy_df,col='antigen',row='serum cat')
-            #g.set_xticklabels(rotation=65, horizontalalignment='center')
 
-            plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_{}.png'.format(split_suffix)),
+            plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_deltaod_{}.png'.format(split_suffix)),
                         dpi=300, bbox_inches='tight')
             if cat_param_df['zoom']:
                 g.set(ylim=(-0.05, 0.4))
-                plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_zoom_{}.png'.format(split_suffix)),
+                plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_od_zoom_{}.png'.format(split_suffix)),
                             dpi=300, bbox_inches='tight')
         #%% 4PL fit
         if not fit_param_df.empty:
