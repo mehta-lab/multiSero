@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 import re
+import itertools
 from matplotlib import pyplot as plt
 import seaborn as sns
 from multiSero.interpretation.plotting import roc_plot_grid, total_plots
@@ -160,19 +161,19 @@ def analyze_od(input_dir, output_dir, load_report):
                 if (len(df2[element]) > 1):
                     #ms_tidy_df['dOD'] = deltaod.groupby(['serum type', 'antigen', 'visit value'])['OD'].transform(lambda x: x[0] / x[1])
                     if (df2[element][0][2:-2] > df2[element][1][2:-2]):
-                        ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][0], 'vaccination status'] = 'post-vax'
-                        ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][1], 'vaccination status'] = 'pre-vax'
+                        ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][0], 'vaccine availability'] = 'post-vax'
+                        ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][1], 'vaccine availability'] = 'pre-vax'
                     if (df2[element][0][2:-2] < df2[element][1][2:-2]):
-                        ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][0], 'vaccination status'] = 'pre-vax'
-                        ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][1], 'vaccination status'] = 'post-vax'
+                        ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][0], 'vaccine availability'] = 'pre-vax'
+                        ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][1], 'vaccine availability'] = 'post-vax'
                 else:
                     print(element)
             #if ms_tidy_df['visit value']
 
-            prevaxdf = ms_tidy_df.loc[ms_tidy_df['vaccination status'] == 'pre-vax']
+            prevaxdf = ms_tidy_df.loc[ms_tidy_df['vaccine availability'] == 'pre-vax']
             prevaxdf['old OD'] = prevaxdf['OD']
             #prevaxdf.set_index(['serum type', 'antigen'], inplace=True)
-            postvaxdf = ms_tidy_df.loc[ms_tidy_df['vaccination status'] == 'post-vax']
+            postvaxdf = ms_tidy_df.loc[ms_tidy_df['vaccine availability'] == 'post-vax']
             postvaxdf['new OD'] = postvaxdf['OD']
             #prevaxdf.set_index(['serum type', 'antigen'], inplace=True)
             result = pd.merge(prevaxdf, postvaxdf, how='inner', on=['antigen', 'serum type'])
@@ -199,20 +200,65 @@ def analyze_od(input_dir, output_dir, load_report):
             hue = cat_param_df['hue']
             # plot specific slicing
             #cat_df = slice_df(df_norm_sub, slice_action, 'serum ID', sera_cat_list) #serum ID --> antigen
-            ms_tidy_df.loc[ms_tidy_df['serum cat'] == '[\'COVID-Vax+\']', 'vaccination status'] = 'post-vax'
+            ms_tidy_df.loc[ms_tidy_df['serum cat'] == '[\'COVID-Vax+\']', 'vaccine availability'] = 'post-vax'
             #ms_tidy_df.drop(ms_tidy_df.loc[ms_tidy_df['serum cat'] == 'neg'].index, inplace=True)
             cat_df = slice_df(ms_tidy_df, slice_action, 'serum ID', sera_cat_list)
             assert not cat_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
             sns.set_context("talk")
 
-            ## FIGURE 5A -- VIOLIN/CATPLOT OF OD
+            ## FIGURE 5A -- CATPLOT OF OD -- VIOLIN NOT INCLUDED
             fig_palette = ["#ee2cef", "#21e020", "#248ff9", "#e7e5e6"]
-            g = sns.catplot(x="vaccination status", y="OD", hue=hue, col=split_subplots_by, kind="swarm", palette= fig_palette,
-                            order=["pre-vax", "post-vax"], dodge=True, data=cat_df, col_wrap=3, legend=False)
-            g.map_dataframe(sns.violinplot, x="vaccination status", y="OD", hue=hue, color="0.8", dodge=True,
-                            order=["pre-vax", "post-vax"], alpha=0.3)
-            plt.legend(bbox_to_anchor=(1.02, 0.5), loc='center left', borderaxespad=0)
+            g = sns.catplot(x="vaccine availability", y="OD", hue=hue, col=split_subplots_by, kind="swarm", legend=False,
+                            palette=fig_palette, order=["pre-vax", "post-vax"], dodge=True, data=cat_df, col_wrap=3)
+            #g.map_dataframe(sns.violinplot, x="vaccine availability", y="OD", hue=hue, color="0.8", dodge=True,
+                            #order=["pre-vax", "post-vax"], alpha=0.3)
+            #g.map_dataframe(sns.boxplot, x="vaccine availability", y="OD", medianprops={'color': 'k', 'ls': '-', 'lw': 2},
+                            #whiskerprops={'visible': False}, showfliers=False, showbox=False, showcaps=False, zorder=10,
+                            #dodge=True)
+            #plt.legend(bbox_to_anchor=(1.02, 0.5), loc='center left', borderaxespad=0)
+            #TODO: make pointplot points match existing colorscheme, bring points to the front, change the marker, and change the legend labels
+            #DONE, opted for boxplot instead
+            from numpy import median
+            median_palette = ["#5f1260","#0b4b0b","#0e3964"]
+            #clr = itertools.cycle(median_palette
+
+            g.map_dataframe(sns.boxplot, x="vaccine availability", y="OD", hue=hue,
+                            #medianprops={'color': 'k', 'ls': '-', 'lw': 3},
+                            whiskerprops={'visible': False},
+                            showfliers=False, showbox=False, showcaps=False, zorder=10, order=["pre-vax", "post-vax"],
+                            palette=median_palette,
+                            dodge=0.55) #change hue
+
+            for ax in g.axes.flat:
+                #print(range(15)[1::2])
+                for line in ax.get_lines()[2:10:2]:
+                    line.set_color(median_palette[0])
+                for line in ax.get_lines()[10::2]:
+                    line.set_color(median_palette[1])
+                for line in ax.get_lines()[1::2]:
+                    line.set_color(median_palette[2])
+            #g.map_dataframe(sns.pointplot, x="vaccine availability", y="OD", hue=hue, dodge=0.55, join=False, ci=None,
+                            #estimator=median, order=["pre-vax", "post-vax"], zorder=10, markers="*",palette=fig_palette)
+            """
+            hue_labels = ['COVID+/Vax+', 'COVID+/Vax-','COVID-/Vax+','median']
+            g.add_legend(legend_data={
+                key: value for key, value in zip(hue_labels, g._legend_data.values())})
+            """
+            ###
+            #legend_labels, _ = g._legend_data.keys()
+            #ax.legend(legend_labels, ['man1', 'woman1', 'child1'], bbox_to_anchor=(1, 1))
+            ###
+            q = plt.legend()
+            q = plt.legend(bbox_to_anchor=(1.02, 0.5), loc='center left', borderaxespad=0)
+            q.get_texts()[0].set_text('COVID+/Vax+ median (N:;RBD:;Spike:)')
+            q.get_texts()[1].set_text('COVID+/Vax- median (N:;RBD:;Spike:)')
+            q.get_texts()[2].set_text('COVID+/Vax+ median (N:;RBD:;Spike:)')
+
+            #plt.xlabel("vaccine availability")
+            #plt.ylabel("OD")
+            g.set_axis_labels("vaccine availability", "OD")
             g.set_xticklabels(rotation=0, horizontalalignment='center')
+
             plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_{}.png'.format(split_suffix)),
                         dpi=300, bbox_inches='tight')
             if cat_param_df['zoom']:
@@ -220,14 +266,24 @@ def analyze_od(input_dir, output_dir, load_report):
                 plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_zoom_{}.png'.format(split_suffix)),
                             dpi=300, bbox_inches='tight')
 
-            ## FIGURE 5B -- PLOTTING DELTA OD (VIOLIN/SCATTER)
+            ## FIGURE 5B -- PLOTTING DELTA OD -- VIOLIN NOT INCLUDED -- MEDIAN LINE ADDED
             hue = 'serum cat_x'
             g = sns.catplot(x="serum cat_x", y="delta OD", hue=hue, col=split_subplots_by, kind="swarm", palette= fig_palette,
                             data=result, col_wrap=3, legend=False)
-            g.map_dataframe(sns.violinplot, x="serum cat_x", y="delta OD", color="0.8", hue=hue, alpha=0.3, dodge=False)
-            plt.legend(bbox_to_anchor=(1.02, 0.5), loc='center left', borderaxespad=0)
-            g.set_xticklabels(rotation=0, horizontalalignment='center')
+            #g.map_dataframe(sns.violinplot, x="serum cat_x", y="delta OD", color="0.8", hue=hue, alpha=0.3, dodge=False)
+            g.map_dataframe(sns.boxplot, x="serum cat_x", y="delta OD", medianprops={'color': 'k', 'ls': '-', 'lw': 2},
+                            whiskerprops={'visible': False}, showfliers=False, showbox=False, showcaps=False, zorder=10,
+                            dodge=False) #want to make the width a little less wide and maybe change line style
+            #medians = result.groupby(['serum cat_x'])['delta OD'].mean()
 
+            #plt.legend(bbox_to_anchor=(1.02, 0.5), loc='center left', borderaxespad=0)
+            hue_labels = ['COVID+/Vax+', 'COVID+/Vax-','median']
+            g.add_legend(legend_data={
+                key: value for key, value in zip(hue_labels, g._legend_data.values())})
+            g.set_axis_labels("cohort", "ΔOD")
+            ls = ['COVID+/Vax+','COVID+/Vax-']
+            g.set_xticklabels(ls, rotation=0)
+            #plt.ylabel("ΔOD")
             plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_deltaod_{}.png'.format(split_suffix)),
                         dpi=300, bbox_inches='tight')
             if cat_param_df['zoom']:
