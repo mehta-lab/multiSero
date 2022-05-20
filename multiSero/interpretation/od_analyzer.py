@@ -4,6 +4,8 @@ import re
 import itertools
 from matplotlib import pyplot as plt
 import seaborn as sns
+from matplotlib.transforms import Bbox
+
 from multiSero.interpretation.plotting import roc_plot_grid, total_plots
 from multiSero.interpretation.report_reader import slice_df, normalize_od, read_output_batch
 import multiSero.array_analyzer.extract.constants as constants
@@ -216,10 +218,10 @@ def analyze_od(input_dir, output_dir, load_report):
                             #whiskerprops={'visible': False}, showfliers=False, showbox=False, showcaps=False, zorder=10,
                             #dodge=True)
             #plt.legend(bbox_to_anchor=(1.02, 0.5), loc='center left', borderaxespad=0)
-            #TODO: make pointplot points match existing colorscheme, bring points to the front, change the marker, and change the legend labels
+            #TODO: add median OD value labels per antigen per cat group
             #DONE, opted for boxplot instead
             from numpy import median
-            median_palette = ["#5f1260","#0b4b0b","#0e3964"]
+            median_palette = ["#a318a4","#185ea4","#18a418"]
             #clr = itertools.cycle(median_palette
 
             g.map_dataframe(sns.boxplot, x="vaccine availability", y="OD", hue=hue,
@@ -249,10 +251,22 @@ def analyze_od(input_dir, output_dir, load_report):
             #ax.legend(legend_labels, ['man1', 'woman1', 'child1'], bbox_to_anchor=(1, 1))
             ###
             q = plt.legend()
-            q = plt.legend(bbox_to_anchor=(1.02, 0.5), loc='center left', borderaxespad=0)
+            q = plt.legend(bbox_to_anchor=(1.02, 0.5), loc='center left', borderaxespad=0, handleheight=0.05,
+                           edgecolor="#000000")
             q.get_texts()[0].set_text('COVID+/Vax+ median (N:;RBD:;Spike:)')
             q.get_texts()[1].set_text('COVID+/Vax- median (N:;RBD:;Spike:)')
             q.get_texts()[2].set_text('COVID+/Vax+ median (N:;RBD:;Spike:)')
+            #legls = q.legendHandles[0:3]
+            """
+            handlelength = 1, handleheight = 1
+            
+            for lh in legls:
+                lh.set_alpha(0.1) #control tickness through bbox_inches attribute
+                print(lh.figure.bbox_inches)
+                lh.figure.bbox_inches = Bbox(x0=0.0,y0=0.0,x1=15.0,y1=2.0,points=[])
+                #lh._sizes = [2]
+            """
+
 
             #plt.xlabel("vaccine availability")
             #plt.ylabel("OD")
