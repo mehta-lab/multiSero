@@ -218,10 +218,10 @@ def analyze_od(input_dir, output_dir, load_report):
                             #whiskerprops={'visible': False}, showfliers=False, showbox=False, showcaps=False, zorder=10,
                             #dodge=True)
             #plt.legend(bbox_to_anchor=(1.02, 0.5), loc='center left', borderaxespad=0)
-            #TODO: add median OD value labels per antigen per cat group
-            #DONE, opted for boxplot instead
-            from numpy import median
-            median_palette = ["#a318a4","#185ea4","#18a418"]
+            od_medians = cat_df.groupby(['antigen','serum cat','vaccine availability'])['OD'].median()
+
+            #from numpy import median
+            median_palette = ["#a318a4","#18a418","#185ea4"]
             #clr = itertools.cycle(median_palette
 
             g.map_dataframe(sns.boxplot, x="vaccine availability", y="OD", hue=hue,
@@ -253,9 +253,12 @@ def analyze_od(input_dir, output_dir, load_report):
             q = plt.legend()
             q = plt.legend(bbox_to_anchor=(1.02, 0.5), loc='center left', borderaxespad=0, handleheight=0.05,
                            edgecolor="#000000")
-            q.get_texts()[0].set_text('COVID+/Vax+ median (N:;RBD:;Spike:)')
-            q.get_texts()[1].set_text('COVID+/Vax- median (N:;RBD:;Spike:)')
-            q.get_texts()[2].set_text('COVID+/Vax+ median (N:;RBD:;Spike:)')
+            q.get_texts()[0].set_text(f'COVID+/Vax+ median (pre-vax -- N: {od_medians[1]:.2f}, RBD: {od_medians[6]:.2f}, Spike: {od_medians[11]:.2f}; post-vax -- N: {od_medians[0]:.2f}, RBD: {od_medians[5]:.2f}, Spike: {od_medians[10]:.2f})')
+            q.get_texts()[1].set_text(f'COVID+/Vax- median (pre-vax -- N: {od_medians[3]:.2f}, RBD: {od_medians[8]:.2f}, Spike: {od_medians[13]:.2f}; post-vax -- N: {od_medians[2]:.2f}, RBD: {od_medians[7]:.2f}, Spike: {od_medians[12]:.2f})')
+            q.get_texts()[2].set_text(f'COVID-/Vax+ median (pre-vax not available; post-vax -- N: {od_medians[4]:.2f}, RBD: {od_medians[9]:.2f}, Spike: {od_medians[14]:.2f})')
+            q.get_texts()[3].set_text('COVID+/Vax+')
+            q.get_texts()[4].set_text('COVID+/Vax-')
+            q.get_texts()[5].set_text('COVID-/Vax+')
             #legls = q.legendHandles[0:3]
             """
             handlelength = 1, handleheight = 1
