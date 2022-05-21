@@ -250,7 +250,7 @@ def analyze_od(input_dir, output_dir, load_report):
             #legend_labels, _ = g._legend_data.keys()
             #ax.legend(legend_labels, ['man1', 'woman1', 'child1'], bbox_to_anchor=(1, 1))
             ###
-            q = plt.legend()
+            #q = plt.legend()
             q = plt.legend(bbox_to_anchor=(1.02, 0.5), loc='center left', borderaxespad=0, handleheight=0.05,
                            edgecolor="#000000")
             q.get_texts()[0].set_text(f'COVID+/Vax+ median (pre-vax -- N: {od_medians[1]:.2f}, RBD: {od_medians[6]:.2f}, Spike: {od_medians[11]:.2f}; post-vax -- N: {od_medians[0]:.2f}, RBD: {od_medians[5]:.2f}, Spike: {od_medians[10]:.2f})')
@@ -288,17 +288,49 @@ def analyze_od(input_dir, output_dir, load_report):
             g = sns.catplot(x="serum cat_x", y="delta OD", hue=hue, col=split_subplots_by, kind="swarm", palette= fig_palette,
                             data=result, col_wrap=3, legend=False)
             #g.map_dataframe(sns.violinplot, x="serum cat_x", y="delta OD", color="0.8", hue=hue, alpha=0.3, dodge=False)
-            g.map_dataframe(sns.boxplot, x="serum cat_x", y="delta OD", medianprops={'color': 'k', 'ls': '-', 'lw': 2},
-                            whiskerprops={'visible': False}, showfliers=False, showbox=False, showcaps=False, zorder=10,
-                            dodge=False) #want to make the width a little less wide and maybe change line style
+            g.map_dataframe(sns.boxplot, x="serum cat_x", y="delta OD", #medianprops={'color': 'k', 'ls': '-', 'lw': 2},
+                            whiskerprops={'visible': False}, showfliers=False, hue=hue,
+                            showbox=False, palette=median_palette,
+                            showcaps=False, zorder=10,dodge=False) #want to make the width a little less wide and maybe change line style
             #medians = result.groupby(['serum cat_x'])['delta OD'].mean()
 
             #plt.legend(bbox_to_anchor=(1.02, 0.5), loc='center left', borderaxespad=0)
-            hue_labels = ['COVID+/Vax+', 'COVID+/Vax-','median']
+            dod_medians = result.groupby(['antigen', 'serum cat_x'])['delta OD'].median()
+            """
+            g.map_dataframe(sns.boxplot, x="vaccine availability", y="OD", hue=hue,
+                            # medianprops={'color': 'k', 'ls': '-', 'lw': 3},
+                            whiskerprops={'visible': False},
+                            showfliers=False, showbox=False, showcaps=False, zorder=10, order=["pre-vax", "post-vax"],
+                            palette=median_palette,
+                            dodge=0.55)  # change hue
+            """
+
+            for ax in g.axes.flat:
+                # print(range(15)[1::2])
+                for line in ax.get_lines()[::2]:
+                    line.set_color(median_palette[0])
+                for line in ax.get_lines()[1::2]:
+                    line.set_color(median_palette[1])
+
+            """
+            hue_labels = ['COVID+/Vax+', 'COVID+/Vax-']
             g.add_legend(legend_data={
                 key: value for key, value in zip(hue_labels, g._legend_data.values())})
+            """
+
+            q = plt.legend(bbox_to_anchor=(1.02, 0.5), loc='center left', borderaxespad=0, handleheight=0.05,
+                           edgecolor="#000000")
+            q.get_texts()[0].set_text(
+                f'COVID+/Vax+ median (N: {dod_medians[0]:.2f}, RBD: {dod_medians[2]:.2f}, Spike: {dod_medians[4]:.2f}')
+            q.get_texts()[1].set_text(
+                f'COVID+/Vax- median (N: {dod_medians[1]:.2f}, RBD: {dod_medians[3]:.2f}, Spike: {dod_medians[5]:.2f}')
+            q.get_texts()[2].set_text('COVID+/Vax+')
+            q.get_texts()[3].set_text('COVID+/Vax-')
+
+
+
             g.set_axis_labels("cohort", "ΔOD")
-            ls = ['COVID+/Vax+','COVID+/Vax-']
+            ls = ['COVID+/Vax+','COVID+/Vax-'] #the same as hue_labels, a bit redundant
             g.set_xticklabels(ls, rotation=0)
             #plt.ylabel("ΔOD")
             plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_deltaod_{}.png'.format(split_suffix)),
