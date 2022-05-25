@@ -1,12 +1,10 @@
 import pandas as pd
 import os
 import re
-import itertools
 from matplotlib import pyplot as plt
 import seaborn as sns
-from matplotlib.transforms import Bbox
 
-from multiSero.interpretation.plotting import roc_plot_grid, total_plots
+from multiSero.plotting.plotting import roc_plot_grid
 from multiSero.interpretation.report_reader import slice_df, normalize_od, read_output_batch
 import multiSero.array_analyzer.extract.constants as constants
 
@@ -87,10 +85,7 @@ def analyze_od(input_dir, output_dir, load_report):
     norm_group = 'plate'
     aggregate = 'mean'
     # aggregate = None
-    antigen_list = []
-    antigen_list.append(plot_setting_df['antigens to plot']) #define list with first element, then the rest, can be one line
-    antigen_list.append('SARS CoV2 RBD 250')
-    antigen_list.append('SARS CoV2 spike 62.5')
+    antigen_list = [plot_setting_df['antigens to plot'], 'SARS CoV2 RBD 250', 'SARS CoV2 spike 62.5']
 
     suffix = ''
     df_norm = normalize_od(stitched_multisero_df.copy(), norm_antigen, group=norm_group)
@@ -109,13 +104,14 @@ def analyze_od(input_dir, output_dir, load_report):
             split_suffix = '_'.join([split_suffix, split_val])
         df_norm_sub = slice_df(df_norm, 'keep', split_plots_by, split_val)
         slice_cols = [split_plots_by, 'antigen type', 'antigen']
-        slice_keys = [[split_val], ['Diagnostic'], antigen_list]
+        slice_keys = [[split_val], ['Diagnostic'], antigen_list] # might be useful to eventually select for in UI
         #slice_keys = [[split_val], ['Negative'], antigen_list]
         slice_actions = ['keep', 'keep', 'keep']
         # general slicing
         for col, action, key in zip(slice_cols, slice_actions, slice_keys):
             df_norm_sub = slice_df(df_norm_sub, action, col, key)
-        #%% compute ROC curves and AUC
+
+    # %% compute ROC curves and AUC
         if not roc_param_df.empty:
             sera_roc_list = roc_param_df['serum ID']
             slice_action = roc_param_df['serum ID action']
@@ -132,150 +128,95 @@ def analyze_od(input_dir, output_dir, load_report):
             print('{} unique positive sera'.format(len(roc_df.loc[roc_df['serum type']=='positive', 'serum ID'].unique())))
             print('{} unique negative sera'.format(len(roc_df.loc[roc_df['serum type'] == 'negative', 'serum ID'].unique())))
             roc_plot_grid(roc_df, constants.RUN_PATH, '_'.join(['ROC', roc_suffix]), 'png', ci=ci, fpr=fpr, hue=hue)
-    #%% Plot categorical scatter plot for episurvey
+    #%% Plot categorical scatter plot for episurvey -- FIGURE 5
         if not cat_param_df.empty:
-            #multisero_df #make sure that multisero_df is tidy
-            ms_tidy_df = df_norm_sub[['antigen','OD','visit value','serum cat','serum type','serum ID','serum dilution']]
+            # ms_tidy_df is created to create a tidy, concise, and contained dataframe for cat plotting (Fig 5a)
+            ms_tidy_df = df_norm_sub[
+                ['antigen', 'OD', 'visit value', 'serum cat', 'serum type', 'serum ID', 'serum dilution']]
             ms_tidy_df.drop(ms_tidy_df.loc[ms_tidy_df['serum dilution'] > 0.00005].index, inplace=True)
             ms_tidy_df.drop(ms_tidy_df.loc[(ms_tidy_df['serum cat'] != '[\'COVID-Vax+\']')
                                            & (ms_tidy_df['serum cat'] != '[\'COVID+Vax+\']')
                                            & (ms_tidy_df['serum cat'] != '[\'COVID+Vax-\']')].index, inplace=True)
-            #ms_tidy_df.drop(ms_tidy_df.loc[(ms_tidy_df['serum cat'] != 'COVID+Vax+') & (ms_tidy_df['serum cat'] != 'COVID+Vax-')
-                                           #& (ms_tidy_df['serum cat'] != 'COVID-Vax+')].index, inplace=True)
-            #for each in ms_tidy_df['serum type'].unique():
 
-            deltaod = ms_tidy_df.copy(deep=True)
-            deltaod.set_index(['serum type','antigen'],inplace=True)
-            #grouped = deltaod.groupby(['serum type','antigen'])['OD'].mean()#still need to separate by visit val
-            #grouped = deltaod.groupby(['serum type', 'antigen','visit value'])['OD'] #not complete
-            #abc = deltaod.loc[("serum type","antigen"),"visit value"]
-            #deltaod.groupby(['serum type', 'antigen','visit value'])['OD'].transform(lambda x: x[0] / x[1])
-            #deltaod.groupby(level=0)[3].transform(lambda x: x[0] / x[1])
-
-            #for antigen, new_df in deltaod.groupby(level=0):
-                #print(new_df)
-            group = ms_tidy_df.groupby('serum type')
-            #df3 = group.apply(lambda x: x['OD'])
+            group = ms_tidy_df.groupby(
+                'serum type')  # group data by patient ID and transfrom 'visit value' numbers into categorical values
             df2 = group.apply(lambda x: x['visit value'].unique())
-            #find mean OD for patients for each serum ID where time bin = early
             for element in df2.index:
-                #if element == ms_tidy_df['serum type']
                 if (len(df2[element]) > 1):
-                    #ms_tidy_df['dOD'] = deltaod.groupby(['serum type', 'antigen', 'visit value'])['OD'].transform(lambda x: x[0] / x[1])
                     if (df2[element][0][2:-2] > df2[element][1][2:-2]):
-                        ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][0], 'vaccine availability'] = 'post-vax'
+                        ms_tidy_df.loc[
+                            ms_tidy_df['visit value'] == df2[element][0], 'vaccine availability'] = 'post-vax'
                         ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][1], 'vaccine availability'] = 'pre-vax'
                     if (df2[element][0][2:-2] < df2[element][1][2:-2]):
                         ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][0], 'vaccine availability'] = 'pre-vax'
-                        ms_tidy_df.loc[ms_tidy_df['visit value'] == df2[element][1], 'vaccine availability'] = 'post-vax'
-                else:
-                    print(element)
-            #if ms_tidy_df['visit value']
+                        ms_tidy_df.loc[
+                            ms_tidy_df['visit value'] == df2[element][1], 'vaccine availability'] = 'post-vax'
+                # else:
+                # print(element)
 
+            # delta_df serves a similar purpose to ms_tidy_df but contains the data for Fig 5b
             prevaxdf = ms_tidy_df.loc[ms_tidy_df['vaccine availability'] == 'pre-vax']
             prevaxdf['old OD'] = prevaxdf['OD']
-            #prevaxdf.set_index(['serum type', 'antigen'], inplace=True)
+            # prevaxdf.set_index(['serum type', 'antigen'], inplace=True)
             postvaxdf = ms_tidy_df.loc[ms_tidy_df['vaccine availability'] == 'post-vax']
             postvaxdf['new OD'] = postvaxdf['OD']
-            #prevaxdf.set_index(['serum type', 'antigen'], inplace=True)
-            result = pd.merge(prevaxdf, postvaxdf, how='inner', on=['antigen', 'serum type'])
-            result['delta OD'] = result['new OD'] - result['old OD']
-            """
-            #delta_od_df =
-            #THE FOLLOWING DOESN'T MAKE SENSE BECAUSE YOU'RE NOT SELECTING FOR ANTIGEN TYPES.
-            for each in ms_tidy_df['serum type'].unique(): #TO MAKE IT MAKE SENSE I THINK YOU NEED TO DO IT LIKE THEY DO IT IN PLOTTING.PY
-                ms_tidy_df.loc[((ms_tidy_df['serum type'] == each) & (ms_tidy_df['time bin'] == 'early')),
-                               'mean early OD'] = ms_tidy_df['OD'].loc[(ms_tidy_df['serum type'] == each) &
-                                                                       (ms_tidy_df['time bin'] == 'early')].mean()
-                ms_tidy_df.loc[((ms_tidy_df['serum type'] == each) & (ms_tidy_df['time bin'] == 'late')),
-                               'mean late OD'] = ms_tidy_df['OD'].loc[(ms_tidy_df['serum type'] == each) &
-                                                                       (ms_tidy_df['time bin'] == 'late')].mean()
-            """
-
-                #delta_od_df['serum type'] = each
-                #delta_od_df['delta OD'] = ms_tidy_df['mean late OD'].loc[ms_tidy_df['serum type'] == each] - ms_tidy_df['mean early OD'].loc[ms_tidy_df['serum type'] == each]
-            #
-            #
+            # prevaxdf.set_index(['serum type', 'antigen'], inplace=True)
+            delta_df = pd.merge(prevaxdf, postvaxdf, how='inner', on=['antigen', 'serum type'])
+            delta_df['delta OD'] = delta_df['new OD'] - delta_df['old OD']
+            # extract params from cat_param_df
             sera_cat_list = cat_param_df['serum ID']
             slice_action = cat_param_df['serum ID action']
             split_subplots_by = cat_param_df['split subplots by']
             hue = cat_param_df['hue']
             # plot specific slicing
-            #cat_df = slice_df(df_norm_sub, slice_action, 'serum ID', sera_cat_list) #serum ID --> antigen
+            # cat_df = slice_df(df_norm_sub, slice_action, 'serum ID', sera_cat_list) #serum ID --> antigen
             ms_tidy_df.loc[ms_tidy_df['serum cat'] == '[\'COVID-Vax+\']', 'vaccine availability'] = 'post-vax'
-            #ms_tidy_df.drop(ms_tidy_df.loc[ms_tidy_df['serum cat'] == 'neg'].index, inplace=True)
             cat_df = slice_df(ms_tidy_df, slice_action, 'serum ID', sera_cat_list)
             assert not cat_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
             sns.set_context("talk")
 
-            ## FIGURE 5A -- CATPLOT OF OD -- VIOLIN NOT INCLUDED
+            # FIGURE 5A
             fig_palette = ["#ee2cef", "#21e020", "#248ff9", "#e7e5e6"]
-            g = sns.catplot(x="vaccine availability", y="OD", hue=hue, col=split_subplots_by, kind="swarm", legend=False,
+            g = sns.catplot(x="vaccine availability", y="OD", hue=hue, col=split_subplots_by, kind="swarm",
+                            legend=False,
                             palette=fig_palette, order=["pre-vax", "post-vax"], dodge=True, data=cat_df, col_wrap=3)
-            #g.map_dataframe(sns.violinplot, x="vaccine availability", y="OD", hue=hue, color="0.8", dodge=True,
-                            #order=["pre-vax", "post-vax"], alpha=0.3)
-            #g.map_dataframe(sns.boxplot, x="vaccine availability", y="OD", medianprops={'color': 'k', 'ls': '-', 'lw': 2},
-                            #whiskerprops={'visible': False}, showfliers=False, showbox=False, showcaps=False, zorder=10,
-                            #dodge=True)
-            #plt.legend(bbox_to_anchor=(1.02, 0.5), loc='center left', borderaxespad=0)
-            od_medians = cat_df.groupby(['antigen','serum cat','vaccine availability'])['OD'].median()
 
-            #from numpy import median
-            median_palette = ["#a318a4","#18a418","#185ea4"]
-            #clr = itertools.cycle(median_palette
-
+            od_medians = cat_df.groupby(['antigen', 'serum cat', 'vaccine availability'])['OD'].median()
+            median_palette = ["#a318a4", "#18a418", "#185ea4"]
+            # adding median lines using boxplot functionality:
             g.map_dataframe(sns.boxplot, x="vaccine availability", y="OD", hue=hue,
-                            #medianprops={'color': 'k', 'ls': '-', 'lw': 3},
+                            # medianprops={'color': 'k', 'ls': '-', 'lw': 3},
                             whiskerprops={'visible': False},
                             showfliers=False, showbox=False, showcaps=False, zorder=10, order=["pre-vax", "post-vax"],
                             palette=median_palette,
-                            dodge=0.55) #change hue
-
+                            dodge=0.55)  # change hue
+            # specifying colors of median lines
             for ax in g.axes.flat:
-                #print(range(15)[1::2])
                 for line in ax.get_lines()[2:10:2]:
                     line.set_color(median_palette[0])
                 for line in ax.get_lines()[10::2]:
-                    line.set_color(median_palette[1])
-                for line in ax.get_lines()[1::2]:
                     line.set_color(median_palette[2])
-            #g.map_dataframe(sns.pointplot, x="vaccine availability", y="OD", hue=hue, dodge=0.55, join=False, ci=None,
-                            #estimator=median, order=["pre-vax", "post-vax"], zorder=10, markers="*",palette=fig_palette)
-            """
-            hue_labels = ['COVID+/Vax+', 'COVID+/Vax-','COVID-/Vax+','median']
-            g.add_legend(legend_data={
-                key: value for key, value in zip(hue_labels, g._legend_data.values())})
-            """
-            ###
-            #legend_labels, _ = g._legend_data.keys()
-            #ax.legend(legend_labels, ['man1', 'woman1', 'child1'], bbox_to_anchor=(1, 1))
-            ###
-            #q = plt.legend()
-            q = plt.legend(bbox_to_anchor=(1.02, 0.5), loc='center left', borderaxespad=0, handleheight=0.05,
-                           edgecolor="#000000")
-            q.get_texts()[0].set_text(f'COVID+/Vax+ median (pre-vax -- N: {od_medians[1]:.2f}, RBD: {od_medians[6]:.2f}, Spike: {od_medians[11]:.2f}; post-vax -- N: {od_medians[0]:.2f}, RBD: {od_medians[5]:.2f}, Spike: {od_medians[10]:.2f})')
-            q.get_texts()[1].set_text(f'COVID+/Vax- median (pre-vax -- N: {od_medians[3]:.2f}, RBD: {od_medians[8]:.2f}, Spike: {od_medians[13]:.2f}; post-vax -- N: {od_medians[2]:.2f}, RBD: {od_medians[7]:.2f}, Spike: {od_medians[12]:.2f})')
-            q.get_texts()[2].set_text(f'COVID-/Vax+ median (pre-vax not available; post-vax -- N: {od_medians[4]:.2f}, RBD: {od_medians[9]:.2f}, Spike: {od_medians[14]:.2f})')
-            q.get_texts()[3].set_text('COVID+/Vax+')
-            q.get_texts()[4].set_text('COVID+/Vax-')
-            q.get_texts()[5].set_text('COVID-/Vax+')
-            #legls = q.legendHandles[0:3]
-            """
-            handlelength = 1, handleheight = 1
-            
-            for lh in legls:
-                lh.set_alpha(0.1) #control tickness through bbox_inches attribute
-                print(lh.figure.bbox_inches)
-                lh.figure.bbox_inches = Bbox(x0=0.0,y0=0.0,x1=15.0,y1=2.0,points=[])
-                #lh._sizes = [2]
-            """
-
-
-            #plt.xlabel("vaccine availability")
-            #plt.ylabel("OD")
+                for line in ax.get_lines()[1::2]:
+                    line.set_color(median_palette[1])
+            # augmenting legend to make text more readable
+            leg = plt.legend(bbox_to_anchor=(1.02, 0.5), loc='center left', borderaxespad=0, handleheight=0.05,
+                             edgecolor="#000000")
+            leg.get_texts()[0].set_text(
+                f'COVID+/Vax+ median (pre-vax -- N: {od_medians[1]:.2f}, RBD: {od_medians[6]:.2f}, Spike: {od_medians[11]:.2f};'
+                f' post-vax -- N: {od_medians[0]:.2f}, RBD: {od_medians[5]:.2f}, Spike: {od_medians[10]:.2f})')
+            leg.get_texts()[1].set_text(
+                f'COVID+/Vax- median (pre-vax -- N: {od_medians[3]:.2f}, RBD: {od_medians[8]:.2f}, Spike: {od_medians[13]:.2f};'
+                f' post-vax -- N: {od_medians[2]:.2f}, RBD: {od_medians[7]:.2f}, Spike: {od_medians[12]:.2f})')
+            leg.get_texts()[2].set_text(
+                f'COVID-/Vax+ median (pre-vax not available; post-vax -- N: {od_medians[4]:.2f}, RBD: {od_medians[9]:.2f},'
+                f' Spike: {od_medians[14]:.2f})')
+            leg.get_texts()[3].set_text('COVID+/Vax+')
+            leg.get_texts()[4].set_text('COVID+/Vax-')
+            leg.get_texts()[5].set_text('COVID-/Vax+')
+            # augment axis & tick labels
             g.set_axis_labels("vaccine availability", "OD")
             g.set_xticklabels(rotation=0, horizontalalignment='center')
-
+            # save
             plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_{}.png'.format(split_suffix)),
                         dpi=300, bbox_inches='tight')
             if cat_param_df['zoom']:
@@ -283,63 +224,47 @@ def analyze_od(input_dir, output_dir, load_report):
                 plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_zoom_{}.png'.format(split_suffix)),
                             dpi=300, bbox_inches='tight')
 
-            ## FIGURE 5B -- PLOTTING DELTA OD -- VIOLIN NOT INCLUDED -- MEDIAN LINE ADDED
+            # FIGURE 5B -- PLOTTING DELTA OD
+            # future fixes can involve making the plot fxns for 5a and 5b less redundant
             hue = 'serum cat_x'
-            g = sns.catplot(x="serum cat_x", y="delta OD", hue=hue, col=split_subplots_by, kind="swarm", palette= fig_palette,
-                            data=result, col_wrap=3, legend=False)
-            #g.map_dataframe(sns.violinplot, x="serum cat_x", y="delta OD", color="0.8", hue=hue, alpha=0.3, dodge=False)
-            g.map_dataframe(sns.boxplot, x="serum cat_x", y="delta OD", #medianprops={'color': 'k', 'ls': '-', 'lw': 2},
+            g = sns.catplot(x="serum cat_x", y="delta OD", hue=hue, col=split_subplots_by, kind="swarm",
+                            palette=fig_palette,
+                            data=delta_df, col_wrap=3, legend=False)
+            g.map_dataframe(sns.boxplot, x="serum cat_x", y="delta OD",
+                            # medianprops={'color': 'k', 'ls': '-', 'lw': 2},
                             whiskerprops={'visible': False}, showfliers=False, hue=hue,
                             showbox=False, palette=median_palette,
-                            showcaps=False, zorder=10,dodge=False) #want to make the width a little less wide and maybe change line style
-            #medians = result.groupby(['serum cat_x'])['delta OD'].mean()
+                            showcaps=False, zorder=10,
+                            dodge=False)
 
-            #plt.legend(bbox_to_anchor=(1.02, 0.5), loc='center left', borderaxespad=0)
-            dod_medians = result.groupby(['antigen', 'serum cat_x'])['delta OD'].median()
-            """
-            g.map_dataframe(sns.boxplot, x="vaccine availability", y="OD", hue=hue,
-                            # medianprops={'color': 'k', 'ls': '-', 'lw': 3},
-                            whiskerprops={'visible': False},
-                            showfliers=False, showbox=False, showcaps=False, zorder=10, order=["pre-vax", "post-vax"],
-                            palette=median_palette,
-                            dodge=0.55)  # change hue
-            """
+            dod_medians = delta_df.groupby(['antigen', 'serum cat_x'])['delta OD'].median()
 
             for ax in g.axes.flat:
-                # print(range(15)[1::2])
                 for line in ax.get_lines()[::2]:
                     line.set_color(median_palette[0])
                 for line in ax.get_lines()[1::2]:
                     line.set_color(median_palette[1])
 
-            """
-            hue_labels = ['COVID+/Vax+', 'COVID+/Vax-']
-            g.add_legend(legend_data={
-                key: value for key, value in zip(hue_labels, g._legend_data.values())})
-            """
-
-            q = plt.legend(bbox_to_anchor=(1.02, 0.5), loc='center left', borderaxespad=0, handleheight=0.05,
-                           edgecolor="#000000")
-            q.get_texts()[0].set_text(
-                f'COVID+/Vax+ median (N: {dod_medians[0]:.2f}, RBD: {dod_medians[2]:.2f}, Spike: {dod_medians[4]:.2f}')
-            q.get_texts()[1].set_text(
-                f'COVID+/Vax- median (N: {dod_medians[1]:.2f}, RBD: {dod_medians[3]:.2f}, Spike: {dod_medians[5]:.2f}')
-            q.get_texts()[2].set_text('COVID+/Vax+')
-            q.get_texts()[3].set_text('COVID+/Vax-')
-
-
+            leg = plt.legend(bbox_to_anchor=(1.02, 0.5), loc='center left', borderaxespad=0, handleheight=0.05,
+                             edgecolor="#000000")  # changing the edge color to #000000 did not work but the goal is transparency
+            leg.get_texts()[0].set_text(
+                f'COVID+/Vax+ median (N: {dod_medians[0]:.2f}, RBD: {dod_medians[2]:.2f}, Spike: {dod_medians[4]:.2f})')
+            leg.get_texts()[1].set_text(
+                f'COVID+/Vax- median (N: {dod_medians[1]:.2f}, RBD: {dod_medians[3]:.2f}, Spike: {dod_medians[5]:.2f})')
+            leg.get_texts()[2].set_text('COVID+/Vax+')
+            leg.get_texts()[3].set_text('COVID+/Vax-')
 
             g.set_axis_labels("cohort", "ΔOD")
-            ls = ['COVID+/Vax+','COVID+/Vax-'] #the same as hue_labels, a bit redundant
+            ls = ['COVID+/Vax+', 'COVID+/Vax-']  # the same as hue_labels, a bit redundant
             g.set_xticklabels(ls, rotation=0)
-            #plt.ylabel("ΔOD")
+
             plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_deltaod_{}.png'.format(split_suffix)),
                         dpi=300, bbox_inches='tight')
             if cat_param_df['zoom']:
                 g.set(ylim=(-0.05, 0.4))
                 plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_od_zoom_{}.png'.format(split_suffix)),
                             dpi=300, bbox_inches='tight')
-        #%% 4PL fit
+    #%% 4PL fit
         if not fit_param_df.empty:
             slice_action = fit_param_df['serum ID action']
             hue = fit_param_df['hue']
