@@ -217,11 +217,11 @@ def analyze_od(input_dir, output_dir, load_report):
             g.set_axis_labels("vaccine availability", "OD")
             g.set_xticklabels(rotation=0, horizontalalignment='center')
             # save
-            plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_{}.png'.format(split_suffix)),
+            plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_{}.svg'.format(split_suffix)),
                         dpi=300, bbox_inches='tight')
             if cat_param_df['zoom']:
                 g.set(ylim=(-0.05, 0.4))
-                plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_zoom_{}.png'.format(split_suffix)),
+                plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_zoom_{}.svg'.format(split_suffix)),
                             dpi=300, bbox_inches='tight')
 
             # FIGURE 5B -- PLOTTING DELTA OD
@@ -258,11 +258,11 @@ def analyze_od(input_dir, output_dir, load_report):
             ls = ['COVID+/Vax+', 'COVID+/Vax-']  # the same as hue_labels, a bit redundant
             g.set_xticklabels(ls, rotation=0)
 
-            plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_deltaod_{}.png'.format(split_suffix)),
+            plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_deltaod_{}.svg'.format(split_suffix)),
                         dpi=300, bbox_inches='tight')
             if cat_param_df['zoom']:
                 g.set(ylim=(-0.05, 0.4))
-                plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_od_zoom_{}.png'.format(split_suffix)),
+                plt.savefig(os.path.join(constants.RUN_PATH, 'catplot_od_zoom_{}.svg'.format(split_suffix)),
                             dpi=300, bbox_inches='tight')
     #%% 4PL fit
         if not fit_param_df.empty:
