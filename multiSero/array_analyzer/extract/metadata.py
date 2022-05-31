@@ -62,6 +62,9 @@ class MetaData:
             # parsing .csv
             self.fiduc, _, self.repl, self.params = txt_parser.create_csv_dict(csv_paths)
 
+        #elif self.metadata_extension == 'gal':
+            ##...
+
         elif self.metadata_extension == 'xlsx':
             self.xlsx_path = os.path.join(input_folder_, constants.METADATA_FILE)
 
@@ -122,6 +125,7 @@ class MetaData:
 
     def _assign_params(self):
         constants.params['rows'] = int(self.params['rows'])
+        #constants.params['Row'] = int(self.params['Row'])
         constants.params['columns'] = int(self.params['columns'])
         constants.params['v_pitch'] = float(self.params['v_pitch'])
         constants.params['h_pitch'] = float(self.params['h_pitch'])

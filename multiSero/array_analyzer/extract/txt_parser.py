@@ -101,8 +101,12 @@ def create_csv_dict(path_):
     array_params = dict()
 
     for meta_csv in path_:
-        with open(meta_csv, newline='') as csv_file:
+        with open(meta_csv, newline='', encoding='iso-8859-1') as csv_file: # encoding='iso-8859-1' is specific to .gal
             csv_reader = csv.reader(csv_file, delimiter=',')
+            #csv_reader = pd.read_csv(csv_file, delimiter=',')
+            #csv_reader = csv.reader(csv_file, delimiter='\t')
+            #csv_reader = pd.read_csv(csv_file, delimiter=',', encoding='windows-1252')
+            #csv_reader = pd.read_csv(csv_file, delimiter=',', encoding='utf_16', encoding_errors='ignore')
             for row in csv_reader:
                 # header row
                 if "Parameter" in str(row[0]) or '' in str(row[0]):
