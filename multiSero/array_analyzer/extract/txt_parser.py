@@ -306,9 +306,15 @@ def populate_array_fiduc(arr, fiduc):
     """
 
     for f in fiduc:
-        r = int(f['@row'])
-        c = int(f['@col'])
-        v = f['@spot_type']
+        #r = int(f['@row'])
+        #c = int(f['@col'])
+        #v = f['@spot_type']
+        r = int(f['Row'])-1
+        if f['Block'] > 1:
+            c = int(f['Column'])-1 + 16 + (int(f['Block'])-1)
+        else:
+            c = int(f['Column']) - 1
+        v = f['ID']
 
         arr[r, c] = v
 
@@ -348,9 +354,20 @@ def populate_array_antigen(arr, csv_antigens_):
     :return:
     """
     for antigen in csv_antigens_:
+        """
         r = antigen['@row']
         c = antigen['@col']
         v = antigen['@antigen']
+        arr[r, c] = v
+        """
+
+        r = int(antigen['Row']) - 1
+        if antigen['Block'] > 1:
+            c = int(antigen['Column']) - 1 + 16 + (int(antigen['Block']) - 1)
+        else:
+            c = int(antigen['Column']) - 1
+        v = antigen['ID']
+
         arr[r, c] = v
 
     return arr

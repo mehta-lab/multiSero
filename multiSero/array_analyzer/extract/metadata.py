@@ -60,9 +60,14 @@ class MetaData:
 
             csv_paths = [os.path.join(input_folder_, one_csv) for one_csv in csvs]
             # parsing .csv
-            self.fiduc, _, self.repl, self.params = txt_parser.create_csv_dict(csv_paths)
+            test = pd.read_csv(csv_paths[2]).set_index('Parameter').dropna(axis=1)
+            #self.fiduc, _, self.repl, self.params = txt_parser.create_csv_dict(csv_paths)
+            self.params = test.T
+            self.fiduc = pd.read_csv(csv_paths[1]).to_dict('records')
+            self.repl = pd.read_csv(csv_paths[0]).to_dict('records') #, encoding='iso-8859-1'
 
-        #elif self.metadata_extension == 'gal':
+        #elif self.metadata_extension == 'gal': ##new strategy: make an essentially hardcoded brute force algorithm if extension == .gal.
+        #TODO: start building this with csv functionality, then replace delimiter to tab so that it can read . gal
             ##...
 
         elif self.metadata_extension == 'xlsx':
@@ -125,7 +130,6 @@ class MetaData:
 
     def _assign_params(self):
         constants.params['rows'] = int(self.params['rows'])
-        #constants.params['Row'] = int(self.params['Row'])
         constants.params['columns'] = int(self.params['columns'])
         constants.params['v_pitch'] = float(self.params['v_pitch'])
         constants.params['h_pitch'] = float(self.params['h_pitch'])
