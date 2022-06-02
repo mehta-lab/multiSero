@@ -257,6 +257,7 @@ class SpotDetector:
         self.min_convexity = min_convexity
         self.sigma_gauss = int(np.round(imaging_params['spot_width'] /
                                 imaging_params['pixel_size'] / 4))
+        #self.sigma_gauss = int(1)
         self.min_area = 4 * self.sigma_gauss ** 2
         self.max_area = 50 * self.min_area
         self.nbr_expected_spots = imaging_params['rows'] * imaging_params['columns']
