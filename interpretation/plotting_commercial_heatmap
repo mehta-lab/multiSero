@@ -1,0 +1,67 @@
+import os
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from matplotlib import pyplot as plt
+
+from scipy import stats
+
+
+# antigen = "SARS CoV2 spike 125"
+# one_antigen_df = medians[(medians['antigen'] == antigen)]
+# comm_multiSero_df = commercial_df.merge(one_antigen_df, how='inner', on = 'serum ID')
+# comm_multiSero_df=comm_multiSero_df.dropna()
+
+
+output_path = '/Volumes/GoogleDrive/Shared drives/compmicro/ELISAarrayReader/multiSero_manuscript/commercial comparison'
+file_name = 'plotting_commercial_v1_heatmap'
+
+d = {'Commercial Test': ['N-Abbott', 'N-Roche', 'S-Ortho Ig', 'S-Ortho IgG', 'S-DiaSorin', 'Neut-Monogram'], 'S': [0.6,0.64,0.69,0.74,0.74,0.7], 'RBD':[0.7,0.71,0.78,0.85,0.77,0.82], 'N':[0.71,0.63,0.48,0.6,0.57,0.56], 'xkappa-biotin':[-0.11,0.04,-0.1,-0.15,-0.1,-0.31]}
+spearman_df = pd.DataFrame(d).set_index('Commercial Test')
+cmap = 'gist_rainbow_r'
+fig = plt.figure()
+ax = sns.heatmap(spearman_df, center=0, annot=True, linewidths=.5, cmap=cmap)
+plt.xlabel("multiSero")
+plt.show()
+plt = ax.get_figure()
+plt.savefig(os.path.join(output_path, file_name +'.png'), bbox_inches='tight', pad_inches=0, dpi=300)
+# comm_multiSero_agg_df.to_csv('/Users/janie.byrum/Desktop/commercial comparison/aggregated_df')
+
+keys = itertools.product(tests,antigens)
+for test, antigen in keys:
+    print('Plotting {}, multiSero {}...'.format(test,antigen))
+
+    compare_df = comm_multiSero_agg_df[(comm_multiSero_agg_df['antigen'] == antigen)]
+    #
+    # for serum, antigen, secondary, plate_id in keys:
+    #     print('Fitting {}, {}...'.format(serum, antigen))
+    #     singletest_df = comm_multiSero_agg_df[(comm_multiSero_agg_df[serum_group] == serum) &
+    #                      (df['antigen'] == antigen) &
+    #                      (df['secondary ID'] == secondary) &
+    #                      (df['plate ID'] == plate_id)]
+    #     sec_dilutions = sec_dilu_df['secondary dilution'].unique()
+
+
+    x = compare_df['median OD multiSero']
+    y = compare_df['Neut-Monogram']
+    # antigens = df['antigen'].unique()
+    fig = plt.figure(figsize=(5, 5))
+    data = np.vstack([x, y])
+
+## Plot multiSero OD vs commercial test in scatter plot and computer Spearman rank correlation
+
+    # plt.scatter(x, y, alpha=1, s=20, edgecolors='', cmap='Blues')
+    # spearman = stats.spearmanr(x,y)
+    # ax = fig.add_subplot(111)
+    # ax.text(0.05,0.95, 'r = {:.2f},\np = {:.2f}'.format(spearman.correlation,spearman.pvalue),
+    #         verticalalignment='top', horizontalalignment='left',
+    #         transform=ax.transAxes,
+    #         color='black', fontsize=8)
+    # plt.xlabel("multiSero OD")
+    # plt.ylabel("Neut-Monogram ID50")
+    #
+    # # plt.text(0.0, 8.5, 'Spearman rank correlation = {},\np = {}'.format(spearman.correlation,spearman.pvalue), fontsize=8, color='black')
+    # plt.savefig(os.path.join(output_path, file_name + antigen +'.png'), bbox_inches='tight', pad_inches=0, dpi=300)
+
+
+
