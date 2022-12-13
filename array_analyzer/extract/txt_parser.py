@@ -346,8 +346,8 @@ def populate_array_antigen(arr, csv_antigens_):
     :return:
     """
     for antigen in csv_antigens_:
-        r = antigen['@row']
-        c = antigen['@col']
+        r = int(antigen['@row'])
+        c = int(antigen['@col'])
         v = antigen['@antigen']
         arr[r, c] = v
 
