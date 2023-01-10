@@ -556,7 +556,7 @@ def delta_ic50(ic_df,prnt_val,fig_path,ext,spot,hue):
     sns.heatmap(new_df, annot=True, ax=ax, vmin=0,vmax=2.5, cbar=False)
     ax.tick_params(labelrotation=45)
     ax.set_yticklabels(ic_df.T.index, rotation=0)
-    sns.heatmap(prnt_val, annot=True, ax=ax2,vmin=0,vmax=2.5,yticklabels=False,cbar=False)
+    sns.heatmap(prnt_val.astype('float'), annot=True, ax=ax2,vmin=0,vmax=2.5,yticklabels=False,cbar=False)
     ax.set(xlabel=hue)
     ax2.set(ylabel=None)
     fig.tight_layout()
