@@ -161,7 +161,7 @@ def point_registration(input_dir, output_dir):
             coords=crop_coords,
             im=im_crop,
             background=background,
-            search_range=2.5,
+            search_range=3,
             greedy_spots=crop_spot_coords
         )
         # Write metrics for each spot in grid in current well
