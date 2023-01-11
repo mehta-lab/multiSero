@@ -492,6 +492,7 @@ def standard_curve_plot(dilution_df, fig_path, fig_name, ext, hue=None,
                      style=style, palette=palette,
                      ax=ax, legend=False)
         ax.set(xscale="log")
+        ax.set(xlim=[5e-6, 2e-2]) # for series dilution [1e-02, ..., 9e-06]
     plt.savefig(os.path.join(fig_path, '.'.join([fig_name, ext])), dpi=300, bbox_inches='tight')
 
     if zoom:
