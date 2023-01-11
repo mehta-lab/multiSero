@@ -1,6 +1,9 @@
 import itertools
+import logging
 import numpy as np
+from numpy.typing import NDArray
 import pandas as pd
+from scipy.spatial.distance import cdist
 
 import array_analyzer.extract.constants as constants
 import array_analyzer.extract.img_processing as img_processing
@@ -59,7 +62,13 @@ def build_centroid_binary_blocks(cent_list, image_, params_, return_type='region
         return target
 
 
-def get_spot_intensity(coords, im, background, search_range=3):
+def get_spot_intensity(
+    coords: NDArray, 
+    im: NDArray, 
+    background: NDArray, 
+    search_range: float = 3, 
+    greedy_spots: NDArray = None,
+    ):
     """
     Extract signal and background intensity at each spot given the spot coordinate
     with the following steps:
@@ -76,18 +85,19 @@ def get_spot_intensity(coords, im, background, search_range=3):
         background image without spots
     :param float search_range: Factor of bounding box size in which to search for
         spots. E.g. 2 searches 2 * 2 * bbox width * bbox height
+    :param NDArray greedy_spots: Detected spots to try to associate with grid nodes
     :return pd.DataFrame spots_df: Dataframe containing metrics for
         all spots in the grid
     :return np.array spot_props: A SpotRegionprop object with ROIs for
         each spot in the grid
     """
     # values in mm
-    spot_width = constants.params['spot_width']
+    spot_w = constants.params['spot_width']
     pix_size = constants.params['pixel_size']
     n_rows = constants.params['rows']
     n_cols = constants.params['columns']
     # make spot size always odd
-    spot_size = 2 * int(0.3 * spot_width / pix_size) + 1
+    spot_size = 2 * int(0.3 * spot_w / pix_size) + 1
     bbox_width = bbox_height = spot_size
     # Strel disk size for spot segmentation
     disk_size = int(np.rint(spot_size / 2.5))
@@ -97,8 +107,13 @@ def get_spot_intensity(coords, im, background, search_range=3):
     # Dataframe to hold spot metrics for the well
     spots_df = pd.DataFrame(columns=constants.SPOT_DF_COLS)
     row_col_iter = itertools.product(np.arange(n_rows), np.arange(n_cols))
+
+    if greedy_spots is not None:
+        unprinted_nodes = (constants.ANTIGEN_ARRAY == "").flatten()
+        reg_dists = cdist(coords, greedy_spots)
+
     for count, (row_idx, col_idx) in enumerate(row_col_iter):
-        coord = coords[count, :]
+        coord: NDArray = coords[count, :]
         # make bounding boxes larger to account for interpolation errors
         spot_height = int(np.round(search_range * bbox_height))
         spot_width = int(np.round(search_range * bbox_width))
@@ -125,7 +140,6 @@ def get_spot_intensity(coords, im, background, search_range=3):
 
         # Mask spot should cover a certain percentage of ROI
         if np.mean(mask_spot) > constants.SPOT_MIN_PERCENT_AREA:
-            # Mask detected
             bg_spot_lg, _ = img_processing.crop_image_at_center(
                 im=background,
                 center=coord,
@@ -138,7 +152,57 @@ def get_spot_intensity(coords, im, background, search_range=3):
                 mask=mask_spot,
                 bbox=bbox_lg,
             )
+
         else:
+            # check if the closest greedy candidate is within bound
+            if greedy_spots is not None:
+                logger = logging.getLogger(constants.LOG_NAME)
+                closest_idx = reg_dists[count, :].argmin()
+                logger.debug(f"Greedy search: grid node {coord}, closest spot {greedy_spots[closest_idx]}")
+                printed_dists = np.ma.masked_array(reg_dists[:, closest_idx], mask=unprinted_nodes)
+                closest_printed_idx = printed_dists.argmin()
+                closest_spot = greedy_spots[closest_idx]
+                if (
+                    count == closest_printed_idx 
+                    and cdist([closest_spot], [coord])[0][0] < constants.SPOT_DIST_PIX
+                ):
+                    logger.debug(f"Current grid node is the closest printed to the closest spot.")
+                    im_spot_lg, bbox_lg = img_processing.crop_image_at_center(
+                        im=im,
+                        center=closest_spot,
+                        height=spot_height,
+                        width=spot_width,
+                    )
+                    mask_spot = img_processing.thresh_and_binarize(
+                        image=im_spot_lg,
+                        method='bright_spots',
+                        disk_size=disk_size,
+                        thr_percent=75,
+                        get_lcc=True,
+                    )
+                    # Create spot and background instance
+                    spot_prop = regionprop.SpotRegionprop(
+                        row_idx=row_idx,
+                        col_idx=col_idx,
+                        label=count,
+                    )
+                    if np.mean(mask_spot) > constants.SPOT_MIN_PERCENT_AREA:
+                        bg_spot_lg, _ = img_processing.crop_image_at_center(
+                            im=background,
+                            center=closest_spot,
+                            height=spot_height,
+                            width=spot_width,
+                        )
+                        spot_prop.generate_props_from_mask(
+                            image=im_spot_lg,
+                            background=bg_spot_lg,
+                            mask=mask_spot,
+                            bbox=bbox_lg,
+                        )
+                        spots_df = spots_df.append(spot_prop.spot_dict, ignore_index=True)
+                        spot_props[row_idx, col_idx] = spot_prop
+                        logger.info("Used spot from the greedy search range.")
+                        continue
             # Crop around assumed spot size
             im_spot, bbox = img_processing.crop_image_at_center(
                 im,

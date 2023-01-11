@@ -92,7 +92,8 @@ def create_otsu_mask(input_image, scale=1):
         thr = threshold_otsu(input_image, nbins=512)
     return input_image > (scale * thr)
 
-def crop_image_from_coords(im, coords, margin=500):
+
+def crop_image_from_coords(im, coords, spot_coords ,margin=500):
     """
     Given image coordinates, crop image around them with a margin.
 
@@ -110,11 +111,14 @@ def crop_image_from_coords(im, coords, margin=500):
     col_max = int(min(im_shape[1], np.max(coords[:, 1]) + margin))
     im_crop = im[row_min:row_max, col_min:col_max]
 
+    def _translate_coords(coords):
+        crop_coords = coords.copy()
+        crop_coords[:, 0] = crop_coords[:, 0] - row_min + 1
+        crop_coords[:, 1] = crop_coords[:, 1] - col_min + 1
+        return crop_coords
+
     # Update coordinates with new origin
-    crop_coords = coords.copy()
-    crop_coords[:, 0] = crop_coords[:, 0] - row_min + 1
-    crop_coords[:, 1] = crop_coords[:, 1] - col_min + 1
-    return im_crop, crop_coords
+    return im_crop, _translate_coords(coords), _translate_coords(spot_coords)
 
 
 def crop_image_at_center(im, center, height, width):

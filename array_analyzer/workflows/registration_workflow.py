@@ -148,9 +148,10 @@ def point_registration(input_dir, output_dir):
             continue
 
         # Crop image
-        im_crop, crop_coords = img_processing.crop_image_from_coords(
+        im_crop, crop_coords, crop_spot_coords = img_processing.crop_image_from_coords(
             im=im_well,
             coords=registered_coords,
+            spot_coords=spot_coords
         )
         im_crop = im_crop / max_intensity
         # Estimate background
@@ -160,6 +161,8 @@ def point_registration(input_dir, output_dir):
             coords=crop_coords,
             im=im_crop,
             background=background,
+            search_range=2.5,
+            greedy_spots=crop_spot_coords
         )
         # Write metrics for each spot in grid in current well
         spots_df.to_excel(well_xlsx_writer, sheet_name=well_name)
