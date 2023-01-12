@@ -137,8 +137,8 @@ def analyze_od(input_dir, output_dir, load_report):
             cat_df = slice_df(df_norm_sub, slice_action, 'serum ID', sera_cat_list) #serum ID --> antigen
             assert not cat_df.empty, 'Plotting dataframe is empty. Please check the plotting keys'
             sns.set_context("talk")
-            g = sns.catplot(x="serum type", y="OD", hue=hue, col=split_subplots_by, kind="swarm",
-                            data=cat_df, col_wrap=3)
+            g = sns.catplot(x="serum cat", y="OD", hue=hue, col=split_subplots_by, kind="swarm",
+                            data=cat_df, col_wrap=5, palette='viridis')
             g.set_xticklabels(rotation=65, horizontalalignment='right')
 
 
